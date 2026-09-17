@@ -5,9 +5,9 @@ it into a canonical format, and exposes it for consumption (initially via
 REST/WebSocket, eventually via Symphony webhooks).
 
 Currently wired to a **mock** provider that simulates live ticks for a
-configurable list of symbols, so the full pipeline — connector → queue →
-processor → gateway — can be built and tested before a real market-data
-source is chosen.
+configurable list of symbols, so the full pipeline — connector → buffer →
+validation/processor → gateway, plus a parallel aggregation branch — can be
+built and tested before a real market-data source is chosen.
 
 ## Architecture
 
@@ -15,21 +15,28 @@ source is chosen.
 Market Data Provider (mock, later real)
             │
             ▼
-     MarketConnector            (app/connectors/)
+     MarketConnector                (app/connectors/)
             │  MarketData
             ▼
-     asyncio.Queue              (decouples ingestion from processing)
+     MarketDataBuffer               (app/queue/)
+   per-subscriber bounded queues, drop-oldest backpressure
             │
-            ▼
-     MarketProcessor            (app/processors/)
-            │  validates, normalizes, tracks latest state per symbol
-            ▼
-   ┌────────┴─────────┐
-   ▼                  ▼
-REST endpoint    WebSocketGateway   (app/gateways/)
-(/market/{symbol})     │
-                        ▼
-                  Connected clients (eventually Symphony)
+   ┌────────┴─────────────────────┐
+   ▼                               ▼
+ValidatingStream                MarketAggregator        (app/aggregation/)
+(app/validation/)                builds OHLCV candles per symbol,
+   │  drops bad ticks             flushes to SQLite every 15 min
+   ▼                                       │
+MarketProcessor                            ▼
+(app/processors/)                   market_data.db (market_candles table)
+tracks latest state per symbol              │
+   │                                        ▼
+   ├──────────────┐              GET /candles/export (CSV download)
+   ▼              ▼
+REST endpoint  WebSocketGateway   (app/gateways/)
+(/market/{symbol})   │
+                      ▼
+                Connected clients (eventually Symphony)
 ```
 
 - **`app/connectors/`** — talks to the market-data source. `base_connector.py`
@@ -43,12 +50,28 @@ REST endpoint    WebSocketGateway   (app/gateways/)
   range, market cap, bid/ask, dividend info, ...). The mock connector
   generates the fundamentals; a real connector would only need to supply
   what its entitlement actually includes.
-- **`app/processors/`** — consumes data off the queue, validates it, and
-  keeps the latest known value per symbol.
+- **`app/queue/`** — `MarketDataBuffer` sits between the connector and every
+  downstream consumer. Each subscriber gets its own bounded queue; if a
+  consumer falls behind and its queue fills up, the oldest buffered tick for
+  *that* subscriber is dropped to make room, so one slow consumer can never
+  block or slow down another.
+- **`app/validation/`** — `validate_tick`/`ValidatingStream` apply business
+  rules a schema can't express (bid < ask, price within day/52-week range,
+  tick not stale or timestamped in the future). The real-time branch and the
+  aggregator each validate independently, so a bad tick never reaches a
+  WebSocket client or a candle.
+- **`app/processors/`** — consumes the validated real-time feed and keeps the
+  latest known value per symbol.
+- **`app/aggregation/`** — `MarketAggregator` is a separate branch off the
+  buffer (not downstream of the processor), so a slow database write can
+  never delay real-time delivery. It builds OHLCV candles per symbol in
+  memory and flushes them to a SQLite database (`market_data.db`, table
+  `market_candles`) every 15 minutes, plus once more on clean shutdown.
 - **`app/gateways/`** — delivery layer. Currently a WebSocket gateway that
-  broadcasts to connected clients; a webhook gateway for Symphony workflow
-  events would live here too.
-- **`app/main.py`** — wires everything together and exposes the FastAPI app.
+  broadcasts to connected clients concurrently; a webhook gateway for
+  Symphony workflow events would live here too.
+- **`app/main.py`** — wires everything together and exposes the FastAPI app,
+  including the `/candles/export` CSV download of aggregated history.
 - **`app/config.py`** — environment-driven settings (tracked symbols, mock
   update interval, queue size, provider URL/key placeholders).
 
@@ -106,7 +129,7 @@ Open `.env` and adjust if you want different tracked symbols:
 ```env
 MARKET_SYMBOLS=AAPL,MSFT,TSLA
 MOCK_INTERVAL_SECONDS=0.5
-QUEUE_MAX_SIZE=0
+QUEUE_MAX_SIZE=200
 ```
 
 Only symbols listed in `MARKET_SYMBOLS` will return data from
@@ -138,6 +161,7 @@ Uvicorn running on http://127.0.0.1:8000
 | `http://127.0.0.1:8000/market/{symbol}` | Latest snapshot for a tracked symbol (e.g. `/market/AAPL`) |
 | `ws://127.0.0.1:8000/ws/market`   | WebSocket — live-streaming updates, sends initial state then pushes ticks as they arrive |
 | `http://127.0.0.1:8000/ticker`    | Live quote card UI (`app/static/ticker.html`), driven by the WebSocket feed above |
+| `http://127.0.0.1:8000/candles/export` | Historical OHLCV candles as a CSV download (opens in Excel). Optional `?symbol=AAPL` and `?interval=15m` query params |
 
 `127.0.0.1` means "this machine only" — the service isn't reachable from
 another computer or from Symphony yet. That's expected during development.
@@ -147,6 +171,7 @@ another computer or from Symphony yet. That's expected during development.
 ```bash
 curl http://127.0.0.1:8000/health
 curl http://127.0.0.1:8000/market/AAPL
+curl http://127.0.0.1:8000/candles/export -o market_candles.csv
 ```
 
 ### Quick test of the live WebSocket feed
@@ -200,17 +225,27 @@ market-integration/
 │   │   ├── base_connector.py      # interface every provider must implement
 │   │   └── market_connector.py    # mock provider (current)
 │   │
+│   ├── queue/
+│   │   └── market_buffer.py       # per-subscriber bounded queues, drop-oldest
+│   │
+│   ├── validation/
+│   │   └── market_validator.py    # business-rule checks + ValidatingStream
+│   │
 │   ├── processors/
-│   │   └── market_processor.py    # validation, latest-state tracking
+│   │   └── market_processor.py    # tracks latest state per symbol
+│   │
+│   ├── aggregation/
+│   │   └── market_aggregator.py   # OHLCV candles -> SQLite (market_data.db)
 │   │
 │   ├── gateways/
-│   │   └── websocket_gateway.py   # client tracking + broadcast
+│   │   └── websocket_gateway.py   # client tracking + concurrent broadcast
 │   │
 │   └── static/
 │       └── ticker.html            # live quote card UI, served at /ticker
 │
 ├── requirements.txt
 ├── .env.example
+├── market_data.db                 # SQLite, created on first run (gitignored)
 └── README.md
 ```
 
@@ -234,6 +269,9 @@ change — that's the point of the connector interface.
 - [ ] Webhook/event gateway for Symphony workflow triggers (e.g. threshold
       crossings, % change alerts)
 - [ ] Reconnect/backoff logic for the connector
-- [ ] Bounded queue + backpressure policy for high-throughput feeds
+- [x] Bounded queue + backpressure policy for high-throughput feeds
+      (`MarketDataBuffer`, drop-oldest per subscriber)
+- [x] OHLCV aggregation + persistence, with CSV export of historical candles
 - [ ] Observability (connection status, messages/sec, latency, dropped
-      messages)
+      messages — `MarketDataBuffer.dropped_counts` already tracks the last
+      of these per subscriber and just needs to be surfaced)

@@ -94,6 +94,10 @@ class MarketAggregator:
             conn.close()
 
     @property
+    def db_path(self) -> Path:
+        return self._db_path
+
+    @property
     def healthy(self) -> bool:
         """False until start() has run, or once either the consume or
         flush task has stopped or crashed."""
