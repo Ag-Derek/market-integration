@@ -4,6 +4,8 @@ its only job is tracking connected clients and pushing whatever it's
 given to all of them, cleaning up any that have dropped.
 """
 
+import asyncio
+
 from fastapi import WebSocket
 
 
@@ -22,13 +24,20 @@ class WebSocketGateway:
         print(f"Client disconnected. Total clients: {len(self.clients)}")
 
     async def broadcast(self, data) -> None:
-        disconnected = []
+        # Fan out concurrently -- sequential awaits here would let one
+        # slow/stalled client delay delivery to every other client and,
+        # since the caller awaits this before pulling the next item off
+        # the feed, back up ingestion for all symbols.
+        payload = data.model_dump(mode="json")
+        results = await asyncio.gather(
+            *(client.send_json(payload) for client in self.clients),
+            return_exceptions=True,
+        )
 
-        for client in self.clients:
-            try:
-                await client.send_json(data.model_dump(mode="json"))
-            except Exception:
-                disconnected.append(client)
-
+        disconnected = [
+            client
+            for client, result in zip(self.clients, results)
+            if isinstance(result, Exception)
+        ]
         for client in disconnected:
             await self.disconnect(client)

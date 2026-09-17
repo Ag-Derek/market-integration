@@ -134,6 +134,12 @@ class MarketDataBuffer:
         """How many ticks each subscriber has lost to backpressure so far."""
         return dict(self._dropped_counts)
 
+    @property
+    def healthy(self) -> bool:
+        """False once start() hasn't run yet, or the pump task has
+        stopped or crashed (e.g. the source connector raised)."""
+        return self._pump_task is not None and not self._pump_task.done()
+
     async def _pump(self) -> None:
         try:
             async for tick in self._source:

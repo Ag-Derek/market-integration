@@ -93,6 +93,13 @@ class MarketAggregator:
         finally:
             conn.close()
 
+    @property
+    def healthy(self) -> bool:
+        """False until start() has run, or once either the consume or
+        flush task has stopped or crashed."""
+        tasks = (self._consume_task, self._flush_task)
+        return all(task is not None and not task.done() for task in tasks)
+
     async def start(self) -> None:
         if self._running:
             return
@@ -115,15 +122,21 @@ class MarketAggregator:
             await self._flush()
 
     async def _consume(self) -> None:
-        async for tick in self._feed:
-            result = validate_tick(tick)
-            if not result:
-                logger.warning(
-                    "[aggregator] dropped tick for %s: %s",
-                    tick.symbol, "; ".join(result.errors),
-                )
-                continue
-            self._record(tick)
+        try:
+            async for tick in self._feed:
+                result = validate_tick(tick)
+                if not result:
+                    logger.warning(
+                        "[aggregator] dropped tick for %s: %s",
+                        tick.symbol, "; ".join(result.errors),
+                    )
+                    continue
+                self._record(tick)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Market aggregator consume loop crashed")
+            raise
 
     def _record(self, tick: MarketData) -> None:
         window = self._windows.get(tick.symbol)
@@ -146,6 +159,9 @@ class MarketAggregator:
                 await asyncio.sleep(self._flush_interval_seconds)
                 await self._flush()
         except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Market aggregator flush loop crashed")
             raise
 
     async def _flush(self) -> None:
