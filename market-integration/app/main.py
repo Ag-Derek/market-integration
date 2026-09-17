@@ -1,10 +1,13 @@
 import asyncio
+import csv
+import io
 import logging
+import sqlite3
 from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 
 from app import config
 from app.aggregation.market_aggregator import MarketAggregator
@@ -70,6 +73,47 @@ async def get_market(symbol: str):
     if data is None:
         return {"error": "Symbol not found"}
     return data
+
+
+@app.get("/candles/export")
+async def export_candles(symbol: Optional[str] = None, interval: str = "15m"):
+    """Historical OHLCV candles from market_candles as a CSV download --
+    opens directly in Excel, or feed it to any charting/analysis tool.
+    """
+
+    def fetch_rows() -> list[tuple]:
+        conn = sqlite3.connect(aggregator.db_path)
+        try:
+            query = (
+                "SELECT symbol, interval, window_start, window_end, "
+                "open, high, low, close, volume, tick_count "
+                "FROM market_candles WHERE interval = ?"
+            )
+            params: list = [interval]
+            if symbol:
+                query += " AND symbol = ?"
+                params.append(symbol.upper())
+            query += " ORDER BY symbol, window_start"
+            return conn.execute(query, params).fetchall()
+        finally:
+            conn.close()
+
+    rows = await asyncio.to_thread(fetch_rows)
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "symbol", "interval", "window_start", "window_end",
+        "open", "high", "low", "close", "volume", "tick_count",
+    ])
+    writer.writerows(rows)
+
+    filename = f"market_candles_{symbol.upper()}.csv" if symbol else "market_candles.csv"
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
 
 
 @app.get("/ticker", response_class=HTMLResponse)
