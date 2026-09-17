@@ -1,14 +1,20 @@
 import asyncio
+import logging
 from pathlib import Path
+from typing import Optional
 
-from fastapi import FastAPI, WebSocket
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from app import config
+from app.aggregation.market_aggregator import MarketAggregator
 from app.connectors.market_connector import MockMarketConnector
 from app.gateways.websocket_gateway import WebSocketGateway
-from app.models.market_data import MarketData
 from app.processors.market_processor import MarketProcessor
+from app.queue.market_buffer import MarketDataBuffer
+from app.validation.market_validator import ValidatingStream
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Market Data Integration Service")
 
@@ -22,14 +28,40 @@ connector = MockMarketConnector(
 processor = MarketProcessor()
 gateway = WebSocketGateway()
 
-# The queue decouples ingestion (connector) from processing/delivery
-# (processor + gateway). See processors/market_processor.py for why.
-queue: "asyncio.Queue[MarketData]" = asyncio.Queue(maxsize=config.QUEUE_MAX_SIZE)
+# The buffer decouples ingestion (connector) from its downstream
+# consumers, each getting an independent bounded queue with drop-oldest
+# backpressure. See queue/market_buffer.py for why.
+buffer = MarketDataBuffer(connector.stream(), maxsize=config.QUEUE_MAX_SIZE)
+
+# Real-time delivery: every tick, validated so a bad tick never reaches
+# a WebSocket client.
+validated_feed = ValidatingStream(buffer.subscribe("processor"), name="processor")
+
+# OHLCV persistence: a separate branch off the buffer, so a slow database
+# write can never delay real-time delivery. Validates independently.
+aggregator = MarketAggregator(buffer.subscribe("aggregator"))
+
+# Set once startup() creates it, so /health can check whether it's still
+# alive (e.g. hasn't died from an unhandled exception in processor.consume).
+consumer_task: Optional[asyncio.Task] = None
 
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy"}
+    components = {
+        "connector": connector.running,
+        "buffer": buffer.healthy,
+        "processor": consumer_task is not None and not consumer_task.done(),
+        "aggregator": aggregator.healthy,
+    }
+    healthy = all(components.values())
+    return JSONResponse(
+        status_code=200 if healthy else 503,
+        content={
+            "status": "healthy" if healthy else "unhealthy",
+            "components": components,
+        },
+    )
 
 
 @app.get("/market/{symbol}")
@@ -65,29 +97,47 @@ async def market_websocket(websocket: WebSocket):
             # disconnect raises and hits the except block below.
             await websocket.receive_text()
 
+    except WebSocketDisconnect:
+        await gateway.disconnect(websocket)
     except Exception:
+        logger.exception("Market websocket connection failed")
         await gateway.disconnect(websocket)
 
 
-async def producer_loop() -> None:
-    """Connector -> queue. Never blocks on processing or delivery."""
-    await connector.connect()
-
-    async for data in connector.stream():
-        await queue.put(data)
-
-
 async def consumer_loop() -> None:
-    """Queue -> processor -> gateway broadcast."""
-    await processor.consume(queue, on_processed=gateway.broadcast)
+    """Validated buffer feed -> processor -> gateway broadcast.
+
+    If this crashes, /health's "processor" check picks it up via
+    consumer_task.done() -- but that only tells you *that* it died, not
+    *why*. Log the exception here so the cause isn't only visible if/when
+    asyncio's default "Task exception was never retrieved" handler fires.
+    """
+    try:
+        await processor.consume(validated_feed, on_processed=gateway.broadcast)
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        logger.exception("Market processor consume loop crashed")
+        raise
 
 
 @app.on_event("startup")
 async def startup():
-    asyncio.create_task(producer_loop())
-    asyncio.create_task(consumer_loop())
+    global consumer_task
+    await connector.connect()
+    await buffer.start()
+    await aggregator.start()
+    consumer_task = asyncio.create_task(consumer_loop())
 
 
 @app.on_event("shutdown")
 async def shutdown():
+    if consumer_task is not None:
+        consumer_task.cancel()
+        try:
+            await consumer_task
+        except asyncio.CancelledError:
+            pass
+    await aggregator.stop()
+    await buffer.stop()
     await connector.disconnect()
