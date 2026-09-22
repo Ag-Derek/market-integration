@@ -388,7 +388,10 @@
     knownSymbols.forEach(function (sym) {
       const chip = document.createElement("button");
       chip.className = "picker-chip" + (openSymbols.has(sym) ? " open" : "");
-      chip.innerHTML = '<span class="dot"></span>' + sym;
+      const dot = document.createElement("span");
+      dot.className = "dot";
+      chip.appendChild(dot);
+      chip.appendChild(document.createTextNode(sym));
       chip.addEventListener("click", function () { togglePane(sym); });
       el.pickerRow.insertBefore(chip, el.pickerCount);
     });
@@ -432,7 +435,14 @@
 
     const name = document.createElement("div");
     name.className = "pane-name";
-    name.innerHTML = '<span class="name-text">—</span><span class="symbol">' + sym + "</span>";
+    const nameText = document.createElement("span");
+    nameText.className = "name-text";
+    nameText.textContent = "—";
+    const symbolText = document.createElement("span");
+    symbolText.className = "symbol";
+    symbolText.textContent = sym;
+    name.appendChild(nameText);
+    name.appendChild(symbolText);
     root.appendChild(name);
 
     const priceRow = document.createElement("div");
