@@ -3,3 +3,4 @@ __pycache__/
 *.pyc
 .pytest_cache/
 market_data.db
+.env

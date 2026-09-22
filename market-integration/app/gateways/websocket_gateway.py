@@ -28,15 +28,23 @@ class WebSocketGateway:
         # slow/stalled client delay delivery to every other client and,
         # since the caller awaits this before pulling the next item off
         # the feed, back up ingestion for all symbols.
+        #
+        # Snapshot self.clients once: a client's own handler task can call
+        # disconnect() concurrently while we're suspended on gather() below
+        # (each websocket connection runs in its own task). Re-reading
+        # self.clients afterwards would zip a possibly-mutated set against
+        # results computed from the original one, pairing the wrong client
+        # with the wrong outcome.
         payload = data.model_dump(mode="json")
+        clients = list(self.clients)
         results = await asyncio.gather(
-            *(client.send_json(payload) for client in self.clients),
+            *(client.send_json(payload) for client in clients),
             return_exceptions=True,
         )
 
         disconnected = [
             client
-            for client, result in zip(self.clients, results)
+            for client, result in zip(clients, results)
             if isinstance(result, Exception)
         ]
         for client in disconnected:
