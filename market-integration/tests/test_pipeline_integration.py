@@ -63,7 +63,7 @@ async def test_aggregator_persists_ohlcv_for_valid_ticks_only(make_tick, tmp_pat
     await aggregator.start()
     try:
         for _ in range(50):
-            window = aggregator._windows.get(good_1.symbol)
+            window = aggregator._windows.get((good_1.symbol, "15m"))
             if window is not None and window.tick_count == 2:
                 break
             await asyncio.sleep(0.02)
@@ -78,7 +78,8 @@ async def test_aggregator_persists_ohlcv_for_valid_ticks_only(make_tick, tmp_pat
     conn = sqlite3.connect(db_path)
     try:
         rows = conn.execute(
-            "SELECT open, high, low, close, volume, tick_count FROM market_candles WHERE symbol = ?",
+            "SELECT open, high, low, close, volume, tick_count FROM market_candles "
+            "WHERE symbol = ? AND interval = '15m'",
             (good_1.symbol,),
         ).fetchall()
     finally:

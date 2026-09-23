@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stock Detail</title>
+<style>
+  :root {
+    --bg: #0E1613;
+    --panel: #16211B;
+    --panel-strong: #1C2921;
+    --ink: #EAE7DA;
+    --ink-soft: #AEB6A9;
+    --ink-faint: #6F766D;
+    --line: #26362F;
+    --teal: #3E9C82;
+    --gold: #D9A44C;
+    --gold-bg: #2A2313;
+    --green: #34C57F;
+    --red: #E5675A;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: inherit; }
+
+  .num {
+    font-family: ui-monospace, "SFMono-Regular", "Cascadia Mono", Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .page {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 28px 20px 60px;
+  }
+
+  /* Top bar */
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .brand {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    letter-spacing: 0.02em;
+    text-decoration: none;
+  }
+  .brand:hover { color: var(--ink); }
+
+  .sim-badge {
+    font-size: 11px;
+    font-family: ui-monospace, monospace;
+    color: var(--gold);
+    background: var(--gold-bg);
+    border: 1px solid rgba(217, 164, 76, 0.35);
+    border-radius: 999px;
+    padding: 4px 10px;
+    white-space: nowrap;
+  }
+
+  /* Symbol switcher */
+
+  .switcher {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+
+  .switch-chip {
+    font-family: ui-monospace, monospace;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--ink-soft);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 6px 11px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 7px;
+  }
+  .switch-chip:hover { border-color: var(--ink-faint); color: var(--ink); }
+  .switch-chip .chg { font-size: 11px; }
+  .switch-chip .chg.up { color: var(--green); }
+  .switch-chip .chg.down { color: var(--red); }
+  .switch-chip.current {
+    color: var(--bg);
+    background: var(--teal);
+    border-color: var(--teal);
+  }
+  .switch-chip.current .chg { color: var(--bg); }
+
+  /* Quote header */
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 18px 18px 16px;
+    min-width: 0;
+  }
+
+  .exchange-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--ink-faint);
+    margin-bottom: 10px;
+  }
+
+  .status { display: flex; align-items: center; gap: 5px; }
+  .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--ink-faint);
+  }
+  .status-dot.live { background: var(--green); }
+  .status-dot.down { background: var(--red); }
+
+  .name {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0 0 2px;
+  }
+  .name .symbol {
+    font-family: ui-monospace, monospace;
+    font-size: 14px;
+    color: var(--ink-faint);
+    margin-left: 7px;
+    font-weight: 500;
+  }
+
+  .price-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+  .price { font-size: 36px; font-weight: 700; letter-spacing: -0.015em; }
+
+  .change-pill { font-size: 14px; font-weight: 600; padding: 3px 8px; border-radius: 6px; }
+  .change-pill.up { color: var(--green); background: rgba(52, 197, 127, 0.12); }
+  .change-pill.down { color: var(--red); background: rgba(229, 103, 90, 0.12); }
+  .change-pill.flat { color: var(--ink-soft); background: rgba(174, 182, 169, 0.1); }
+
+  .range-change { font-size: 12.5px; color: var(--ink-soft); }
+  .range-change .up { color: var(--green); }
+  .range-change .down { color: var(--red); }
+
+  .asof { font-size: 11.5px; color: var(--ink-faint); margin: 6px 0 0; }
+
+  .dividend {
+    display: none;
+    background: var(--gold-bg);
+    border: 1px solid rgba(217, 164, 76, 0.3);
+    border-radius: 6px;
+    padding: 8px 11px;
+    margin: 14px 0 0;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+  }
+  .dividend .label {
+    font-weight: 700;
+    color: var(--gold);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-right: 6px;
+  }
+
+  /* Range selector + chart */
+
+  .chart-card { margin-top: 16px; padding-bottom: 12px; }
+
+  .ranges {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .range-btn {
+    font-family: ui-monospace, monospace;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 6px 11px;
+    cursor: pointer;
+  }
+  .range-btn:hover { color: var(--ink); background: var(--panel-strong); }
+  .range-btn.active {
+    color: var(--ink);
+    background: var(--panel-strong);
+    border-color: var(--line);
+  }
+  .range-btn:focus-visible { outline: 2px solid var(--teal); outline-offset: 1px; }
+
+  .chart-wrap {
+    position: relative;
+    background: var(--panel-strong);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 6px;
+  }
+  .chart { display: block; width: 100%; height: 340px; touch-action: pan-y; }
+  @media (max-width: 620px) { .chart { height: 260px; } }
+
+  .chart-msg {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    color: var(--ink-faint);
+    pointer-events: none;
+  }
+
+  .tooltip {
+    position: absolute;
+    top: 10px;
+    pointer-events: none;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 7px 9px;
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: var(--ink-soft);
+    white-space: nowrap;
+    display: none;
+    z-index: 2;
+  }
+  .tooltip .t-time { color: var(--ink); font-weight: 600; margin-bottom: 2px; }
+  .tooltip .t-row { display: flex; justify-content: space-between; gap: 14px; }
+  .tooltip .t-row span:last-child { color: var(--ink); }
+
+  .chart-foot {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 11px;
+    color: var(--ink-faint);
+    margin-top: 8px;
+  }
+
+  /* Stats + live panel */
+
+  .lower {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    gap: 16px;
+    margin-top: 16px;
+  }
+  @media (max-width: 860px) {
+    .lower { grid-template-columns: 1fr; }
+  }
+
+  .card-title {
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 12px;
+    font-weight: 600;
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 28px;
+  }
+  @media (max-width: 520px) { .stats { grid-template-columns: 1fr; } }
+
+  .stat {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 12.5px;
+  }
+  .stat .stat-label { color: var(--ink-soft); }
+  .stat .stat-value { color: var(--ink); font-weight: 500; text-align: right; }
+
+  .spark { display: block; width: 100%; height: 110px; }
+  .spark-wrap {
+    background: var(--panel-strong);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 6px;
+  }
+  .spark-note { font-size: 11px; color: var(--ink-faint); margin: 8px 0 14px; }
+
+  .book {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .book-side {
+    background: var(--panel-strong);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 9px 10px;
+  }
+  .book-side .stat-label {
+    font-size: 10px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 3px;
+  }
+  .book-side .stat-value { font-size: 14px; font-weight: 600; }
+  .book-side .size { font-size: 11px; color: var(--ink-faint); margin-top: 2px; }
+
+  footer {
+    margin-top: 26px;
+    font-size: 12px;
+    color: var(--ink-faint);
+    line-height: 1.6;
+  }
+  footer code {
+    font-family: ui-monospace, monospace;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 1px 5px;
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <div class="topbar">
+    <a class="brand" href="/ticker">&larr; Market Integration &middot; Live Ticker</a>
+    <span class="sim-badge">Simulated data, not a live GSE feed</span>
+  </div>
+
+  <nav class="switcher" id="switcher" aria-label="Other tracked symbols"></nav>
+
+  <section class="card">
+    <div class="exchange-row">
+      <span id="exchange">Connecting…</span>
+      <span class="status"><span class="status-dot" id="statusDot"></span><span id="statusText">Live</span></span>
+    </div>
+    <h1 class="name"><span id="nameText">—</span><span class="symbol" id="symbolText"></span></h1>
+    <div class="price-row">
+      <span class="price num" id="price">—</span>
+      <span class="change-pill num" id="change"></span>
+      <span class="range-change num" id="rangeChange"></span>
+    </div>
+    <p class="asof" id="asof">Waiting for the first update…</p>
+    <div class="dividend" id="dividend"><span class="label">Dividend</span><span id="dividendText"></span></div>
+  </section>
+
+  <section class="card chart-card">
+    <div class="ranges" id="ranges" role="tablist" aria-label="Chart range"></div>
+    <div class="chart-wrap" id="chartWrap">
+      <canvas class="chart" id="chart"></canvas>
+      <div class="chart-msg" id="chartMsg">Loading chart…</div>
+      <div class="tooltip num" id="tooltip"></div>
+    </div>
+    <div class="chart-foot">
+      <span id="chartMeta"></span>
+      <a id="csvLink" href="#">Download 15m candles (CSV)</a>
+    </div>
+  </section>
+
+  <div class="lower">
+    <section class="card">
+      <h2 class="card-title">Quote</h2>
+      <div class="stats" id="stats"></div>
+    </section>
+
+    <section class="card">
+      <h2 class="card-title">Live ticks</h2>
+      <div class="spark-wrap"><canvas class="spark" id="spark"></canvas></div>
+      <p class="spark-note" id="sparkNote">Every tick since this page opened (last ~6 minutes).</p>
+      <div class="book">
+        <div class="book-side">
+          <div class="stat-label">Bid</div>
+          <div class="stat-value num" id="bid">—</div>
+          <div class="size num" id="bidSize"></div>
+        </div>
+        <div class="book-side">
+          <div class="stat-label">Ask</div>
+          <div class="stat-value num" id="ask">—</div>
+          <div class="size num" id="askSize"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <footer>
+    Quote over <code>/ws/market</code>; chart from <code>/candles?symbol=…&amp;range=…</code>. History is backfilled
+    by the mock connector on startup and extended live as ticks arrive. Everything except price, bid/ask, day range,
+    and volume is a generated placeholder, there is no real GSE fundamentals data behind it yet.
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  const SYMBOL = decodeURIComponent(location.pathname.split("/").filter(Boolean).pop() || "").toUpperCase();
+
+  const RANGES = [
+    { key: "1D", label: "Past day" },
+    { key: "5D", label: "Past 5 days" },
+    { key: "1M", label: "Past month" },
+    { key: "6M", label: "Past 6 months" },
+    { key: "YTD", label: "Year to date" },
+    { key: "1Y", label: "Past year" },
+    { key: "5Y", label: "Past 5 years" },
+    { key: "Max", label: "All time" },
+  ];
+
+  const INTERVAL_MS = {
+    "5m": 5 * 60e3,
+    "15m": 15 * 60e3,
+    "1h": 3600e3,
+    "1d": 86400e3,
+    "1w": 7 * 86400e3,
+  };
+
+  const SPARK_LIMIT = 720; // ~6 minutes at 0.5s ticks
+
+  const COLORS = {
+    up: "#34C57F",
+    down: "#E5675A",
+    upFill: "rgba(52,197,127,",
+    downFill: "rgba(229,103,90,",
+    grid: "rgba(38, 54, 47, 0.9)",
+    axis: "#6F766D",
+    baseline: "rgba(174, 182, 169, 0.45)",
+    crosshair: "rgba(174, 182, 169, 0.55)",
+    bg: "#0E1613",
+  };
+
+  const $ = function (id) { return document.getElementById(id); };
+
+  let quote = null;          // latest MarketData for SYMBOL
+  let receivedAt = 0;
+  const others = {};         // symbol -> latest MarketData (switcher)
+  const spark = [];          // [{t, price}] live ticks for the sparkline
+
+  const chart = {
+    range: "1D",
+    interval: null,
+    candles: [],             // [{ts, open, high, low, close, volume}]
+    lastCumVolume: null,     // cumulative session volume on the last tick
+    hoverIndex: null,
+    requestSeq: 0,
+    geometry: null,
+  };
+
+  // ---------------------------------------------------------------- format
+
+  function fmtMoney(n) {
+    return "GH₵" + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function fmtPrice(n) {
+    return Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function fmtNum(n) { return Number(n).toLocaleString(); }
+  function fmtLarge(n) {
+    const abs = Math.abs(n);
+    if (abs >= 1e12) return (n / 1e12).toFixed(2) + "T";
+    if (abs >= 1e9) return (n / 1e9).toFixed(2) + "B";
+    if (abs >= 1e6) return (n / 1e6).toFixed(2) + "M";
+    if (abs >= 1e3) return (n / 1e3).toFixed(2) + "K";
+    return String(n);
+  }
+  function fmtTime(ts) {
+    return new Date(ts).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  }
+  function fmtDate(iso) {
+    return new Date(iso + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  }
+  function secondsAgo(ts) {
+    const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
+    if (s < 1) return "just now";
+    if (s === 1) return "1 second ago";
+    return s + " seconds ago";
+  }
+  function direction(diff) {
+    return diff > 0.004 ? "up" : diff < -0.004 ? "down" : "flat";
+  }
+  function changeText(diff, base) {
+    const dir = direction(diff);
+    const arrow = dir === "up" ? "▲" : dir === "down" ? "▼" : "–";
+    const pct = base ? (diff / base) * 100 : 0;
+    return arrow + " " + Math.abs(diff).toFixed(2) + " (" + Math.abs(pct).toFixed(2) + "%)";
+  }
+
+  // Axis/tooltip labels depend on how wide each candle is.
+  function axisLabel(ts, interval) {
+    const d = new Date(ts);
+    if (interval === "5m") return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    if (interval === "15m") return d.toLocaleDateString(undefined, { weekday: "short" }) + " " +
+      d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    if (interval === "1h") return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    // Daily/weekly buckets are UTC days; label them as such so a viewer
+    // west of UTC doesn't see every candle dated the day before.
+    if (interval === "1d") return d.toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+    return d.toLocaleDateString(undefined, { month: "short", year: "numeric", timeZone: "UTC" });
+  }
+  function tooltipLabel(ts, interval) {
+    const d = new Date(ts);
+    if (interval === "1w") return "Week of " + d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+    if (interval === "1d") return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+    return d.toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  }
+
+  // ---------------------------------------------------------------- quote
+
+  const STAT_DEFS = [
+    ["previousClose", "Previous Close"],
+    ["open", "Open"],
+    ["dayRange", "Day's Range"],
+    ["week52", "52 Week Range"],
+    ["volume", "Volume"],
+    ["avgVolume", "Avg. Volume"],
+    ["marketCap", "Market Cap"],
+    ["beta", "Beta"],
+    ["pe", "PE Ratio"],
+    ["eps", "EPS"],
+    ["earnings", "Earnings Date"],
+    ["dividend", "Forward Dividend & Yield"],
+    ["exDividend", "Ex-Dividend Date"],
+    ["target", "1y Target Est"],
+  ];
+  const statEls = {};
+
+  function buildStats() {
+    const root = $("stats");
+    STAT_DEFS.forEach(function (def) {
+      const row = document.createElement("div");
+      row.className = "stat";
+      const l = document.createElement("span");
+      l.className = "stat-label";
+      l.textContent = def[1];
+      const v = document.createElement("span");
+      v.className = "stat-value num";
+      v.textContent = "—";
+      row.appendChild(l);
+      row.appendChild(v);
+      root.appendChild(row);
+      statEls[def[0]] = v;
+    });
+  }
+
+  function renderQuote() {
+    const d = quote;
+    if (!d) return;
+
+    $("exchange").textContent = d.exchange_label;
+    $("nameText").textContent = d.name;
+    document.title = d.symbol + " · " + d.name;
+    $("price").textContent = fmtMoney(d.price);
+
+    const diff = d.price - d.previous_close;
+    const dir = direction(diff);
+    $("change").textContent = changeText(diff, d.previous_close);
+    $("change").className = "change-pill num " + dir;
+    $("statusDot").className = "status-dot live" + (dir === "down" ? " down" : "");
+    renderAsOf();
+
+    if (d.dividend_announcement) {
+      $("dividend").style.display = "block";
+      $("dividendText").textContent = d.dividend_announcement;
+    } else {
+      $("dividend").style.display = "none";
+    }
+
+    statEls.previousClose.textContent = fmtPrice(d.previous_close);
+    statEls.open.textContent = fmtPrice(d.open);
+    statEls.dayRange.textContent = fmtPrice(d.day_low) + " – " + fmtPrice(d.day_high);
+    statEls.week52.textContent = fmtPrice(d.week52_low) + " – " + fmtPrice(d.week52_high);
+    statEls.volume.textContent = fmtNum(d.volume);
+    statEls.avgVolume.textContent = fmtNum(d.avg_volume);
+    statEls.marketCap.textContent = fmtLarge(d.market_cap);
+    statEls.beta.textContent = d.beta.toFixed(2);
+    statEls.pe.textContent = d.pe_ratio.toFixed(2);
+    statEls.eps.textContent = d.eps.toFixed(2);
+    statEls.earnings.textContent = fmtDate(d.earnings_date);
+    statEls.dividend.textContent = d.forward_dividend > 0
+      ? d.forward_dividend.toFixed(2) + " (" + d.forward_dividend_yield.toFixed(2) + "%)"
+      : "N/A";
+    statEls.exDividend.textContent = d.forward_dividend > 0 ? fmtDate(d.ex_dividend_date) : "N/A";
+    statEls.target.textContent = fmtPrice(d.target_est);
+
+    $("bid").textContent = fmtPrice(d.bid);
+    $("bidSize").textContent = "× " + fmtNum(d.bid_size);
+    $("ask").textContent = fmtPrice(d.ask);
+    $("askSize").textContent = "× " + fmtNum(d.ask_size);
+  }
+
+  function renderAsOf() {
+    if (quote) $("asof").textContent = "As of " + fmtTime(receivedAt) + " · updated " + secondsAgo(receivedAt);
+  }
+
+  function renderSwitcher() {
+    const root = $("switcher");
+    root.innerHTML = "";
+    Object.keys(others).forEach(function (sym) {
+      const d = others[sym];
+      const a = document.createElement("a");
+      a.className = "switch-chip" + (sym === SYMBOL ? " current" : "");
+      a.href = "/stock/" + encodeURIComponent(sym);
+      if (sym === SYMBOL) a.setAttribute("aria-current", "page");
+      a.appendChild(document.createTextNode(sym));
+      const chg = document.createElement("span");
+      const diff = d.price - d.previous_close;
+      chg.className = "chg num " + direction(diff);
+      chg.textContent = (diff >= 0 ? "+" : "−") + Math.abs((diff / d.previous_close) * 100).toFixed(2) + "%";
+      a.appendChild(chg);
+      root.appendChild(a);
+    });
+  }
+
+  // Cheap in-place refresh of just the % on each chip (avoids rebuilding
+  // the switcher on every tick of every symbol).
+  function updateSwitcherChip(sym) {
+    const chips = $("switcher").querySelectorAll(".switch-chip");
+    const keys = Object.keys(others);
+    const i = keys.indexOf(sym);
+    if (i === -1 || !chips[i]) return renderSwitcher();
+    const d = others[sym];
+    const diff = d.price - d.previous_close;
+    const chg = chips[i].querySelector(".chg");
+    chg.className = "chg num " + direction(diff);
+    chg.textContent = (diff >= 0 ? "+" : "−") + Math.abs((diff / d.previous_close) * 100).toFixed(2) + "%";
+  }
+
+  // ---------------------------------------------------------------- chart
+
+  function buildRangeButtons() {
+    const root = $("ranges");
+    RANGES.forEach(function (r) {
+      const b = document.createElement("button");
+      b.className = "range-btn";
+      b.type = "button";
+      b.setAttribute("role", "tab");
+      b.textContent = r.key;
+      b.dataset.range = r.key;
+      b.addEventListener("click", function () { selectRange(r.key); });
+      root.appendChild(b);
+    });
+  }
+
+  function selectRange(key) {
+    chart.range = key;
+    try { localStorage.setItem("stock.range", key); } catch (e) { /* storage unavailable */ }
+    $("ranges").querySelectorAll(".range-btn").forEach(function (b) {
+      const on = b.dataset.range === key;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-selected", on ? "true" : "false");
+    });
+    loadCandles();
+  }
+
+  function loadCandles() {
+    const seq = ++chart.requestSeq;
+    const range = chart.range;
+    $("chartMsg").textContent = "Loading chart…";
+    $("chartMsg").style.display = "flex";
+
+    fetch("/candles?symbol=" + encodeURIComponent(SYMBOL) + "&range=" + encodeURIComponent(range))
+      .then(function (res) {
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        return res.json();
+      })
+      .then(function (body) {
+        if (seq !== chart.requestSeq) return; // a newer range was picked meanwhile
+        chart.interval = body.interval;
+        chart.candles = body.candles.map(function (c) {
+          return { ts: Date.parse(c.time), open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume };
+        });
+        chart.lastCumVolume = null;
+        chart.hoverIndex = null;
+        $("chartMsg").style.display = chart.candles.length ? "none" : "flex";
+        if (!chart.candles.length) $("chartMsg").textContent = "No history for this range yet.";
+        $("chartMeta").textContent = chart.candles.length + " × " + body.interval + " candles";
+        drawChart();
+        renderRangeChange();
+      })
+      .catch(function () {
+        if (seq !== chart.requestSeq) return;
+        $("chartMsg").textContent = "Couldn't load the chart. Retrying…";
+        $("chartMsg").style.display = "flex";
+        setTimeout(function () { if (seq === chart.requestSeq) loadCandles(); }, 3000);
+      });
+  }
+
+  // 1D is measured against the previous close (like the quote's change
+  // pill); every other range against the first candle's open.
+  function chartBaseline() {
+    if (chart.range === "1D" && quote) return quote.previous_close;
+    return chart.candles.length ? chart.candles[0].open : null;
+  }
+
+  function renderRangeChange() {
+    const el = $("rangeChange");
+    const base = chartBaseline();
+    if (chart.range === "1D" || base == null || !chart.candles.length) { el.textContent = ""; return; }
+    const last = chart.candles[chart.candles.length - 1].close;
+    const diff = last - base;
+    const label = RANGES.filter(function (r) { return r.key === chart.range; })[0].label;
+    el.innerHTML = "";
+    const v = document.createElement("span");
+    v.className = direction(diff);
+    v.textContent = changeText(diff, base);
+    el.appendChild(v);
+    el.appendChild(document.createTextNode(" " + label.toLowerCase()));
+  }
+
+  // Fold a live tick into the newest candle, or open a new one once the
+  // tick crosses into the next bucket, so the chart moves between fetches.
+  function applyTickToChart(d) {
+    if (!chart.candles.length || !chart.interval) return;
+    const step = INTERVAL_MS[chart.interval];
+    const t = Date.parse(d.timestamp);
+    const last = chart.candles[chart.candles.length - 1];
+
+    let volDelta = 0;
+    if (chart.lastCumVolume != null) {
+      volDelta = d.volume >= chart.lastCumVolume ? d.volume - chart.lastCumVolume : d.volume;
+    }
+    chart.lastCumVolume = d.volume;
+
+    if (t >= last.ts + step) {
+      const ts = last.ts + Math.floor((t - last.ts) / step) * step;
+      chart.candles.push({ ts: ts, open: d.price, high: d.price, low: d.price, close: d.price, volume: volDelta });
+      $("chartMeta").textContent = chart.candles.length + " × " + chart.interval + " candles";
+    } else if (t >= last.ts) {
+      last.high = Math.max(last.high, d.price);
+      last.low = Math.min(last.low, d.price);
+      last.close = d.price;
+      last.volume += volDelta;
+    } else {
+      return;
+    }
+    drawChart();
+    renderRangeChange();
+  }
+
+  function niceStep(span, target) {
+    const raw = span / target;
+    const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    const norm = raw / mag;
+    return (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10) * mag;
+  }
+
+  function setupCanvas(canvas, fallbackHeight) {
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight || fallbackHeight;
+    if (!w) return null;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    return { ctx: ctx, w: w, h: h };
+  }
+
+  function drawChart() {
+    const canvas = $("chart");
+    const pts = chart.candles;
+    const surface = setupCanvas(canvas, 340);
+    chart.geometry = null;
+    if (!surface || pts.length < 2) return;
+    const ctx = surface.ctx, W = surface.w, H = surface.h;
+
+    const padL = 6, padR = 58, padT = 10, padB = 22;
+    const volH = Math.round((H - padT - padB) * 0.17);
+    const gap = 8;
+    const priceH = H - padT - padB - volH - gap;
+    const plotW = W - padL - padR;
+
+    const base = chartBaseline();
+    let min = Infinity, max = -Infinity, maxVol = 0;
+    pts.forEach(function (c) {
+      if (c.close < min) min = c.close;
+      if (c.close > max) max = c.close;
+      if (c.volume > maxVol) maxVol = c.volume;
+    });
+    if (chart.range === "1D" && base != null) { min = Math.min(min, base); max = Math.max(max, base); }
+    const pad = (max - min) * 0.08 || max * 0.01 || 1;
+    min -= pad; max += pad;
+
+    function xAt(i) { return padL + (i / (pts.length - 1)) * plotW; }
+    function yAt(v) { return padT + (1 - (v - min) / (max - min)) * priceH; }
+    chart.geometry = { padL: padL, plotW: plotW, W: W, H: H, xAt: xAt, yAt: yAt };
+
+    const last = pts[pts.length - 1].close;
+    const isUp = base == null || last >= base;
+    const lineColor = isUp ? COLORS.up : COLORS.down;
+    const fill = isUp ? COLORS.upFill : COLORS.downFill;
+
+    // Horizontal grid + right-hand price axis.
+    ctx.font = "10px ui-monospace, monospace";
+    ctx.textBaseline = "middle";
+    const step = niceStep(max - min, 5);
+    const tagY = yAt(pts[pts.length - 1].close);
+    for (let v = Math.ceil(min / step) * step; v <= max; v += step) {
+      const y = Math.round(yAt(v)) + 0.5;
+      ctx.strokeStyle = COLORS.grid;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(padL, y);
+      ctx.lineTo(padL + plotW, y);
+      ctx.stroke();
+      // Skip labels the live price tag would sit on top of.
+      if (Math.abs(y - tagY) < 14) continue;
+      ctx.fillStyle = COLORS.axis;
+      ctx.fillText(fmtPrice(v), padL + plotW + 8, y);
+    }
+
+    // Time axis: ~6 evenly spaced labels.
+    ctx.textBaseline = "alphabetic";
+    ctx.textAlign = "center";
+    const labelCount = Math.max(2, Math.min(6, Math.floor(plotW / 110)));
+    for (let k = 0; k < labelCount; k++) {
+      const i = Math.round((k + 0.5) * (pts.length - 1) / labelCount);
+      ctx.fillStyle = COLORS.axis;
+      ctx.fillText(axisLabel(pts[i].ts, chart.interval), xAt(i), H - 6);
+    }
+    ctx.textAlign = "left";
+
+    // Previous-close reference on 1D.
+    if (chart.range === "1D" && base != null) {
+      const y = yAt(base);
+      ctx.beginPath();
+      ctx.setLineDash([3, 3]);
+      ctx.strokeStyle = COLORS.baseline;
+      ctx.lineWidth = 1;
+      ctx.moveTo(padL, y);
+      ctx.lineTo(padL + plotW, y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Volume strip.
+    const volTop = padT + priceH + gap;
+    const barW = Math.max(1, plotW / pts.length - 1);
+    if (maxVol > 0) {
+      pts.forEach(function (c, i) {
+        const h = (c.volume / maxVol) * volH;
+        ctx.fillStyle = c.close >= c.open ? "rgba(52,197,127,0.35)" : "rgba(229,103,90,0.35)";
+        ctx.fillRect(xAt(i) - barW / 2, volTop + volH - h, barW, h);
+      });
+    }
+
+    // Area + line.
+    const grad = ctx.createLinearGradient(0, padT, 0, padT + priceH);
+    grad.addColorStop(0, fill + "0.26)");
+    grad.addColorStop(1, fill + "0)");
+    ctx.beginPath();
+    ctx.moveTo(xAt(0), yAt(pts[0].close));
+    pts.forEach(function (c, i) { ctx.lineTo(xAt(i), yAt(c.close)); });
+    ctx.lineTo(xAt(pts.length - 1), padT + priceH);
+    ctx.lineTo(xAt(0), padT + priceH);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(xAt(0), yAt(pts[0].close));
+    pts.forEach(function (c, i) { ctx.lineTo(xAt(i), yAt(c.close)); });
+    ctx.strokeStyle = lineColor;
+    ctx.lineWidth = 1.6;
+    ctx.lineJoin = "round";
+    ctx.stroke();
+
+    // Live price tag on the axis.
+    const lastY = yAt(last);
+    ctx.beginPath();
+    ctx.arc(xAt(pts.length - 1), lastY, 3, 0, Math.PI * 2);
+    ctx.fillStyle = lineColor;
+    ctx.fill();
+    ctx.font = "10px ui-monospace, monospace";
+    const tag = fmtPrice(last);
+    const tagW = ctx.measureText(tag).width + 10;
+    ctx.fillStyle = lineColor;
+    ctx.fillRect(padL + plotW + 4, lastY - 8, tagW, 16);
+    ctx.fillStyle = COLORS.bg;
+    ctx.textBaseline = "middle";
+    ctx.fillText(tag, padL + plotW + 9, lastY);
+
+    // Hover crosshair.
+    if (chart.hoverIndex != null && pts[chart.hoverIndex]) {
+      const i = chart.hoverIndex;
+      const x = Math.round(xAt(i)) + 0.5;
+      ctx.strokeStyle = COLORS.crosshair;
+      ctx.setLineDash([2, 3]);
+      ctx.beginPath();
+      ctx.moveTo(x, padT);
+      ctx.lineTo(x, volTop + volH);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.arc(xAt(i), yAt(pts[i].close), 4, 0, Math.PI * 2);
+      ctx.fillStyle = lineColor;
+      ctx.fill();
+      ctx.strokeStyle = COLORS.bg;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+  }
+
+  function showTooltip() {
+    const tip = $("tooltip");
+    const i = chart.hoverIndex;
+    const c = chart.candles[i];
+    const g = chart.geometry;
+    if (c == null || !g) { tip.style.display = "none"; return; }
+
+    tip.innerHTML = "";
+    const time = document.createElement("div");
+    time.className = "t-time";
+    time.textContent = tooltipLabel(c.ts, chart.interval);
+    tip.appendChild(time);
+    [["Open", fmtPrice(c.open)], ["High", fmtPrice(c.high)], ["Low", fmtPrice(c.low)],
+     ["Close", fmtPrice(c.close)], ["Volume", fmtLarge(c.volume)]].forEach(function (r) {
+      const row = document.createElement("div");
+      row.className = "t-row";
+      const a = document.createElement("span"); a.textContent = r[0];
+      const b = document.createElement("span"); b.textContent = r[1];
+      row.appendChild(a); row.appendChild(b);
+      tip.appendChild(row);
+    });
+    tip.style.display = "block";
+
+    // Keep it on the opposite side of the cursor from the edge it's near.
+    const x = g.xAt(i) + 6; // + chart-wrap padding
+    const tipW = tip.offsetWidth;
+    const left = x + 14 + tipW > g.W ? x - 14 - tipW : x + 14;
+    tip.style.left = Math.max(6, left) + "px";
+  }
+
+  function onPointer(evt) {
+    const g = chart.geometry;
+    if (!g || chart.candles.length < 2) return;
+    const rect = $("chart").getBoundingClientRect();
+    const x = evt.clientX - rect.left;
+    const i = Math.round(((x - g.padL) / g.plotW) * (chart.candles.length - 1));
+    chart.hoverIndex = Math.max(0, Math.min(chart.candles.length - 1, i));
+    drawChart();
+    showTooltip();
+  }
+
+  function clearHover() {
+    chart.hoverIndex = null;
+    $("tooltip").style.display = "none";
+    drawChart();
+  }
+
+  // ---------------------------------------------------------------- sparkline
+
+  function drawSpark() {
+    const surface = setupCanvas($("spark"), 110);
+    if (!surface || spark.length < 2 || !quote) return;
+    const ctx = surface.ctx, W = surface.w, H = surface.h;
+    const padL = 4, padR = 4, padT = 8, padB = 8;
+    const plotW = W - padL - padR, plotH = H - padT - padB;
+
+    let min = Infinity, max = -Infinity;
+    spark.forEach(function (p) { if (p.price < min) min = p.price; if (p.price > max) max = p.price; });
+    const pad = (max - min) * 0.15 || 0.05;
+    min -= pad; max += pad;
+    function xAt(i) { return padL + (i / (spark.length - 1)) * plotW; }
+    function yAt(v) { return padT + (1 - (v - min) / (max - min)) * plotH; }
+
+    const isUp = spark[spark.length - 1].price >= spark[0].price;
+    const color = isUp ? COLORS.up : COLORS.down;
+    const fill = isUp ? COLORS.upFill : COLORS.downFill;
+
+    const grad = ctx.createLinearGradient(0, padT, 0, padT + plotH);
+    grad.addColorStop(0, fill + "0.28)");
+    grad.addColorStop(1, fill + "0)");
+    ctx.beginPath();
+    ctx.moveTo(xAt(0), yAt(spark[0].price));
+    spark.forEach(function (p, i) { ctx.lineTo(xAt(i), yAt(p.price)); });
+    ctx.lineTo(xAt(spark.length - 1), padT + plotH);
+    ctx.lineTo(xAt(0), padT + plotH);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(xAt(0), yAt(spark[0].price));
+    spark.forEach(function (p, i) { ctx.lineTo(xAt(i), yAt(p.price)); });
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(xAt(spark.length - 1), yAt(spark[spark.length - 1].price), 3, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+  }
+
+  // ---------------------------------------------------------------- feed
+
+  function ingest(d, isSnapshot) {
+    const isNew = !(d.symbol in others);
+    others[d.symbol] = d;
+    if (isNew) renderSwitcher(); else updateSwitcherChip(d.symbol);
+
+    if (d.symbol !== SYMBOL) return;
+    quote = d;
+    receivedAt = Date.now();
+    spark.push({ t: receivedAt, price: d.price });
+    if (spark.length > SPARK_LIMIT) spark.shift();
+
+    renderQuote();
+    drawSpark();
+    // The snapshot is already reflected in the fetched candles.
+    if (!isSnapshot) applyTickToChart(d); else if (chart.range === "1D") drawChart();
+  }
+
+  let hadConnection = false;
+  function connect() {
+    const proto = location.protocol === "https:" ? "wss" : "ws";
+    const ws = new WebSocket(proto + "://" + location.host + "/ws/market");
+
+    ws.onopen = function () {
+      // After a reconnect, re-fetch so candles missed while offline show up.
+      if (hadConnection) loadCandles();
+      hadConnection = true;
+    };
+
+    ws.onmessage = function (evt) {
+      $("statusText").textContent = "Live";
+      const msg = JSON.parse(evt.data);
+      if (msg.type === "initial_state") {
+        Object.values(msg.data).forEach(function (d) { ingest(d, true); });
+      } else if (msg.symbol) {
+        ingest(msg, false);
+      }
+    };
+
+    ws.onclose = function () {
+      $("statusDot").className = "status-dot";
+      $("statusText").textContent = "Reconnecting…";
+      setTimeout(connect, 2000);
+    };
+
+    ws.onerror = function () { ws.close(); };
+  }
+
+  // ---------------------------------------------------------------- boot
+
+  $("symbolText").textContent = SYMBOL;
+  $("csvLink").href = "/candles/export?symbol=" + encodeURIComponent(SYMBOL);
+  buildStats();
+  buildRangeButtons();
+
+  const canvas = $("chart");
+  canvas.addEventListener("pointermove", onPointer);
+  canvas.addEventListener("pointerdown", onPointer);
+  canvas.addEventListener("pointerleave", clearHover);
+
+  let resizeTimer = null;
+  window.addEventListener("resize", function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function () { drawChart(); drawSpark(); }, 120);
+  });
+
+  setInterval(renderAsOf, 1000);
+
+  let initialRange = "1D";
+  try {
+    const saved = localStorage.getItem("stock.range");
+    if (saved && RANGES.some(function (r) { return r.key === saved; })) initialRange = saved;
+  } catch (e) { /* storage unavailable */ }
+
+  selectRange(initialRange);
+  connect();
+})();
+</script>
+
+</body>
+</html>

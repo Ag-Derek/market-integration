@@ -52,6 +52,20 @@ def make_tick():
     return _make
 
 
+@pytest.fixture(scope="session")
+def client():
+    """One running app for the whole session. app.main wires its pipeline
+    as module-level singletons, and the connector's stream can't be
+    restarted once shutdown has closed it -- so a second startup of the
+    same app in one process would come up with a dead buffer."""
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    with TestClient(app) as c:
+        yield c
+
+
 @pytest.fixture(scope="session", autouse=True)
 def _cleanup_market_data_db():
     """MarketAggregator's default db path (and app.main's, which uses it)
