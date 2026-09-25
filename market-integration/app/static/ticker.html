@@ -336,11 +336,14 @@
   "use strict";
 
   const MAX_PANES = 6;
-  const HISTORY_LIMIT = 720; // ~6 minutes at 0.5s ticks
+  const HISTORY_LIMIT = 720; // raw ticks kept until the 1D candles arrive
   const GRID_COLS = { 1: 1, 2: 2, 3: 3, 4: 2, 5: 3, 6: 3 };
+  const UNIT_MS = { m: 60e3, h: 3600e3, d: 86400e3 };
 
   const state = {};       // symbol -> latest MarketData
-  const history = {};     // symbol -> [{t, price}]
+  const history = {};     // symbol -> [{t, price}], candle closes once loaded
+  const historyStep = {}; // symbol -> candle interval in ms (set once 1D history loads)
+  const historySeq = {};  // symbol -> request counter, so a stale fetch is ignored
   const knownSymbols = []; // insertion-ordered list of every symbol ever seen
   const openSymbols = new Set();
   const paneEls = {};     // symbol -> cached DOM refs for its pane
@@ -650,15 +653,65 @@
     ctx.fillText(labelText, cssWidth - padR + 9, lastY + 3);
   }
 
+  function intervalMs(s) {
+    const m = /^(\d+)([mhd])$/.exec(s || "");
+    return m ? Number(m[1]) * UNIT_MS[m[2]] : null;
+  }
+
+  // Seed the sparkline with today's candles (same source as the detail
+  // page's 1D chart), so it shows the day's movement, not just the ticks
+  // received since this page opened.
+  function loadHistory(sym) {
+    const seq = historySeq[sym] = (historySeq[sym] || 0) + 1;
+    fetch("/candles?symbol=" + encodeURIComponent(sym) + "&range=1D")
+      .then(function (res) {
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        return res.json();
+      })
+      .then(function (body) {
+        if (seq !== historySeq[sym]) return;
+        const step = intervalMs(body.interval);
+        if (!step || !body.candles.length) return;
+        historyStep[sym] = step;
+        history[sym] = body.candles.map(function (c) {
+          return { t: Date.parse(c.time), price: c.close };
+        });
+        if (openSymbols.has(sym)) drawChart(sym);
+      })
+      .catch(function () {
+        setTimeout(function () { if (seq === historySeq[sym]) loadHistory(sym); }, 3000);
+      });
+  }
+
+  // Once candles are loaded, fold each tick into the newest candle, or
+  // open a new one when the tick crosses into the next bucket.
+  function recordTick(d) {
+    const pts = history[d.symbol] || (history[d.symbol] = []);
+    const step = historyStep[d.symbol];
+    if (!step || !pts.length) {
+      pts.push({ t: d._receivedAt, price: d.price });
+      if (pts.length > HISTORY_LIMIT) pts.shift();
+      return;
+    }
+    const t = Date.parse(d.timestamp);
+    const last = pts[pts.length - 1];
+    if (t >= last.t + step) {
+      pts.push({ t: last.t + Math.floor((t - last.t) / step) * step, price: d.price });
+    } else if (t >= last.t) {
+      last.price = d.price;
+    }
+  }
+
   function ingest(d) {
     d._receivedAt = Date.now();
     state[d.symbol] = d;
-    if (!history[d.symbol]) history[d.symbol] = [];
-    history[d.symbol].push({ t: d._receivedAt, price: d.price });
-    if (history[d.symbol].length > HISTORY_LIMIT) history[d.symbol].shift();
+    recordTick(d);
 
     const isNew = knownSymbols.indexOf(d.symbol) === -1;
-    if (isNew) knownSymbols.push(d.symbol);
+    if (isNew) {
+      knownSymbols.push(d.symbol);
+      loadHistory(d.symbol);
+    }
 
     if (isNew && openSymbols.size < MAX_PANES) {
       openSymbols.add(d.symbol);
@@ -670,9 +723,17 @@
     }
   }
 
+  let hadConnection = false;
+
   function connect() {
     const proto = location.protocol === "https:" ? "wss" : "ws";
     const ws = new WebSocket(proto + "://" + location.host + "/ws/market");
+
+    ws.onopen = function () {
+      // After a reconnect, re-fetch so candles missed while offline show up.
+      if (hadConnection) knownSymbols.forEach(loadHistory);
+      hadConnection = true;
+    };
 
     ws.onmessage = function (evt) {
       const msg = JSON.parse(evt.data);
