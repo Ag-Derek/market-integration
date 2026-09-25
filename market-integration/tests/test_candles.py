@@ -7,6 +7,7 @@ from app.aggregation.market_aggregator import MarketAggregator
 from app.aggregation.ranges import RANGES
 from app.connectors.market_connector import MockMarketConnector
 from app.models.candle import Candle, bucket_start, resample
+from app.validation.market_validator import validate_candle
 
 
 async def _no_feed():
@@ -53,7 +54,70 @@ def test_resample_rolls_fine_candles_into_coarser_ones():
     assert coarse[1].window_start == t0 + timedelta(minutes=15)
 
 
+# ---------------------------------------------------------------- validation
+
+def test_validate_candle_accepts_a_well_formed_candle():
+    t0 = datetime(2026, 9, 18, 9, 30, tzinfo=timezone.utc)
+    assert validate_candle(_candle("NVDA", "5m", t0, 483.40, 484.19, 482.71, 483.21, 136_192))
+
+
+@pytest.mark.parametrize("o,h,l,c,v,tick_count,expected", [
+    (10, 12, 9, 13, 1, 0, "close (13.0) outside"),
+    (8, 12, 9, 11, 1, 0, "open (8.0) outside"),
+    (10, 9, 12, 11, 1, 0, "low (12.0) > high (9.0)"),
+    (10, 12, 0, 11, 1, 0, "prices must be positive"),
+    (10, 12, 9, 11, -1, 0, "volume (-1) is negative"),
+    (10, 12, 9, 11, 1, -1, "tick_count (-1) is negative"),
+])
+def test_validate_candle_rejects_broken_ohlcv(o, h, l, c, v, tick_count, expected):
+    t0 = datetime(2026, 9, 18, 9, 30, tzinfo=timezone.utc)
+    result = validate_candle(_candle("NVDA", "5m", t0, o, h, l, c, v, tick_count))
+    assert not result
+    assert any(expected in e for e in result.errors)
+
+
+def test_validate_candle_rejects_windows_off_the_grid():
+    t0 = datetime(2026, 9, 18, 9, 31, tzinfo=timezone.utc)
+    result = validate_candle(_candle("NVDA", "5m", t0, 10, 12, 9, 11, 1))
+    assert not result
+    assert any("not aligned" in e for e in result.errors)
+
+    t0 = datetime(2026, 9, 18, 9, 30, tzinfo=timezone.utc)
+    wrong_end = _candle("NVDA", "15m", t0, 10, 12, 9, 11, 1)  # helper sets a 5m window_end
+    assert any("window_end" in e for e in validate_candle(wrong_end).errors)
+
+
+async def test_aggregator_skips_invalid_candles_when_flushing(tmp_path):
+    db_path = tmp_path / "c.db"
+    aggregator = MarketAggregator(_no_feed(), db_path=db_path, intervals=("5m",))
+    t0 = datetime(2026, 9, 18, 9, 30, tzinfo=timezone.utc)
+    aggregator._pending = [
+        _candle("NVDA", "5m", t0, 10, 12, 9, 11, 1, tick_count=3),
+        _candle("NVDA", "5m", t0 + timedelta(minutes=5), 11, 10, 12, 11, 1, tick_count=3),
+    ]
+
+    await aggregator._flush()
+
+    conn = sqlite3.connect(db_path)
+    try:
+        rows = conn.execute("SELECT window_start FROM market_candles").fetchall()
+    finally:
+        conn.close()
+    assert rows == [(t0.isoformat(),)]
+
+
 # ---------------------------------------------------------------- aggregator
+
+def test_live_candles_count_every_tick(make_tick, tmp_path):
+    aggregator = MarketAggregator(_no_feed(), db_path=tmp_path / "c.db", intervals=("15m",))
+    t0 = datetime(2026, 9, 18, 9, 30, tzinfo=timezone.utc)
+    for i in range(4):
+        aggregator._record(make_tick(price=100.0 + i, volume=1_000 + i, timestamp=t0 + timedelta(minutes=i)))
+
+    live = aggregator._windows[("AAPL", "15m")].to_candle("AAPL", "15m")
+    assert live.tick_count == 4
+    assert validate_candle(live)
+
 
 def test_aggregator_closes_windows_on_bucket_boundaries_without_losing_volume(make_tick, tmp_path):
     aggregator = MarketAggregator(_no_feed(), db_path=tmp_path / "c.db", intervals=("5m", "1h"))
@@ -154,6 +218,12 @@ async def test_mock_history_is_continuous_and_matches_the_live_quote():
         assert all(b.open == a.close for a, b in zip(five, five[1:]))
         assert all(b.open == a.close for a, b in zip(daily, daily[1:]))
         assert all(c.low <= min(c.open, c.close) and c.high >= max(c.open, c.close) for c in five)
+        # Every interval of the synthetic history passes the OHLCV checks;
+        # it came from no ticks, so tick_count is 0 throughout.
+        for interval in ("5m", "15m", "1h", "1d", "1w"):
+            candles = await connector.fetch_history("AAPL", interval)
+            assert all(validate_candle(c) for c in candles), interval
+            assert all(c.tick_count == 0 for c in candles)
 
         midnight = bucket_start(datetime.now(timezone.utc), "1d")
         assert profile["previous_close"] == daily[-2].close

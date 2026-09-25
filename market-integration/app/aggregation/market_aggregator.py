@@ -38,7 +38,7 @@ from typing import TYPE_CHECKING, AsyncIterator, Iterable, Optional
 from app.aggregation.ranges import HISTORY_DEPTH
 from app.models.candle import INTERVALS, Candle, bucket_end, bucket_start
 from app.models.market_data import MarketData
-from app.validation.market_validator import validate_tick
+from app.validation.market_validator import validate_candle, validate_tick
 
 if TYPE_CHECKING:
     from app.connectors.base_connector import BaseMarketConnector
@@ -82,6 +82,22 @@ class _WindowAggregate:
             volume=self.volume,
             tick_count=self.tick_count,
         )
+
+
+def _valid_candles(candles: list[Candle]) -> list[Candle]:
+    """Drop (and log) candles that break OHLCV invariants, so a bad
+    provider bar or an aggregation bug never reaches the database."""
+    valid = []
+    for c in candles:
+        result = validate_candle(c)
+        if result:
+            valid.append(c)
+        else:
+            logger.warning(
+                "[aggregator] dropped %s %s candle at %s: %s",
+                c.symbol, c.interval, c.window_start.isoformat(), "; ".join(result.errors),
+            )
+    return valid
 
 
 def _to_row(c: Candle, created_at: str) -> tuple:
@@ -210,7 +226,7 @@ class MarketAggregator:
             for interval in self._intervals:
                 depth = HISTORY_DEPTH.get(interval)
                 start = now - depth if depth is not None else None
-                candles = await connector.fetch_history(symbol, interval, start)
+                candles = _valid_candles(await connector.fetch_history(symbol, interval, start))
                 if not candles:
                     continue
                 await asyncio.to_thread(self._replace_rows, symbol, interval, candles)
@@ -382,7 +398,7 @@ class MarketAggregator:
         if not closed and not still_open:
             return
         created_at = datetime.now(timezone.utc).isoformat()
-        rows = [_to_row(c, created_at) for c in closed + still_open]
+        rows = [_to_row(c, created_at) for c in _valid_candles(closed + still_open)]
         await asyncio.to_thread(self._write_rows, rows)
         del self._pending[:len(closed)]
         logger.info("Flushed %d candle(s) to %s", len(rows), self._db_path)

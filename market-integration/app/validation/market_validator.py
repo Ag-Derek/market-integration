@@ -21,6 +21,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import AsyncIterator
 
+from app.models.candle import INTERVALS, Candle, bucket_end, bucket_start
 from app.models.market_data import MarketData
 
 logger = logging.getLogger(__name__)
@@ -71,6 +72,43 @@ def validate_tick(tick: MarketData, *, now: datetime | None = None) -> Validatio
         errors.append(f"tick is stale: {age.total_seconds():.1f}s old")
     elif age < -MAX_CLOCK_SKEW_AHEAD:
         errors.append(f"tick is timestamped {(-age).total_seconds():.1f}s in the future")
+
+    return ValidationResult(is_valid=not errors, errors=errors)
+
+
+def validate_candle(candle: Candle) -> ValidationResult:
+    """OHLCV invariants every candle must satisfy, whether it was built
+    from live ticks or fetched from a provider's history."""
+    errors: list[str] = []
+
+    if candle.interval not in INTERVALS:
+        errors.append(f"unknown interval {candle.interval!r}")
+    else:
+        if candle.window_start != bucket_start(candle.window_start, candle.interval):
+            errors.append(
+                f"window_start ({candle.window_start.isoformat()}) is not aligned "
+                f"to the {candle.interval} grid"
+            )
+        if candle.window_end != bucket_end(candle.window_start, candle.interval):
+            errors.append(
+                f"window_end ({candle.window_end.isoformat()}) is not "
+                f"window_start + {candle.interval}"
+            )
+
+    if min(candle.open, candle.high, candle.low, candle.close) <= 0:
+        errors.append("prices must be positive")
+    if candle.low > candle.high:
+        errors.append(f"low ({candle.low}) > high ({candle.high})")
+    else:
+        if not (candle.low <= candle.open <= candle.high):
+            errors.append(f"open ({candle.open}) outside [{candle.low}, {candle.high}]")
+        if not (candle.low <= candle.close <= candle.high):
+            errors.append(f"close ({candle.close}) outside [{candle.low}, {candle.high}]")
+
+    if candle.volume < 0:
+        errors.append(f"volume ({candle.volume}) is negative")
+    if candle.tick_count < 0:
+        errors.append(f"tick_count ({candle.tick_count}) is negative")
 
     return ValidationResult(is_valid=not errors, errors=errors)
 
