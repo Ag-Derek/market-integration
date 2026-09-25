@@ -93,7 +93,7 @@ cd market-integration
 **Windows (PowerShell):**
 ```powershell
 py -3.12 -m venv .venv
-.venv\Scripts\activate
+.\.venv\Scripts\activate
 ```
 
 **macOS/Linux:**
@@ -102,13 +102,37 @@ python3.12 -m venv .venv
 source .venv/bin/activate
 ```
 
-You should see `(.venv)` appear at the start of your prompt once it's active.
+You should see `(.venv)` appear at the start of your prompt once it's active,
+and `python --version` should report `Python 3.12.x`.
+
+> **Windows: activation blocked?** If PowerShell refuses to run
+> `Activate.ps1` ("running scripts is disabled on this system"), the venv is
+> **not** active and plain `pip`/`uvicorn` will use your global Python
+> instead. Either allow local scripts for your user account only (one-time,
+> then reopen PowerShell):
+>
+> ```powershell
+> Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+> ```
+>
+> or skip activation entirely and call the venv's Python directly, as shown
+> in the Windows commands below.
 
 ### 3. Install dependencies
 
+**With the venv activated (any OS):**
 ```bash
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
+
+**Windows, without activating** (always installs into `.venv`):
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+If pip prints `Defaulting to user installation because normal site-packages
+is not writeable`, it is installing into your global Python, not the venv —
+activate the venv or use the `.\.venv\Scripts\python.exe` form above.
 
 ### 4. Configure environment variables
 
@@ -140,8 +164,17 @@ Only symbols listed in `MARKET_SYMBOLS` will return data from
 From the project root, with the venv activated:
 
 ```bash
-uvicorn app.main:app --reload
+python -m uvicorn app.main:app --reload
 ```
+
+**Windows, without activating:**
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
+```
+
+Using `python -m uvicorn` rather than the bare `uvicorn` command guarantees
+the venv's Uvicorn is used, and avoids `uvicorn is not recognized` errors
+when the venv's `Scripts` folder isn't on your `PATH`.
 
 You should see:
 
