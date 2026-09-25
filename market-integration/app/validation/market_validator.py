@@ -84,7 +84,7 @@ class ValidatingStream:
 
     This is intentionally a separate branch off the buffer, not a gate
     in front of the aggregator -- a real-time consumer should never
-    have to wait behind the aggregator's 15-minute flush cycle.
+    have to wait behind the aggregator's database flush cycle.
     """
 
     def __init__(self, feed: AsyncIterator[MarketData], name: str = "validator"):

@@ -3,14 +3,16 @@ import csv
 import io
 import logging
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 
 from app import config
 from app.aggregation.market_aggregator import MarketAggregator
+from app.aggregation.ranges import RANGES
 from app.connectors.market_connector import MockMarketConnector
 from app.gateways.websocket_gateway import WebSocketGateway
 from app.processors.market_processor import MarketProcessor
@@ -75,6 +77,55 @@ async def get_market(symbol: str):
     return data
 
 
+@app.get("/candles")
+async def get_candles(
+    symbol: str,
+    range_: str = Query("1D", alias="range"),
+    interval: Optional[str] = None,
+):
+    """OHLCV candles as JSON for charting. `range` is one of the chart
+    selector ranges (1D, 5D, 1M, 6M, YTD, 1Y, 5Y, Max) and picks both the
+    lookback and a suitable candle interval; `interval` overrides the
+    latter. The newest candle is the live, still-open one.
+    """
+    symbol = symbol.upper()
+    if symbol not in connector.symbols:
+        raise HTTPException(status_code=404, detail=f"Unknown symbol '{symbol}'")
+
+    spec = RANGES.get(range_)
+    if spec is None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown range '{range_}'. Expected one of: {', '.join(RANGES)}",
+        )
+    interval = interval or spec.interval
+    if interval not in aggregator.intervals:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown interval '{interval}'. Expected one of: {', '.join(aggregator.intervals)}",
+        )
+
+    start = spec.start(datetime.now(timezone.utc))
+    candles = await aggregator.get_candles(symbol, interval, start)
+    return {
+        "symbol": symbol,
+        "range": range_,
+        "interval": interval,
+        "start": start.isoformat() if start else None,
+        "candles": [
+            {
+                "time": c.window_start.isoformat(),
+                "open": c.open,
+                "high": c.high,
+                "low": c.low,
+                "close": c.close,
+                "volume": c.volume,
+            }
+            for c in candles
+        ],
+    }
+
+
 @app.get("/candles/export")
 async def export_candles(symbol: Optional[str] = None, interval: str = "15m"):
     """Historical OHLCV candles from market_candles as a CSV download --
@@ -120,6 +171,21 @@ async def export_candles(symbol: Optional[str] = None, interval: str = "15m"):
 async def ticker_page():
     """Live-updating quote card UI, driven by the same /ws/market feed."""
     return (STATIC_DIR / "ticker.html").read_text(encoding="utf-8")
+
+
+@app.get("/stock")
+async def stock_page_default():
+    return RedirectResponse(url=f"/stock/{connector.symbols[0]}")
+
+
+@app.get("/stock/{symbol}", response_class=HTMLResponse)
+async def stock_page(symbol: str):
+    """Single-stock detail page: live quote over /ws/market plus a
+    range-selectable chart from /candles. The page reads the symbol from
+    its own URL."""
+    if symbol.upper() not in connector.symbols:
+        raise HTTPException(status_code=404, detail=f"Unknown symbol '{symbol.upper()}'")
+    return (STATIC_DIR / "stock.html").read_text(encoding="utf-8")
 
 
 @app.websocket("/ws/market")
@@ -169,6 +235,9 @@ async def consumer_loop() -> None:
 async def startup():
     global consumer_task
     await connector.connect()
+    # Before any live ticks flow, so history is in place (and open
+    # windows seeded) by the time the aggregator starts recording.
+    await aggregator.backfill(connector)
     await buffer.start()
     await aggregator.start()
     consumer_task = asyncio.create_task(consumer_loop())

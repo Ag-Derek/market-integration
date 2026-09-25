@@ -2,16 +2,13 @@ import asyncio
 import logging
 
 import pytest
-from fastapi.testclient import TestClient
 
 from app.aggregation.market_aggregator import MarketAggregator
-from app.main import app
 from app.queue.market_buffer import MarketDataBuffer
 
 
-def test_health_reports_all_components_after_startup():
-    with TestClient(app) as client:
-        response = client.get("/health")
+def test_health_reports_all_components_after_startup(client):
+    response = client.get("/health")
 
     assert response.status_code == 200
     body = response.json()

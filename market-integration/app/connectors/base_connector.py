@@ -19,11 +19,15 @@ Implementations are responsible for:
 - subscribing to the requested symbols
 - converting provider-specific messages into MarketData (normalize())
 - deciding what "connected" / "running" means for reconnection logic
+- optionally, serving historical candles (fetch_history()) so charts
+  have more than "since the service started" to show
 """
 
 from abc import ABC, abstractmethod
-from typing import AsyncIterator
+from datetime import datetime
+from typing import AsyncIterator, Optional
 
+from app.models.candle import Candle
 from app.models.market_data import MarketData
 
 
@@ -50,6 +54,19 @@ class BaseMarketConnector(ABC):
     async def disconnect(self) -> None:
         """Tear down the connection cleanly."""
         raise NotImplementedError
+
+    async def fetch_history(
+        self, symbol: str, interval: str, start: Optional[datetime] = None
+    ) -> list[Candle]:
+        """
+        Historical candles for `symbol` on the given interval (a key of
+        app.models.candle.INTERVALS), oldest first, from `start` (None =
+        as far back as the provider goes) up to now. Buckets must be
+        aligned with app.models.candle.bucket_start().
+
+        Only called after connect(). Default: no history available.
+        """
+        return []
 
     def normalize(self, raw_data: dict) -> MarketData:
         """
