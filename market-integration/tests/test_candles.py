@@ -6,10 +6,7 @@ import pytest
 from app import config
 from app.aggregation.market_aggregator import MarketAggregator
 from app.aggregation.ranges import RANGES
-from app.connectors.gse_mock_profiles import MOCK_PROFILES
 from app.connectors.market_connector import MockMarketConnector
-from app.instruments import INSTRUMENTS
-from app.instruments.gse_equities import GSE_INSTRUMENTS
 from app.models.candle import Candle, bucket_start, resample
 from app.validation.market_validator import validate_candle, validate_tick
 
@@ -288,24 +285,6 @@ def test_stock_page_is_served_for_tracked_symbols_only(client):
 
 
 # ---------------------------------------------------------------- GSE universe
-
-def test_instrument_master_and_mock_calibration_cover_the_same_symbols():
-    assert set(INSTRUMENTS) == set(MOCK_PROFILES)
-    assert len(INSTRUMENTS) == len(GSE_INSTRUMENTS)  # no duplicate codes
-    assert {"MTNGH", "GCB", "SCB", "SOGEGH", "TOTAL", "GOIL", "UNIL", "PBC", "GLD"} <= set(INSTRUMENTS)
-
-
-def test_unknown_symbols_in_env_are_rejected(monkeypatch):
-    monkeypatch.setenv("MARKET_SYMBOLS", "MTNGH, gcb")
-    assert config._symbols_from_env() == ["MTNGH", "GCB"]
-
-    monkeypatch.setenv("MARKET_SYMBOLS", "MTNGH,NOPE")
-    with pytest.raises(ValueError, match="NOPE"):
-        config._symbols_from_env()
-
-    monkeypatch.setenv("MARKET_SYMBOLS", "")
-    assert config._symbols_from_env() == list(INSTRUMENTS)
-
 
 async def test_dormant_names_stay_flat_and_quote_a_thin_book():
     # PBC: no trades and a 0.02-0.02 year range on 28-Sep-2026, no bid

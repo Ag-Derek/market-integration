@@ -4,10 +4,11 @@ so nothing provider-specific is hardcoded once a real connector exists.
 """
 
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
-from app.instruments import INSTRUMENTS, all_symbols
+from app.instruments import INSTRUMENTS, streamable, streamable_symbols
 
 load_dotenv()
 
@@ -15,20 +16,31 @@ load_dotenv()
 def _symbols_from_env() -> list[str]:
     raw = os.getenv("MARKET_SYMBOLS", "").strip()
     if not raw:
-        return all_symbols()
+        return streamable_symbols()
     symbols = [s.strip().upper() for s in raw.split(",") if s.strip()]
     unknown = [s for s in symbols if s not in INSTRUMENTS]
     if unknown:
         raise ValueError(
             f"MARKET_SYMBOLS contains symbols missing from the instrument master "
-            f"(app/instruments/): {', '.join(unknown)}"
+            f"(data/instruments.json): {', '.join(unknown)}"
+        )
+    not_streamable = [s for s in symbols if not streamable(INSTRUMENTS[s])]
+    if not_streamable:
+        raise ValueError(
+            f"MARKET_SYMBOLS contains symbols the feed can't carry (only active "
+            f"equities are streamed): {', '.join(not_streamable)}"
         )
     return symbols
 
 
-# Symbols to track, comma separated, e.g. "MTNGH,GCB,SCB". Unset or empty
-# tracks every instrument in the instrument master (app/instruments/).
+# Symbols the feed tracks, comma separated, e.g. "MTNGH,GCB,SCB". Unset or
+# empty tracks every active equity in the instrument master
+# (data/instruments.json).
 SYMBOLS: list[str] = _symbols_from_env()
+
+# SQLite database holding the instruments table and aggregated candles.
+# Relative paths resolve against the directory the service is started in.
+DB_PATH: Path = Path(os.getenv("MARKET_DB_PATH", "market_data.db"))
 
 # How often the mock connector emits an update, in seconds
 MOCK_INTERVAL_SECONDS: float = float(os.getenv("MOCK_INTERVAL_SECONDS", "0.5"))
