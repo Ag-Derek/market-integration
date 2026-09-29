@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Query, WebSocket
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 
 from app import config
@@ -36,7 +36,14 @@ connector = MockMarketConnector(
 )
 
 processor = MarketProcessor()
-gateway = WebSocketGateway()
+# Clients subscribe to symbols from the feed's universe; a new
+# subscription gets a snapshot of the processor's latest quotes.
+gateway = WebSocketGateway(
+    symbols=connector.symbols,
+    snapshot=lambda symbols: {
+        s: q for s in symbols if (q := processor.get_latest(s)) is not None
+    },
+)
 
 # Queryable copy of the instrument master; re-seeded from
 # data/instruments.json on every startup.
@@ -249,28 +256,9 @@ async def stock_page(symbol: str):
 
 @app.websocket("/ws/market")
 async def market_websocket(websocket: WebSocket):
-    await gateway.connect(websocket)
-
-    try:
-        await websocket.send_json({
-            "type": "initial_state",
-            "data": {
-                symbol: data.model_dump(mode="json")
-                for symbol, data in processor.get_all_latest().items()
-            },
-        })
-
-        while True:
-            # Keep the connection open; we don't expect the client to
-            # send anything, but we need to await something so a client
-            # disconnect raises and hits the except block below.
-            await websocket.receive_text()
-
-    except WebSocketDisconnect:
-        await gateway.disconnect(websocket)
-    except Exception:
-        logger.exception("Market websocket connection failed")
-        await gateway.disconnect(websocket)
+    """Live quotes for the symbols a client subscribes to. See
+    app/gateways/websocket_gateway.py for the protocol."""
+    await gateway.serve(websocket)
 
 
 async def consumer_loop() -> None:

@@ -398,14 +398,19 @@
     showCapNote._t = setTimeout(function () { el.capNote.classList.remove("show"); }, 2500);
   }
 
+  // The feed only sends quotes for subscribed symbols, so each open pane
+  // is a subscription: opening one subscribes, closing it unsubscribes.
   function togglePane(sym) {
     if (openSymbols.has(sym)) {
       openSymbols.delete(sym);
+      send("unsubscribe", [sym]);
       buildGrid();
     } else if (openSymbols.size >= MAX_PANES) {
       showCapNote();
     } else {
       openSymbols.add(sym);
+      send("subscribe", [sym]);
+      loadHistory(sym);
       buildGrid();
     }
   }
@@ -727,44 +732,54 @@
   }
 
   function ingest(d) {
+    if (!openSymbols.has(d.symbol)) return;  // e.g. a tick sent just before an unsubscribe landed
     d._receivedAt = Date.now();
     state[d.symbol] = d;
     recordTick(d);
+    updatePane(d.symbol);
+  }
 
-    const isNew = knownSymbols.indexOf(d.symbol) === -1;
-    if (isNew) {
-      knownSymbols.push(d.symbol);
-      loadHistory(d.symbol);
-    }
+  let socket = null;
+  let hadConnection = false;
 
-    if (isNew && openSymbols.size < MAX_PANES) {
-      openSymbols.add(d.symbol);
-      buildGrid();
-    } else if (openSymbols.has(d.symbol)) {
-      updatePane(d.symbol);
-    } else if (isNew) {
-      buildPicker();
+  function send(action, symbols) {
+    if (socket && socket.readyState === WebSocket.OPEN && symbols.length) {
+      socket.send(JSON.stringify({ action: action, symbols: symbols }));
     }
   }
 
-  let hadConnection = false;
+  // The server's welcome message lists the symbols the feed carries (no
+  // prices). The first time, open the first few; after a reconnect, keep
+  // what was open, re-subscribe and re-fetch candles missed while offline.
+  function onWelcome(symbols) {
+    knownSymbols.length = 0;
+    Array.prototype.push.apply(knownSymbols, symbols);
+    Array.from(openSymbols).forEach(function (sym) {
+      if (symbols.indexOf(sym) === -1) openSymbols.delete(sym);
+    });
+    if (!hadConnection) {
+      symbols.slice(0, MAX_PANES).forEach(function (sym) { openSymbols.add(sym); });
+    }
+    hadConnection = true;
+    openSymbols.forEach(loadHistory);
+    buildGrid();
+    send("subscribe", Array.from(openSymbols));
+  }
 
   function connect() {
     const proto = location.protocol === "https:" ? "wss" : "ws";
-    const ws = new WebSocket(proto + "://" + location.host + "/ws/market");
-
-    ws.onopen = function () {
-      // After a reconnect, re-fetch so candles missed while offline show up.
-      if (hadConnection) knownSymbols.forEach(loadHistory);
-      hadConnection = true;
-    };
+    const ws = socket = new WebSocket(proto + "://" + location.host + "/ws/market");
 
     ws.onmessage = function (evt) {
       const msg = JSON.parse(evt.data);
-      if (msg.type === "initial_state") {
+      if (msg.type === "welcome") {
+        onWelcome(msg.symbols);
+      } else if (msg.type === "snapshot") {
         Object.values(msg.data).forEach(ingest);
-      } else if (msg.symbol) {
-        ingest(msg);
+      } else if (msg.type === "tick") {
+        ingest(msg.data);
+      } else if (msg.type === "error") {
+        console.warn("market feed:", msg.message);
       }
     };
 

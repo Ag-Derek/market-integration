@@ -1086,13 +1086,31 @@
       hadConnection = true;
     };
 
+    // The switcher's other symbols show their change as of page load, not
+    // live: on connect, subscribe to everything once for the snapshot,
+    // then keep only this page's symbol, so the page doesn't receive the
+    // whole feed.
+    let wantSnapshotOnly = [];
+    function send(action, symbols) {
+      if (ws.readyState === WebSocket.OPEN && symbols.length) {
+        ws.send(JSON.stringify({ action: action, symbols: symbols }));
+      }
+    }
+
     ws.onmessage = function (evt) {
       $("statusText").textContent = "Live";
       const msg = JSON.parse(evt.data);
-      if (msg.type === "initial_state") {
+      if (msg.type === "welcome") {
+        wantSnapshotOnly = msg.symbols.filter(function (s) { return s !== SYMBOL; });
+        send("subscribe", msg.symbols);
+      } else if (msg.type === "snapshot") {
         Object.values(msg.data).forEach(function (d) { ingest(d, true); });
-      } else if (msg.symbol) {
-        ingest(msg, false);
+        send("unsubscribe", wantSnapshotOnly);
+        wantSnapshotOnly = [];
+      } else if (msg.type === "tick") {
+        ingest(msg.data, false);
+      } else if (msg.type === "error") {
+        console.warn("market feed:", msg.message);
       }
     };
 

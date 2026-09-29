@@ -366,10 +366,10 @@ async def test_mock_emits_the_gse_report_fields_consistently():
     assert mtn.day_low - 0.01 <= mtn.vwap <= mtn.day_high + 0.01
 
 
-def test_websocket_initial_state_covers_every_tracked_symbol(client):
+def test_websocket_welcome_lists_every_tracked_symbol_without_prices(client):
+    # Per-client subscriptions (#13): on connect a client learns what it can
+    # subscribe to, but gets no market data until it subscribes.
     with client.websocket_connect("/ws/market") as ws:
         msg = ws.receive_json()
 
-    assert msg["type"] == "initial_state"
-    assert set(msg["data"]) == set(config.SYMBOLS)
-    assert msg["data"]["MTNGH"]["exchange_label"].startswith("GSE")
+    assert msg == {"type": "welcome", "symbols": config.SYMBOLS}
