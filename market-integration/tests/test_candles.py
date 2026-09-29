@@ -113,7 +113,7 @@ def test_live_candles_count_every_tick(make_tick, tmp_path):
     aggregator = MarketAggregator(_no_feed(), db_path=tmp_path / "c.db", intervals=("15m",))
     t0 = datetime(2026, 9, 18, 9, 30, tzinfo=timezone.utc)
     for i in range(4):
-        aggregator._record(make_tick(price=100.0 + i, volume=1_000 + i, timestamp=t0 + timedelta(minutes=i)))
+        aggregator._record(make_tick(last_trade_price=100.0 + i, shares_traded=1_000 + i, timestamp=t0 + timedelta(minutes=i)))
 
     live = aggregator._windows[("MTNGH", "15m")].to_candle("MTNGH", "15m")
     assert live.tick_count == 4
@@ -124,10 +124,10 @@ def test_aggregator_closes_windows_on_bucket_boundaries_without_losing_volume(ma
     aggregator = MarketAggregator(_no_feed(), db_path=tmp_path / "c.db", intervals=("5m", "1h"))
     t0 = datetime(2026, 9, 23, 10, 3, tzinfo=timezone.utc)
 
-    aggregator._record(make_tick(price=100.0, volume=1_000, timestamp=t0))
-    aggregator._record(make_tick(price=102.0, volume=1_200, timestamp=t0 + timedelta(minutes=1)))
+    aggregator._record(make_tick(last_trade_price=100.0, shares_traded=1_000, timestamp=t0))
+    aggregator._record(make_tick(last_trade_price=102.0, shares_traded=1_200, timestamp=t0 + timedelta(minutes=1)))
     # Crosses into the 10:05 five-minute bucket; same hourly bucket.
-    aggregator._record(make_tick(price=101.0, volume=1_500, timestamp=t0 + timedelta(minutes=3)))
+    aggregator._record(make_tick(last_trade_price=101.0, shares_traded=1_500, timestamp=t0 + timedelta(minutes=3)))
 
     [closed] = aggregator._pending
     assert closed.interval == "5m"
@@ -151,7 +151,7 @@ async def test_get_candles_overlays_unflushed_windows_on_stored_ones(make_tick, 
         _candle("MTNGH", "5m", current, 94, 96, 93, 95, 10),  # stale copy of the open window
     ])
 
-    aggregator._record(make_tick(price=97.0, volume=10, timestamp=now))
+    aggregator._record(make_tick(last_trade_price=97.0, shares_traded=10, timestamp=now))
 
     candles = await aggregator.get_candles("MTNGH", "5m", earlier)
     assert [c.window_start for c in candles] == [earlier, current]
@@ -227,10 +227,24 @@ async def test_mock_history_is_continuous_and_matches_the_live_quote():
             assert all(c.tick_count == 0 for c in candles)
 
         midnight = bucket_start(datetime.now(timezone.utc), "1d")
-        assert profile["previous_close"] == daily[-2].close
-        assert session["open"] == daily[-1].open
         assert daily[-1].window_start == midnight
-        assert profile["week52_low"] <= price <= profile["week52_high"]
+        # MTNGH trades every few seconds, so yesterday and today both
+        # have trades: previous close is yesterday's VWAP, and today's
+        # session is read off today's traded bars.
+        yesterday = [c for c in five if midnight - timedelta(days=1) <= c.window_start < midnight]
+        shares = sum(c.volume for c in yesterday)
+        assert profile["previous_close"] == round(sum(c.close * c.volume for c in yesterday) / shares, 2)
+        assert session["shares"] == daily[-1].volume > 0
+        assert daily[-1].low <= session["day_low"] <= session["day_high"] <= daily[-1].high
+        for key in ("year", "week52"):
+            assert profile[f"{key}_low"] <= price <= profile[f"{key}_high"]
+            assert profile[f"{key}_low"] <= profile["previous_close"] <= profile[f"{key}_high"]
+
+        quote = connector.normalize(connector._quote("MTNGH", profile))
+        assert quote.last_trade_price == price
+        assert quote.price == round(session["value"] / session["shares"], 2)
+        assert quote.change == round(quote.price - quote.previous_close, 2)
+        assert validate_tick(quote), validate_tick(quote).errors
 
         since = await connector.fetch_history("MTNGH", "1h", midnight)
         assert since[0].window_start == midnight
@@ -255,8 +269,9 @@ def test_candles_api_serves_every_range(client, range_):
     assert times == sorted(times)
 
     latest = client.get("/market/MTNGH").json()
-    # The newest candle is the live one, not the last backfilled bar.
-    assert candles[-1]["close"] == pytest.approx(latest["price"], abs=0.5)
+    # The newest candle is the live one, not the last backfilled bar;
+    # candles are built from trades, not the VWAP.
+    assert candles[-1]["close"] == pytest.approx(latest["last_trade_price"], abs=0.5)
 
 
 def test_candles_api_rejects_unknown_inputs(client):
@@ -309,7 +324,7 @@ async def test_dormant_names_stay_flat_and_quote_a_thin_book():
 
         pbc, access = first["PBC"], first["ACCESS"]
         assert (pbc.price, pbc.bid, pbc.ask, pbc.bid_size, pbc.ask_size) == (0.02, None, None, 0, 0)
-        assert access.price == 20.67
+        assert access.last_trade_price == 20.67
         assert access.bid is not None and access.ask is None and access.ask_size == 0
         assert validate_tick(pbc) and validate_tick(access)
     finally:

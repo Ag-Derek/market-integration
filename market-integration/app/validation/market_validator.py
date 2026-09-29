@@ -5,8 +5,8 @@ Pydantic's `MarketData` model already enforces structural rules (types,
 positive prices, non-negative volumes, ...) at construction time -- a
 tick that violates those never even becomes a MarketData object. This
 module adds the cross-field business rules the schema can't express on
-its own: relationships between fields (bid < ask, price within the
-day's range) and freshness (the tick isn't stale or timestamped in the
+its own: relationships between fields (bid < ask when both sides are
+quoted, price within the day's and year's range) and freshness (the tick isn't stale or timestamped in the
 future).
 
 `validate_tick` is a plain, dependency-free function on purpose: it is
@@ -56,18 +56,29 @@ def validate_tick(tick: MarketData, *, now: datetime | None = None) -> Validatio
     if tick.bid is not None and tick.ask is not None and tick.bid >= tick.ask:
         errors.append(f"bid ({tick.bid}) is not less than ask ({tick.ask})")
 
-    if tick.day_low > tick.day_high:
-        errors.append(f"day_low ({tick.day_low}) > day_high ({tick.day_high})")
-    elif not (tick.day_low <= tick.price <= tick.day_high):
-        errors.append(
-            f"price ({tick.price}) outside day range [{tick.day_low}, {tick.day_high}]"
-        )
+    # A no-trade day has no range, and its closing VWAP is carried
+    # forward from a previous session, so there is nothing to check.
+    if tick.shares_traded > 0:
+        if tick.day_low is None or tick.day_high is None:
+            errors.append("shares were traded but the day range is missing")
+        elif tick.day_low > tick.day_high:
+            errors.append(f"day_low ({tick.day_low}) > day_high ({tick.day_high})")
+        else:
+            # Today's VWAP and last trade are both made of today's trades.
+            for field in ("price", "last_trade_price"):
+                value = getattr(tick, field)
+                if not (tick.day_low <= value <= tick.day_high):
+                    errors.append(
+                        f"{field} ({value}) outside day range "
+                        f"[{tick.day_low}, {tick.day_high}]"
+                    )
 
-    if not (tick.week52_low <= tick.price <= tick.week52_high):
-        errors.append(
-            f"price ({tick.price}) outside 52-week range "
-            f"[{tick.week52_low}, {tick.week52_high}]"
-        )
+    for label, low, high in (
+        ("year", tick.year_low, tick.year_high),
+        ("52-week", tick.week52_low, tick.week52_high),
+    ):
+        if not (low <= tick.price <= high):
+            errors.append(f"price ({tick.price}) outside {label} range [{low}, {high}]")
 
     age = now - tick.timestamp
     if age > MAX_TICK_AGE:

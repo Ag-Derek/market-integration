@@ -25,8 +25,11 @@ charts have years of data to show immediately rather than only what
 has been recorded since startup. The history is one continuous random
 walk that ends exactly at the live starting price, with flat,
 zero-volume bars wherever the symbol didn't trade, and the quote's
-previous close / open / day range / session volume / 52-week range are
-all read off it, so the chart and the quote card agree. The live walk
+previous close (VWAP) / open / day range / session shares and value /
+year and 52-week ranges are all read off it, so the chart and the quote
+card agree. The quote's `price` is the GSE closing price, i.e. the
+session VWAP, carried forward from the previous close until the
+symbol's first trade of the day; `last_trade_price` is the walk itself. The live walk
 uses the same volatility and trade frequency, so the live tail of a
 chart looks like a continuation of the backfilled part.
 
@@ -94,6 +97,32 @@ def _trade_probability(span_seconds: float, trade_gap_seconds: float) -> float:
     return 1 - math.exp(-span_seconds / trade_gap_seconds)
 
 
+def _vwap(bars: list[Candle]) -> Optional[float]:
+    """Volume-weighted average of the bars' closes (the history has no
+    individual trades, so a bar's close stands in for its trades), or
+    None if nothing traded."""
+    shares = sum(c.volume for c in bars)
+    if not shares:
+        return None
+    return round(sum(c.close * c.volume for c in bars) / shares, 2)
+
+
+def _previous_vwap(intraday: list[Candle], daily: list[Candle], midnight: datetime) -> float:
+    """The GSE closing price of the last session before `midnight`:
+    yesterday's VWAP, or if yesterday had no trades, the close carried
+    forward from the last day that did. Older days only have daily bars,
+    so their close stands in for their VWAP."""
+    yesterday = midnight - INTERVALS["1d"]
+    vwap = _vwap([c for c in intraday if yesterday <= c.window_start < midnight])
+    if vwap is not None:
+        return vwap
+    last_trade = next(c.close for c in reversed(intraday) if c.window_start < midnight)
+    return next(
+        (c.close for c in reversed(daily) if c.window_start < yesterday and c.volume > 0),
+        last_trade,
+    )
+
+
 class MockMarketConnector(BaseMarketConnector):
 
     def __init__(
@@ -141,11 +170,13 @@ class MockMarketConnector(BaseMarketConnector):
             # just generated, so the chart and the quote card agree.
             midnight = bucket_start(now, "1d")
             intraday = history["5m"]
-            session_bars = [c for c in intraday if c.window_start >= midnight]
-            previous_close = next(
-                c.close for c in reversed(intraday) if c.window_start < midnight
-            )
-            year_bars = [c for c in history["1d"] if c.window_start >= now - timedelta(days=365)]
+            session_bars = [c for c in intraday if c.window_start >= midnight and c.volume > 0]
+            previous_close = _previous_vwap(intraday, history["1d"], midnight)
+            # Both ranges also cover the carried-forward closing price, which
+            # can predate them for a name that hasn't traded in a while.
+            closes = (previous_close, price)
+            week52_bars = [c for c in history["1d"] if c.window_start >= now - timedelta(days=365)]
+            year_bars = [c for c in history["1d"] if c.window_start.year == now.year]
 
             forward_dividend = round(price * random.uniform(0, 0.08), 2)
             ex_dividend_date = today + timedelta(days=random.randint(5, 60))
@@ -158,8 +189,10 @@ class MockMarketConnector(BaseMarketConnector):
                 "book": mp.book,
                 "spread": mp.spread,
                 "previous_close": previous_close,
-                "week52_low": min(c.low for c in year_bars),
-                "week52_high": max(c.high for c in year_bars),
+                "year_low": min(min(c.low for c in year_bars), *closes),
+                "year_high": max(max(c.high for c in year_bars), *closes),
+                "week52_low": min(min(c.low for c in week52_bars), *closes),
+                "week52_high": max(max(c.high for c in week52_bars), *closes),
                 # Placeholder: no shares-outstanding data yet.
                 "market_cap": round(price * random.randint(100_000_000, 5_000_000_000), 0),
                 "beta": round(random.uniform(0.3, 1.2), 2),
@@ -181,11 +214,13 @@ class MockMarketConnector(BaseMarketConnector):
                 )
 
             self._profiles[symbol] = profile
+            # A day with no trades yet has no open or range.
             self._session[symbol] = {
-                "open": session_bars[0].open,
-                "day_high": max(c.high for c in session_bars),
-                "day_low": min(c.low for c in session_bars),
-                "volume": sum(c.volume for c in session_bars),
+                "open": session_bars[0].open if session_bars else None,
+                "day_high": max((c.high for c in session_bars), default=None),
+                "day_low": min((c.low for c in session_bars), default=None),
+                "shares": sum(c.volume for c in session_bars),
+                "value": sum(c.close * c.volume for c in session_bars),
             }
 
         self.running = True
@@ -328,31 +363,45 @@ class MockMarketConnector(BaseMarketConnector):
         price = round(self._prices[symbol], 2)
 
         session = self._session[symbol]
+        if session["open"] is None:
+            session["open"] = session["day_high"] = session["day_low"] = price
         session["day_high"] = max(session["day_high"], price)
         session["day_low"] = min(session["day_low"], price)
         # Sized so a full day of trades adds up to roughly avg_volume, the
         # same scale the backfilled bars use.
         per_trade = profile["avg_volume"] * trade_gap / _SECONDS_PER_DAY
-        session["volume"] += max(int(per_trade * random.uniform(0.2, 1.8)), 1)
+        shares = max(int(per_trade * random.uniform(0.2, 1.8)), 1)
+        session["shares"] += shares
+        session["value"] += price * shares
 
-        # A new high/low extends the 52-week range rather than making the
-        # tick fail validation.
-        profile["week52_high"] = max(profile["week52_high"], price)
-        profile["week52_low"] = min(profile["week52_low"], price)
+        # A new high/low extends the year and 52-week ranges rather than
+        # making the tick fail validation.
+        for key in ("year", "week52"):
+            profile[f"{key}_high"] = max(profile[f"{key}_high"], price)
+            profile[f"{key}_low"] = min(profile[f"{key}_low"], price)
 
     def _quote(self, symbol: str, profile: dict) -> dict:
-        price = round(self._prices[symbol], 2)
+        last_trade = round(self._prices[symbol], 2)
         session = self._session[symbol]
-        bid, ask = self._book(price, profile["book"], profile["spread"])
+        # GSE closing price: the session VWAP, or the previous close
+        # carried forward until something trades.
+        if session["shares"]:
+            price = round(session["value"] / session["shares"], 2)
+        else:
+            price = profile["previous_close"]
+        bid, ask = self._book(last_trade, profile["book"], profile["spread"])
         return {
             "symbol": symbol,
             "name": profile["name"],
             "exchange_label": EXCHANGE_LABEL,
             "price": price,
+            "last_trade_price": last_trade,
             "previous_close": profile["previous_close"],
-            "open": round(session["open"], 2),
-            "day_high": round(session["day_high"], 2),
-            "day_low": round(session["day_low"], 2),
+            "open": session["open"],
+            "day_high": session["day_high"],
+            "day_low": session["day_low"],
+            "year_high": profile["year_high"],
+            "year_low": profile["year_low"],
             "week52_high": profile["week52_high"],
             "week52_low": profile["week52_low"],
             "market_cap": profile["market_cap"],
@@ -363,7 +412,8 @@ class MockMarketConnector(BaseMarketConnector):
             "bid_size": random.randint(1, 40) * 100 if bid is not None else 0,
             "ask": ask,
             "ask_size": random.randint(1, 40) * 100 if ask is not None else 0,
-            "volume": session["volume"],
+            "shares_traded": session["shares"],
+            "value_traded": round(session["value"], 2),
             "avg_volume": profile["avg_volume"],
             "forward_dividend": profile["forward_dividend"],
             "forward_dividend_yield": profile["forward_dividend_yield"],

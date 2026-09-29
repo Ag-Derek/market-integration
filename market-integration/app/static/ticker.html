@@ -245,6 +245,18 @@
   .change-pill.down { color: var(--red); background: rgba(229, 103, 90, 0.12); }
   .change-pill.flat { color: var(--ink-soft); background: rgba(174, 182, 169, 0.1); }
 
+  .no-trades {
+    display: none;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--gold);
+    background: var(--gold-bg);
+    border: 1px solid rgba(217, 164, 76, 0.35);
+    border-radius: 5px;
+    padding: 2px 7px;
+  }
+  .no-trades.show { display: inline-block; }
+
   .pane-asof { font-size: 11px; color: var(--ink-faint); margin: 4px 0 0; }
 
   .pane-dividend {
@@ -324,9 +336,10 @@
   </div>
 
   <footer>
-    Live over <code>/ws/market</code>, the same feed the rest of the pipeline uses. Each pane shows a curated set of
-    fields, price, change, day range, volume, market cap; everything except price, bid/ask, day range, and volume is
-    a generated placeholder, there is no real GSE fundamentals data behind it yet.
+    Live over <code>/ws/market</code>, the same feed the rest of the pipeline uses. Prices follow the GSE: the headline
+    price is the session's volume-weighted average (the GSE closing price) and the change is measured against the
+    previous VWAP close; the chart plots individual trades. Market cap and other fundamentals are generated
+    placeholders, there is no real GSE fundamentals data behind them yet.
   </footer>
 
 </div>
@@ -468,8 +481,12 @@
     price.textContent = "—";
     const change = document.createElement("span");
     change.className = "change-pill num";
+    const noTrades = document.createElement("span");
+    noTrades.className = "no-trades";
+    noTrades.textContent = "No trades today";
     priceRow.appendChild(price);
     priceRow.appendChild(change);
+    priceRow.appendChild(noTrades);
     root.appendChild(priceRow);
 
     const asOf = document.createElement("p");
@@ -494,7 +511,7 @@
     const stats = {
       previousClose: statEl("Previous Close"),
       dayRange: statEl("Day's Range"),
-      volume: statEl("Volume"),
+      sharesTraded: statEl("Shares Traded"),
       marketCap: statEl("Market Cap"),
     };
     Object.keys(stats).forEach(function (k) { statsGrid.appendChild(stats[k].wrap); });
@@ -508,6 +525,7 @@
       nameText: name.querySelector(".name-text"),
       price: price,
       change: change,
+      noTrades: noTrades,
       asOf: asOf,
       dividend: dividend,
       dividendText: dividend.querySelector(".dividend-text"),
@@ -547,15 +565,17 @@
     p.exchangeLabel.textContent = d.exchange_label;
     p.nameText.textContent = d.name;
 
+    // GSE closing price (VWAP), and its change vs the previous VWAP close.
     p.price.textContent = fmtMoney(d.price);
 
-    const diff = d.price - d.previous_close;
-    const pct = (diff / d.previous_close) * 100;
-    const dir = diff > 0.004 ? "up" : diff < -0.004 ? "down" : "flat";
+    const dir = d.change > 0 ? "up" : d.change < 0 ? "down" : "flat";
     const arrow = dir === "up" ? "▲" : dir === "down" ? "▼" : "–";
-    p.change.textContent = arrow + " " + Math.abs(diff).toFixed(2) + " (" + Math.abs(pct).toFixed(2) + "%)";
+    p.change.textContent = arrow + " " + Math.abs(d.change).toFixed(2) + " (" + Math.abs(d.change_percent).toFixed(2) + "%)";
     p.change.className = "change-pill num " + dir;
     p.statusDot.className = "status-dot live" + (dir === "down" ? " down" : "");
+
+    const traded = d.shares_traded > 0;
+    p.noTrades.classList.toggle("show", !traded);
 
     p.asOf.textContent = "As of " + fmtTime(d._receivedAt) + " · updated " + secondsAgo(d._receivedAt);
 
@@ -567,8 +587,8 @@
     }
 
     p.stats.previousClose.value.textContent = fmtMoney(d.previous_close);
-    p.stats.dayRange.value.textContent = fmtMoney(d.day_low) + " – " + fmtMoney(d.day_high);
-    p.stats.volume.value.textContent = fmtNum(d.volume);
+    p.stats.dayRange.value.textContent = traded ? fmtMoney(d.day_low) + " – " + fmtMoney(d.day_high) : "—";
+    p.stats.sharesTraded.value.textContent = traded ? fmtNum(d.shares_traded) : "No trades today";
     p.stats.marketCap.value.textContent = fmtLarge(d.market_cap);
 
     drawChart(sym);
@@ -684,21 +704,23 @@
   }
 
   // Once candles are loaded, fold each tick into the newest candle, or
-  // open a new one when the tick crosses into the next bucket.
+  // open a new one when the tick crosses into the next bucket. Candles
+  // are built from trade prices, not the VWAP, so the same goes here.
   function recordTick(d) {
     const pts = history[d.symbol] || (history[d.symbol] = []);
     const step = historyStep[d.symbol];
+    const px = d.last_trade_price;
     if (!step || !pts.length) {
-      pts.push({ t: d._receivedAt, price: d.price });
+      pts.push({ t: d._receivedAt, price: px });
       if (pts.length > HISTORY_LIMIT) pts.shift();
       return;
     }
     const t = Date.parse(d.timestamp);
     const last = pts[pts.length - 1];
     if (t >= last.t + step) {
-      pts.push({ t: last.t + Math.floor((t - last.t) / step) * step, price: d.price });
+      pts.push({ t: last.t + Math.floor((t - last.t) / step) * step, price: px });
     } else if (t >= last.t) {
-      last.price = d.price;
+      last.price = px;
     }
   }
 

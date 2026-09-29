@@ -14,9 +14,12 @@ is finalized when the first tick of the next bucket arrives; each flush
 writes finalized windows plus a snapshot of the still-open ones (as
 partial candles), and INSERT OR REPLACE keeps that idempotent.
 
-Correctness note on volume: MockMarketConnector reports *cumulative*
-session volume on every tick (it only ever increases), not a per-tick
-trade size. So each tick contributes (its cumulative volume - the
+Candles are built from each tick's last_trade_price, not its `price`:
+the GSE's `price` is the session's running VWAP, a smoothed average
+that would flatten intraday candles and not match backfilled history.
+
+Correctness note on volume: ticks carry *cumulative* session
+shares_traded (it only ever increases), not a per-tick trade size. So each tick contributes (its cumulative volume - the
 previous tick's) to every window it lands in -- never the raw value,
 which would wildly overcount. Doing the delta per tick rather than per
 window also means volume traded between the last tick of one window and
@@ -346,14 +349,16 @@ class MarketAggregator:
             raise
 
     def _record(self, tick: MarketData) -> None:
+        volume = tick.shares_traded
+        price = tick.last_trade_price
         previous = self._last_volume.get(tick.symbol)
         if previous is None:
             delta = 0  # no baseline yet
-        elif tick.volume >= previous:
-            delta = tick.volume - previous
+        elif volume >= previous:
+            delta = volume - previous
         else:
-            delta = tick.volume  # cumulative counter reset (new session)
-        self._last_volume[tick.symbol] = tick.volume
+            delta = volume  # cumulative counter reset (new session)
+        self._last_volume[tick.symbol] = volume
 
         for interval in self._intervals:
             key = (tick.symbol, interval)
@@ -369,14 +374,14 @@ class MarketAggregator:
             if window is None:
                 self._windows[key] = _WindowAggregate(
                     window_start=start,
-                    open=tick.price,
-                    high=tick.price,
-                    low=tick.price,
-                    close=tick.price,
+                    open=price,
+                    high=price,
+                    low=price,
+                    close=price,
                     volume=delta,
                 )
             else:
-                window.update(tick.price, delta)
+                window.update(price, delta)
 
     async def _flush_loop(self) -> None:
         try:

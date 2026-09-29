@@ -163,6 +163,18 @@
   .change-pill.down { color: var(--red); background: rgba(229, 103, 90, 0.12); }
   .change-pill.flat { color: var(--ink-soft); background: rgba(174, 182, 169, 0.1); }
 
+  .no-trades {
+    display: none;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gold);
+    background: var(--gold-bg);
+    border: 1px solid rgba(217, 164, 76, 0.35);
+    border-radius: 6px;
+    padding: 3px 8px;
+  }
+  .no-trades.show { display: inline-block; }
+
   .range-change { font-size: 12.5px; color: var(--ink-soft); }
   .range-change .up { color: var(--green); }
   .range-change .down { color: var(--red); }
@@ -371,6 +383,7 @@
     <div class="price-row">
       <span class="price num" id="price">—</span>
       <span class="change-pill num" id="change"></span>
+      <span class="no-trades" id="noTrades">No trades today</span>
       <span class="range-change num" id="rangeChange"></span>
     </div>
     <p class="asof" id="asof">Waiting for the first update…</p>
@@ -417,8 +430,10 @@
 
   <footer>
     Quote over <code>/ws/market</code>; chart from <code>/candles?symbol=…&amp;range=…</code>. History is backfilled
-    by the mock connector on startup and extended live as ticks arrive. Everything except price, bid/ask, day range,
-    and volume is a generated placeholder, there is no real GSE fundamentals data behind it yet.
+    by the mock connector on startup and extended live as ticks arrive. As on the GSE, the headline price is the
+    session's volume-weighted average (the closing price) and its change is against the previous VWAP close; the
+    chart plots individual trades. Market cap, beta, PE, EPS, dividends and the target are generated placeholders,
+    there is no real GSE fundamentals data behind them yet.
   </footer>
 
 </div>
@@ -540,11 +555,15 @@
   // ---------------------------------------------------------------- quote
 
   const STAT_DEFS = [
-    ["previousClose", "Previous Close"],
+    ["previousClose", "Previous Close (VWAP)"],
+    ["lastTrade", "Last Trade"],
     ["open", "Open"],
     ["dayRange", "Day's Range"],
+    // GSE's "year" range; calendar year vs trailing 52 weeks is unconfirmed.
+    ["yearRange", "Year Range"],
     ["week52", "52 Week Range"],
-    ["volume", "Volume"],
+    ["sharesTraded", "Shares Traded"],
+    ["valueTraded", "Value Traded"],
     ["avgVolume", "Avg. Volume"],
     ["marketCap", "Market Cap"],
     ["beta", "Beta"],
@@ -582,13 +601,15 @@
     $("exchange").textContent = d.exchange_label;
     $("nameText").textContent = d.name;
     document.title = d.symbol + " · " + d.name;
+    // GSE closing price (VWAP), and its change vs the previous VWAP close.
     $("price").textContent = fmtMoney(d.price);
 
-    const diff = d.price - d.previous_close;
-    const dir = direction(diff);
-    $("change").textContent = changeText(diff, d.previous_close);
+    const dir = direction(d.change);
+    $("change").textContent = changeText(d.change, d.previous_close);
     $("change").className = "change-pill num " + dir;
     $("statusDot").className = "status-dot live" + (dir === "down" ? " down" : "");
+    const traded = d.shares_traded > 0;
+    $("noTrades").classList.toggle("show", !traded);
     renderAsOf();
 
     if (d.dividend_announcement) {
@@ -599,10 +620,14 @@
     }
 
     statEls.previousClose.textContent = fmtPrice(d.previous_close);
-    statEls.open.textContent = fmtPrice(d.open);
-    statEls.dayRange.textContent = fmtPrice(d.day_low) + " – " + fmtPrice(d.day_high);
+    statEls.lastTrade.textContent = fmtPrice(d.last_trade_price);
+    // No open or range until the session's first trade.
+    statEls.open.textContent = traded ? fmtPrice(d.open) : "—";
+    statEls.dayRange.textContent = traded ? fmtPrice(d.day_low) + " – " + fmtPrice(d.day_high) : "—";
+    statEls.yearRange.textContent = fmtPrice(d.year_low) + " – " + fmtPrice(d.year_high);
     statEls.week52.textContent = fmtPrice(d.week52_low) + " – " + fmtPrice(d.week52_high);
-    statEls.volume.textContent = fmtNum(d.volume);
+    statEls.sharesTraded.textContent = traded ? fmtNum(d.shares_traded) : "No trades today";
+    statEls.valueTraded.textContent = fmtMoney(d.value_traded);
     statEls.avgVolume.textContent = fmtNum(d.avg_volume);
     statEls.marketCap.textContent = fmtLarge(d.market_cap);
     statEls.beta.textContent = d.beta.toFixed(2);
@@ -637,9 +662,8 @@
       if (sym === SYMBOL) a.setAttribute("aria-current", "page");
       a.appendChild(document.createTextNode(sym));
       const chg = document.createElement("span");
-      const diff = d.price - d.previous_close;
-      chg.className = "chg num " + direction(diff);
-      chg.textContent = (diff >= 0 ? "+" : "−") + Math.abs((diff / d.previous_close) * 100).toFixed(2) + "%";
+      chg.className = "chg num " + direction(d.change);
+      chg.textContent = (d.change >= 0 ? "+" : "−") + Math.abs(d.change_percent).toFixed(2) + "%";
       a.appendChild(chg);
       root.appendChild(a);
     });
@@ -653,10 +677,9 @@
     const i = keys.indexOf(sym);
     if (i === -1 || !chips[i]) return renderSwitcher();
     const d = others[sym];
-    const diff = d.price - d.previous_close;
     const chg = chips[i].querySelector(".chg");
-    chg.className = "chg num " + direction(diff);
-    chg.textContent = (diff >= 0 ? "+" : "−") + Math.abs((diff / d.previous_close) * 100).toFixed(2) + "%";
+    chg.className = "chg num " + direction(d.change);
+    chg.textContent = (d.change >= 0 ? "+" : "−") + Math.abs(d.change_percent).toFixed(2) + "%";
   }
 
   // ---------------------------------------------------------------- chart
@@ -743,26 +766,29 @@
 
   // Fold a live tick into the newest candle, or open a new one once the
   // tick crosses into the next bucket, so the chart moves between fetches.
+  // Candles are built from trade prices, not the VWAP.
   function applyTickToChart(d) {
     if (!chart.candles.length || !chart.interval) return;
     const step = INTERVAL_MS[chart.interval];
     const t = Date.parse(d.timestamp);
     const last = chart.candles[chart.candles.length - 1];
+    const px = d.last_trade_price;
+    const cum = d.shares_traded;
 
     let volDelta = 0;
     if (chart.lastCumVolume != null) {
-      volDelta = d.volume >= chart.lastCumVolume ? d.volume - chart.lastCumVolume : d.volume;
+      volDelta = cum >= chart.lastCumVolume ? cum - chart.lastCumVolume : cum;
     }
-    chart.lastCumVolume = d.volume;
+    chart.lastCumVolume = cum;
 
     if (t >= last.ts + step) {
       const ts = last.ts + Math.floor((t - last.ts) / step) * step;
-      chart.candles.push({ ts: ts, open: d.price, high: d.price, low: d.price, close: d.price, volume: volDelta });
+      chart.candles.push({ ts: ts, open: px, high: px, low: px, close: px, volume: volDelta });
       $("chartMeta").textContent = chart.candles.length + " × " + chart.interval + " candles";
     } else if (t >= last.ts) {
-      last.high = Math.max(last.high, d.price);
-      last.low = Math.min(last.low, d.price);
-      last.close = d.price;
+      last.high = Math.max(last.high, px);
+      last.low = Math.min(last.low, px);
+      last.close = px;
       last.volume += volDelta;
     } else {
       return;
@@ -1038,7 +1064,7 @@
     if (d.symbol !== SYMBOL) return;
     quote = d;
     receivedAt = Date.now();
-    spark.push({ t: receivedAt, price: d.price });
+    spark.push({ t: receivedAt, price: d.last_trade_price });
     if (spark.length > SPARK_LIMIT) spark.shift();
 
     renderQuote();

@@ -49,9 +49,9 @@ async def test_full_pipeline_delivers_only_validated_ticks(make_tick):
 
 async def test_aggregator_persists_ohlcv_for_valid_ticks_only(make_tick, tmp_path):
     t0 = datetime.now(timezone.utc)
-    good_1 = make_tick(price=6.54, volume=1000, timestamp=t0)
+    good_1 = make_tick(last_trade_price=6.54, shares_traded=1000, timestamp=t0)
     bad = make_tick(bid=6.60, ask=6.55, timestamp=t0)
-    good_2 = make_tick(price=6.56, volume=1500, timestamp=t0)
+    good_2 = make_tick(last_trade_price=6.56, shares_traded=1500, timestamp=t0)
 
     buffer = MarketDataBuffer(_source([good_1, bad, good_2]), maxsize=10)
     db_path = tmp_path / "candles.db"
