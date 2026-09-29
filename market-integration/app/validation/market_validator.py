@@ -56,22 +56,19 @@ def validate_tick(tick: MarketData, *, now: datetime | None = None) -> Validatio
     if tick.bid is not None and tick.ask is not None and tick.bid >= tick.ask:
         errors.append(f"bid ({tick.bid}) is not less than ask ({tick.ask})")
 
-    # A no-trade day has no range, and its closing VWAP is carried
-    # forward from a previous session, so there is nothing to check.
-    if tick.shares_traded > 0:
-        if tick.day_low is None or tick.day_high is None:
-            errors.append("shares were traded but the day range is missing")
-        elif tick.day_low > tick.day_high:
-            errors.append(f"day_low ({tick.day_low}) > day_high ({tick.day_high})")
-        else:
-            # Today's VWAP and last trade are both made of today's trades.
-            for field in ("price", "last_trade_price"):
-                value = getattr(tick, field)
-                if not (tick.day_low <= value <= tick.day_high):
-                    errors.append(
-                        f"{field} ({value}) outside day range "
-                        f"[{tick.day_low}, {tick.day_high}]"
-                    )
+    if tick.day_low > tick.day_high:
+        errors.append(f"day_low ({tick.day_low}) > day_high ({tick.day_high})")
+    else:
+        # The session VWAP is only made of today's trades once there are
+        # some; before that it is the previous session's, carried over.
+        fields = ("price", "vwap") if tick.volume > 0 else ("price",)
+        for field in fields:
+            value = getattr(tick, field)
+            if not (tick.day_low <= value <= tick.day_high):
+                errors.append(
+                    f"{field} ({value}) outside day range "
+                    f"[{tick.day_low}, {tick.day_high}]"
+                )
 
     for label, low, high in (
         ("year", tick.year_low, tick.year_high),

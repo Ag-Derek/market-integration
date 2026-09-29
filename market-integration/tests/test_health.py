@@ -18,6 +18,7 @@ def test_health_reports_all_components_after_startup(client):
         "buffer": True,
         "processor": True,
         "aggregator": True,
+        "fixed_income": True,
     }
 
 

@@ -13,10 +13,12 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Stre
 from app import config
 from app.aggregation.market_aggregator import MarketAggregator
 from app.aggregation.ranges import RANGES
+from app.connectors.fixed_income_mock import MockFixedIncomeMarket
 from app.connectors.market_connector import MockMarketConnector
 from app.gateways.websocket_gateway import WebSocketGateway
 from app.instruments import INSTRUMENTS
 from app.instruments.store import InstrumentStore
+from app.models.fixed_income import FixedIncomeReport, FixedIncomeSummary, ReportSection
 from app.models.instrument import AssetClass, Instrument
 from app.processors.market_processor import MarketProcessor
 from app.queue.market_buffer import MarketDataBuffer
@@ -39,6 +41,10 @@ gateway = WebSocketGateway()
 # Queryable copy of the instrument master; re-seeded from
 # data/instruments.json on every startup.
 instrument_store = InstrumentStore(config.DB_PATH)
+
+# Fixed income (GFIM): end-of-day report data, not a tick stream, so it
+# sits beside the equity pipeline rather than in it.
+fixed_income = MockFixedIncomeMarket()
 
 # The buffer decouples ingestion (connector) from its downstream
 # consumers, each getting an independent bounded queue with drop-oldest
@@ -65,6 +71,7 @@ async def health():
         "buffer": buffer.healthy,
         "processor": consumer_task is not None and not consumer_task.done(),
         "aggregator": aggregator.healthy,
+        "fixed_income": fixed_income.ready,
     }
     healthy = all(components.values())
     return JSONResponse(
@@ -93,6 +100,28 @@ async def instrument_detail(symbol: str):
     if instrument is None:
         raise HTTPException(status_code=404, detail=f"Unknown instrument '{symbol.upper()}'")
     return instrument
+
+
+@app.get("/fixed-income/report", response_model=FixedIncomeReport)
+async def fixed_income_report():
+    """The whole GFIM-style daily report for the current session: every
+    section plus the summary. Values are "so far" until the session
+    closes; blank report cells are null."""
+    return fixed_income.report()
+
+
+@app.get("/fixed-income/summary", response_model=FixedIncomeSummary)
+async def fixed_income_summary():
+    """Volume and number of trades per section, with each section's
+    largest trade -- the report's SUMMARY sheet."""
+    return fixed_income.report().summary
+
+
+@app.get("/fixed-income/{section}")
+async def fixed_income_section(section: ReportSection):
+    """One section's rows: new_gog, ddep, old_gog, treasury_bill,
+    corporate or sell_buy_back."""
+    return getattr(fixed_income.report(), section)
 
 
 @app.get("/market/{symbol}")
@@ -265,6 +294,7 @@ async def consumer_loop() -> None:
 async def startup():
     global consumer_task
     await asyncio.to_thread(instrument_store.seed, INSTRUMENTS.values())
+    fixed_income.start()
     await connector.connect()
     # Before any live ticks flow, so history is in place (and open
     # windows seeded) by the time the aggregator starts recording.

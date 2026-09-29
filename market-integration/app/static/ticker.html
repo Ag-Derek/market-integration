@@ -565,16 +565,18 @@
     p.exchangeLabel.textContent = d.exchange_label;
     p.nameText.textContent = d.name;
 
-    // GSE closing price (VWAP), and its change vs the previous VWAP close.
-    p.price.textContent = fmtMoney(d.price);
+    // GSE official price (session VWAP), and its change vs the previous
+    // VWAP close.
+    p.price.textContent = fmtMoney(d.vwap);
 
+    const pct = (d.change / d.previous_close) * 100;
     const dir = d.change > 0 ? "up" : d.change < 0 ? "down" : "flat";
     const arrow = dir === "up" ? "▲" : dir === "down" ? "▼" : "–";
-    p.change.textContent = arrow + " " + Math.abs(d.change).toFixed(2) + " (" + Math.abs(d.change_percent).toFixed(2) + "%)";
+    p.change.textContent = arrow + " " + Math.abs(d.change).toFixed(2) + " (" + Math.abs(pct).toFixed(2) + "%)";
     p.change.className = "change-pill num " + dir;
     p.statusDot.className = "status-dot live" + (dir === "down" ? " down" : "");
 
-    const traded = d.shares_traded > 0;
+    const traded = d.volume > 0;
     p.noTrades.classList.toggle("show", !traded);
 
     p.asOf.textContent = "As of " + fmtTime(d._receivedAt) + " · updated " + secondsAgo(d._receivedAt);
@@ -588,7 +590,7 @@
 
     p.stats.previousClose.value.textContent = fmtMoney(d.previous_close);
     p.stats.dayRange.value.textContent = traded ? fmtMoney(d.day_low) + " – " + fmtMoney(d.day_high) : "—";
-    p.stats.sharesTraded.value.textContent = traded ? fmtNum(d.shares_traded) : "No trades today";
+    p.stats.sharesTraded.value.textContent = traded ? fmtNum(d.volume) : "No trades today";
     p.stats.marketCap.value.textContent = fmtLarge(d.market_cap);
 
     drawChart(sym);
@@ -705,11 +707,11 @@
 
   // Once candles are loaded, fold each tick into the newest candle, or
   // open a new one when the tick crosses into the next bucket. Candles
-  // are built from trade prices, not the VWAP, so the same goes here.
+  // are built from trades (`price`), not the VWAP, so the same goes here.
   function recordTick(d) {
     const pts = history[d.symbol] || (history[d.symbol] = []);
     const step = historyStep[d.symbol];
-    const px = d.last_trade_price;
+    const px = d.price;
     if (!step || !pts.length) {
       pts.push({ t: d._receivedAt, price: px });
       if (pts.length > HISTORY_LIMIT) pts.shift();

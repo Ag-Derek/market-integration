@@ -25,13 +25,11 @@ charts have years of data to show immediately rather than only what
 has been recorded since startup. The history is one continuous random
 walk that ends exactly at the live starting price, with flat,
 zero-volume bars wherever the symbol didn't trade, and the quote's
-previous close (VWAP) / open / day range / session shares and value /
-year and 52-week ranges are all read off it, so the chart and the quote
-card agree. The quote's `price` is the GSE closing price, i.e. the
-session VWAP, carried forward from the previous close until the
-symbol's first trade of the day; `last_trade_price` is the walk itself. The live walk
-uses the same volatility and trade frequency, so the live tail of a
-chart looks like a continuation of the backfilled part.
+previous close / open / day range / session volume and value / year and
+52-week ranges are all read off it, so the chart and the quote card
+agree. The live walk uses the same volatility and trade frequency, so
+the live tail of a chart looks like a continuation of the backfilled
+part.
 
 stream() emits one snapshot per symbol when it starts, so every symbol
 has a quote downstream from the outset, and after that only a tick for
@@ -91,36 +89,31 @@ def _annual_vol(mp: MockProfile) -> float:
     return min(math.log(high / low) / _RANGE_TO_VOL, _MAX_ANNUAL_VOL)
 
 
+def _typical_price(c: Candle) -> float:
+    """Stand-in for a bar's VWAP: the history is bars, not trades."""
+    return (c.high + c.low + c.close) / 3
+
+
+def _previous_session_vwap(history: dict[str, list[Candle]], midnight: datetime) -> float:
+    """The GSE's "previous closing price" is the previous session's VWAP,
+    and a session without trades carries the last one over. So: VWAP of
+    yesterday's 5m bars, else of the most recent earlier day that traded,
+    else (never traded) the last close."""
+    yesterday = midnight - INTERVALS["1d"]
+    bars = [c for c in history["5m"] if yesterday <= c.window_start < midnight and c.volume]
+    if not bars:
+        traded_days = [c for c in history["1d"] if c.window_start < yesterday and c.volume]
+        bars = traded_days[-1:]
+    if not bars:
+        return next(c.close for c in reversed(history["5m"]) if c.window_start < midnight)
+    volume = sum(c.volume for c in bars)
+    return max(round(sum(_typical_price(c) * c.volume for c in bars) / volume, 2), TICK_SIZE)
+
+
 def _trade_probability(span_seconds: float, trade_gap_seconds: float) -> float:
     """Chance of at least one trade in `span_seconds`, for trades
     arriving on average every `trade_gap_seconds`."""
     return 1 - math.exp(-span_seconds / trade_gap_seconds)
-
-
-def _vwap(bars: list[Candle]) -> Optional[float]:
-    """Volume-weighted average of the bars' closes (the history has no
-    individual trades, so a bar's close stands in for its trades), or
-    None if nothing traded."""
-    shares = sum(c.volume for c in bars)
-    if not shares:
-        return None
-    return round(sum(c.close * c.volume for c in bars) / shares, 2)
-
-
-def _previous_vwap(intraday: list[Candle], daily: list[Candle], midnight: datetime) -> float:
-    """The GSE closing price of the last session before `midnight`:
-    yesterday's VWAP, or if yesterday had no trades, the close carried
-    forward from the last day that did. Older days only have daily bars,
-    so their close stands in for their VWAP."""
-    yesterday = midnight - INTERVALS["1d"]
-    vwap = _vwap([c for c in intraday if yesterday <= c.window_start < midnight])
-    if vwap is not None:
-        return vwap
-    last_trade = next(c.close for c in reversed(intraday) if c.window_start < midnight)
-    return next(
-        (c.close for c in reversed(daily) if c.window_start < yesterday and c.volume > 0),
-        last_trade,
-    )
 
 
 class MockMarketConnector(BaseMarketConnector):
@@ -170,13 +163,15 @@ class MockMarketConnector(BaseMarketConnector):
             # just generated, so the chart and the quote card agree.
             midnight = bucket_start(now, "1d")
             intraday = history["5m"]
-            session_bars = [c for c in intraday if c.window_start >= midnight and c.volume > 0]
-            previous_close = _previous_vwap(intraday, history["1d"], midnight)
-            # Both ranges also cover the carried-forward closing price, which
-            # can predate them for a name that hasn't traded in a while.
+            session_bars = [c for c in intraday if c.window_start >= midnight]
+            previous_close = _previous_session_vwap(history, midnight)
+            # The report's year range (calendar year, pending confirmation)
+            # and the trailing 52 weeks. Both also cover the carried-over
+            # closing VWAP, which can predate them for a name that hasn't
+            # traded in a while.
             closes = (previous_close, price)
-            week52_bars = [c for c in history["1d"] if c.window_start >= now - timedelta(days=365)]
             year_bars = [c for c in history["1d"] if c.window_start.year == now.year]
+            week52_bars = [c for c in history["1d"] if c.window_start >= now - timedelta(days=365)]
 
             forward_dividend = round(price * random.uniform(0, 0.08), 2)
             ex_dividend_date = today + timedelta(days=random.randint(5, 60))
@@ -214,13 +209,16 @@ class MockMarketConnector(BaseMarketConnector):
                 )
 
             self._profiles[symbol] = profile
-            # A day with no trades yet has no open or range.
             self._session[symbol] = {
-                "open": session_bars[0].open if session_bars else None,
-                "day_high": max((c.high for c in session_bars), default=None),
-                "day_low": min((c.low for c in session_bars), default=None),
-                "shares": sum(c.volume for c in session_bars),
-                "value": sum(c.close * c.volume for c in session_bars),
+                # The GSE report's opening price is the previous closing
+                # VWAP on every row, traded or not -- a reference price,
+                # not a first trade (docs/data-formats.md, equities).
+                "open": previous_close,
+                "day_high": max(c.high for c in session_bars),
+                "day_low": min(c.low for c in session_bars),
+                "volume": sum(c.volume for c in session_bars),
+                # Running sum of price x shares, for the session VWAP.
+                "value": sum(_typical_price(c) * c.volume for c in session_bars),
             }
 
         self.running = True
@@ -363,16 +361,14 @@ class MockMarketConnector(BaseMarketConnector):
         price = round(self._prices[symbol], 2)
 
         session = self._session[symbol]
-        if session["open"] is None:
-            session["open"] = session["day_high"] = session["day_low"] = price
         session["day_high"] = max(session["day_high"], price)
         session["day_low"] = min(session["day_low"], price)
         # Sized so a full day of trades adds up to roughly avg_volume, the
         # same scale the backfilled bars use.
         per_trade = profile["avg_volume"] * trade_gap / _SECONDS_PER_DAY
-        shares = max(int(per_trade * random.uniform(0.2, 1.8)), 1)
-        session["shares"] += shares
-        session["value"] += price * shares
+        size = max(int(per_trade * random.uniform(0.2, 1.8)), 1)
+        session["volume"] += size
+        session["value"] += price * size
 
         # A new high/low extends the year and 52-week ranges rather than
         # making the tick fail validation.
@@ -381,25 +377,25 @@ class MockMarketConnector(BaseMarketConnector):
             profile[f"{key}_low"] = min(profile[f"{key}_low"], price)
 
     def _quote(self, symbol: str, profile: dict) -> dict:
-        last_trade = round(self._prices[symbol], 2)
+        price = round(self._prices[symbol], 2)
         session = self._session[symbol]
-        # GSE closing price: the session VWAP, or the previous close
-        # carried forward until something trades.
-        if session["shares"]:
-            price = round(session["value"] / session["shares"], 2)
+        bid, ask = self._book(price, profile["book"], profile["spread"])
+        # The official closing price is the session VWAP; with no trades
+        # yet today it carries the previous one over (docs/data-formats.md,
+        # quirk 3), so change is 0.
+        if session["volume"]:
+            vwap = max(round(session["value"] / session["volume"], 2), TICK_SIZE)
         else:
-            price = profile["previous_close"]
-        bid, ask = self._book(last_trade, profile["book"], profile["spread"])
+            vwap = profile["previous_close"]
         return {
             "symbol": symbol,
             "name": profile["name"],
             "exchange_label": EXCHANGE_LABEL,
             "price": price,
-            "last_trade_price": last_trade,
             "previous_close": profile["previous_close"],
-            "open": session["open"],
-            "day_high": session["day_high"],
-            "day_low": session["day_low"],
+            "open": round(session["open"], 2),
+            "day_high": round(session["day_high"], 2),
+            "day_low": round(session["day_low"], 2),
             "year_high": profile["year_high"],
             "year_low": profile["year_low"],
             "week52_high": profile["week52_high"],
@@ -412,7 +408,9 @@ class MockMarketConnector(BaseMarketConnector):
             "bid_size": random.randint(1, 40) * 100 if bid is not None else 0,
             "ask": ask,
             "ask_size": random.randint(1, 40) * 100 if ask is not None else 0,
-            "shares_traded": session["shares"],
+            "vwap": vwap,
+            "change": round(vwap - profile["previous_close"], 2),
+            "volume": session["volume"],
             "value_traded": round(session["value"], 2),
             "avg_volume": profile["avg_volume"],
             "forward_dividend": profile["forward_dividend"],
@@ -427,16 +425,21 @@ class MockMarketConnector(BaseMarketConnector):
     @staticmethod
     def _book(price: float, book: str, spread: float) -> tuple[Optional[float], Optional[float]]:
         """Best bid/ask around `price` for the symbol's usual book shape;
-        a side with no resting order is None."""
+        a side with no resting order is None.
+
+        A lone bid or offer can sit a few ticks on the "wrong" side of the
+        last price, as on the GSE (AGA bid 40.70 vs close 37.00, CLYD
+        offer 4.01 vs 4.02 on 28-Sep-2026): with no trades, the last price
+        is stale. Two-sided books never cross."""
         bid = ask = None
         if book == "both":
             spread = max(spread, TICK_SIZE)
             bid = max(round(price - spread / 2, 2), TICK_SIZE)
             ask = round(bid + spread, 2)
         elif book == "bid":
-            bid = max(round(price - TICK_SIZE * random.randint(0, 2), 2), TICK_SIZE)
+            bid = max(round(price + TICK_SIZE * random.randint(-3, 2), 2), TICK_SIZE)
         elif book == "ask":
-            ask = round(price + TICK_SIZE * random.randint(0, 2), 2)
+            ask = max(round(price + TICK_SIZE * random.randint(-2, 3), 2), TICK_SIZE)
         return bid, ask
 
     async def disconnect(self) -> None:

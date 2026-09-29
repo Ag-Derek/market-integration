@@ -42,13 +42,13 @@ def test_price_outside_day_range_is_rejected(make_tick):
     assert any("day range" in error for error in result.errors)
 
 
-def test_last_trade_outside_day_range_is_rejected(make_tick):
-    tick = make_tick(last_trade_price=6.70, day_low=6.48, day_high=6.60)
+def test_vwap_outside_day_range_is_rejected_once_traded(make_tick):
+    tick = make_tick(vwap=6.70, change=0.48, day_low=6.48, day_high=6.60)
 
     result = validate_tick(tick)
 
     assert not result.is_valid
-    assert any("last_trade_price" in error for error in result.errors)
+    assert any("vwap" in error for error in result.errors)
 
 
 def test_price_outside_52_week_range_is_rejected(make_tick):
@@ -69,35 +69,16 @@ def test_price_outside_year_range_is_rejected(make_tick):
     assert any("year range" in error for error in result.errors)
 
 
-def test_no_trade_day_has_no_range_and_carries_the_close_forward(make_tick):
-    # No trades yet: GSE carries the previous close forward as the
-    # closing price, and there is no open or day range to check it by.
+def test_no_trade_day_carries_the_previous_vwap_outside_the_range(make_tick):
+    # No trades yet: the closing VWAP is the previous session's, carried
+    # over (docs/data-formats.md, quirk 3), so it needn't sit inside the
+    # range around the (stale) last trade.
     tick = make_tick(
-        price=6.50, last_trade_price=6.61, previous_close=6.50,
-        open=None, day_high=None, day_low=None,
-        shares_traded=0, value_traded=0,
+        price=6.61, previous_close=6.40, open=6.40, vwap=6.40, change=0,
+        day_low=6.61, day_high=6.61, volume=0, value_traded=0,
     )
 
     assert validate_tick(tick).is_valid
-    assert (tick.change, tick.change_percent) == (0, 0)
-
-
-def test_traded_day_without_a_range_is_rejected(make_tick):
-    tick = make_tick(day_high=None, day_low=None, shares_traded=100)
-
-    result = validate_tick(tick)
-
-    assert not result.is_valid
-    assert any("day range is missing" in error for error in result.errors)
-
-
-def test_change_is_vwap_against_previous_vwap_not_last_trade(make_tick):
-    tick = make_tick(price=6.54, last_trade_price=6.58, previous_close=6.50)
-
-    assert tick.change == 0.04
-    assert tick.change_percent == 0.62
-    dumped = tick.model_dump(mode="json")
-    assert (dumped["change"], dumped["change_percent"]) == (0.04, 0.62)
 
 
 def test_stale_tick_is_rejected(make_tick):

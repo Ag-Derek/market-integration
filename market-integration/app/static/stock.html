@@ -562,7 +562,7 @@
     // GSE's "year" range; calendar year vs trailing 52 weeks is unconfirmed.
     ["yearRange", "Year Range"],
     ["week52", "52 Week Range"],
-    ["sharesTraded", "Shares Traded"],
+    ["volume", "Shares Traded"],
     ["valueTraded", "Value Traded"],
     ["avgVolume", "Avg. Volume"],
     ["marketCap", "Market Cap"],
@@ -601,14 +601,15 @@
     $("exchange").textContent = d.exchange_label;
     $("nameText").textContent = d.name;
     document.title = d.symbol + " · " + d.name;
-    // GSE closing price (VWAP), and its change vs the previous VWAP close.
-    $("price").textContent = fmtMoney(d.price);
+    // Headline is the GSE's official price, the session VWAP, and its
+    // change vs the previous VWAP close; the last trade is in the stats.
+    $("price").textContent = fmtMoney(d.vwap);
 
     const dir = direction(d.change);
     $("change").textContent = changeText(d.change, d.previous_close);
     $("change").className = "change-pill num " + dir;
     $("statusDot").className = "status-dot live" + (dir === "down" ? " down" : "");
-    const traded = d.shares_traded > 0;
+    const traded = d.volume > 0;
     $("noTrades").classList.toggle("show", !traded);
     renderAsOf();
 
@@ -620,13 +621,14 @@
     }
 
     statEls.previousClose.textContent = fmtPrice(d.previous_close);
-    statEls.lastTrade.textContent = fmtPrice(d.last_trade_price);
-    // No open or range until the session's first trade.
-    statEls.open.textContent = traded ? fmtPrice(d.open) : "—";
+    statEls.lastTrade.textContent = fmtPrice(d.price);
+    // The report's opening price is a reference price (the previous
+    // VWAP), so it is there even on a no-trade day; a day range isn't.
+    statEls.open.textContent = fmtPrice(d.open);
     statEls.dayRange.textContent = traded ? fmtPrice(d.day_low) + " – " + fmtPrice(d.day_high) : "—";
     statEls.yearRange.textContent = fmtPrice(d.year_low) + " – " + fmtPrice(d.year_high);
     statEls.week52.textContent = fmtPrice(d.week52_low) + " – " + fmtPrice(d.week52_high);
-    statEls.sharesTraded.textContent = traded ? fmtNum(d.shares_traded) : "No trades today";
+    statEls.volume.textContent = traded ? fmtNum(d.volume) : "No trades today";
     statEls.valueTraded.textContent = fmtMoney(d.value_traded);
     statEls.avgVolume.textContent = fmtNum(d.avg_volume);
     statEls.marketCap.textContent = fmtLarge(d.market_cap);
@@ -663,7 +665,7 @@
       a.appendChild(document.createTextNode(sym));
       const chg = document.createElement("span");
       chg.className = "chg num " + direction(d.change);
-      chg.textContent = (d.change >= 0 ? "+" : "−") + Math.abs(d.change_percent).toFixed(2) + "%";
+      chg.textContent = (d.change >= 0 ? "+" : "−") + Math.abs((d.change / d.previous_close) * 100).toFixed(2) + "%";
       a.appendChild(chg);
       root.appendChild(a);
     });
@@ -679,7 +681,7 @@
     const d = others[sym];
     const chg = chips[i].querySelector(".chg");
     chg.className = "chg num " + direction(d.change);
-    chg.textContent = (d.change >= 0 ? "+" : "−") + Math.abs(d.change_percent).toFixed(2) + "%";
+    chg.textContent = (d.change >= 0 ? "+" : "−") + Math.abs((d.change / d.previous_close) * 100).toFixed(2) + "%";
   }
 
   // ---------------------------------------------------------------- chart
@@ -766,14 +768,14 @@
 
   // Fold a live tick into the newest candle, or open a new one once the
   // tick crosses into the next bucket, so the chart moves between fetches.
-  // Candles are built from trade prices, not the VWAP.
+  // Candles are built from trades (`price`), not the VWAP.
   function applyTickToChart(d) {
     if (!chart.candles.length || !chart.interval) return;
     const step = INTERVAL_MS[chart.interval];
     const t = Date.parse(d.timestamp);
     const last = chart.candles[chart.candles.length - 1];
-    const px = d.last_trade_price;
-    const cum = d.shares_traded;
+    const px = d.price;
+    const cum = d.volume;
 
     let volDelta = 0;
     if (chart.lastCumVolume != null) {
@@ -1064,7 +1066,7 @@
     if (d.symbol !== SYMBOL) return;
     quote = d;
     receivedAt = Date.now();
-    spark.push({ t: receivedAt, price: d.last_trade_price });
+    spark.push({ t: receivedAt, price: d.price });
     if (spark.length > SPARK_LIMIT) spark.shift();
 
     renderQuote();

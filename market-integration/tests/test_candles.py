@@ -113,7 +113,7 @@ def test_live_candles_count_every_tick(make_tick, tmp_path):
     aggregator = MarketAggregator(_no_feed(), db_path=tmp_path / "c.db", intervals=("15m",))
     t0 = datetime(2026, 9, 18, 9, 30, tzinfo=timezone.utc)
     for i in range(4):
-        aggregator._record(make_tick(last_trade_price=100.0 + i, shares_traded=1_000 + i, timestamp=t0 + timedelta(minutes=i)))
+        aggregator._record(make_tick(price=100.0 + i, volume=1_000 + i, timestamp=t0 + timedelta(minutes=i)))
 
     live = aggregator._windows[("MTNGH", "15m")].to_candle("MTNGH", "15m")
     assert live.tick_count == 4
@@ -124,10 +124,10 @@ def test_aggregator_closes_windows_on_bucket_boundaries_without_losing_volume(ma
     aggregator = MarketAggregator(_no_feed(), db_path=tmp_path / "c.db", intervals=("5m", "1h"))
     t0 = datetime(2026, 9, 23, 10, 3, tzinfo=timezone.utc)
 
-    aggregator._record(make_tick(last_trade_price=100.0, shares_traded=1_000, timestamp=t0))
-    aggregator._record(make_tick(last_trade_price=102.0, shares_traded=1_200, timestamp=t0 + timedelta(minutes=1)))
+    aggregator._record(make_tick(price=100.0, volume=1_000, timestamp=t0))
+    aggregator._record(make_tick(price=102.0, volume=1_200, timestamp=t0 + timedelta(minutes=1)))
     # Crosses into the 10:05 five-minute bucket; same hourly bucket.
-    aggregator._record(make_tick(last_trade_price=101.0, shares_traded=1_500, timestamp=t0 + timedelta(minutes=3)))
+    aggregator._record(make_tick(price=101.0, volume=1_500, timestamp=t0 + timedelta(minutes=3)))
 
     [closed] = aggregator._pending
     assert closed.interval == "5m"
@@ -151,7 +151,7 @@ async def test_get_candles_overlays_unflushed_windows_on_stored_ones(make_tick, 
         _candle("MTNGH", "5m", current, 94, 96, 93, 95, 10),  # stale copy of the open window
     ])
 
-    aggregator._record(make_tick(last_trade_price=97.0, shares_traded=10, timestamp=now))
+    aggregator._record(make_tick(price=97.0, volume=10, timestamp=now))
 
     candles = await aggregator.get_candles("MTNGH", "5m", earlier)
     assert [c.window_start for c in candles] == [earlier, current]
@@ -227,24 +227,21 @@ async def test_mock_history_is_continuous_and_matches_the_live_quote():
             assert all(c.tick_count == 0 for c in candles)
 
         midnight = bucket_start(datetime.now(timezone.utc), "1d")
+        # Previous close is yesterday's VWAP (MTNGH trades all day), so it
+        # lies within yesterday's range; the open is that reference price,
+        # as in the GSE report.
+        assert daily[-2].low <= profile["previous_close"] <= daily[-2].high
+        assert session["open"] == profile["previous_close"]
         assert daily[-1].window_start == midnight
-        # MTNGH trades every few seconds, so yesterday and today both
-        # have trades: previous close is yesterday's VWAP, and today's
-        # session is read off today's traded bars.
-        yesterday = [c for c in five if midnight - timedelta(days=1) <= c.window_start < midnight]
-        shares = sum(c.volume for c in yesterday)
-        assert profile["previous_close"] == round(sum(c.close * c.volume for c in yesterday) / shares, 2)
-        assert session["shares"] == daily[-1].volume > 0
-        assert daily[-1].low <= session["day_low"] <= session["day_high"] <= daily[-1].high
+        # The year range is this calendar year's and the 52-week range
+        # the trailing year's; both cover the live price and the
+        # carried-over close.
+        this_year = [c for c in daily if c.window_start.year == midnight.year]
+        assert profile["year_low"] <= min(c.low for c in this_year)
+        assert profile["year_high"] >= max(c.high for c in this_year)
         for key in ("year", "week52"):
             assert profile[f"{key}_low"] <= price <= profile[f"{key}_high"]
             assert profile[f"{key}_low"] <= profile["previous_close"] <= profile[f"{key}_high"]
-
-        quote = connector.normalize(connector._quote("MTNGH", profile))
-        assert quote.last_trade_price == price
-        assert quote.price == round(session["value"] / session["shares"], 2)
-        assert quote.change == round(quote.price - quote.previous_close, 2)
-        assert validate_tick(quote), validate_tick(quote).errors
 
         since = await connector.fetch_history("MTNGH", "1h", midnight)
         assert since[0].window_start == midnight
@@ -269,9 +266,8 @@ def test_candles_api_serves_every_range(client, range_):
     assert times == sorted(times)
 
     latest = client.get("/market/MTNGH").json()
-    # The newest candle is the live one, not the last backfilled bar;
-    # candles are built from trades, not the VWAP.
-    assert candles[-1]["close"] == pytest.approx(latest["last_trade_price"], abs=0.5)
+    # The newest candle is the live one, not the last backfilled bar.
+    assert candles[-1]["close"] == pytest.approx(latest["price"], abs=0.5)
 
 
 def test_candles_api_rejects_unknown_inputs(client):
@@ -324,11 +320,50 @@ async def test_dormant_names_stay_flat_and_quote_a_thin_book():
 
         pbc, access = first["PBC"], first["ACCESS"]
         assert (pbc.price, pbc.bid, pbc.ask, pbc.bid_size, pbc.ask_size) == (0.02, None, None, 0, 0)
-        assert access.last_trade_price == 20.67
+        assert access.price == 20.67
         assert access.bid is not None and access.ask is None and access.ask_size == 0
         assert validate_tick(pbc) and validate_tick(access)
     finally:
         await connector.disconnect()
+
+
+async def test_mock_emits_the_gse_report_fields_consistently():
+    # MTNGH trades every few seconds; PBC and AGA are dormant (no trades on
+    # 28-Sep-2026) and ACCESS quotes a bid only.
+    symbols = ["MTNGH", "PBC", "AGA", "ACCESS"]
+    connector = MockMarketConnector(symbols=symbols, interval_seconds=0.01)
+    await connector.connect()
+    try:
+        # The opening snapshot (one tick per symbol), then one forced live
+        # MTNGH trade, so both the backfilled and live turnover are covered.
+        latest = {}
+        stream = connector.stream()
+        async for tick in stream:
+            latest[tick.symbol] = tick
+            if len(latest) == len(symbols):
+                break
+        await stream.aclose()
+        profile = connector._profiles["MTNGH"]
+        before = latest["MTNGH"].value_traded
+        connector._trade("MTNGH", profile, profile["trade_gap"])
+        latest["MTNGH"] = connector.normalize(connector._quote("MTNGH", profile))
+        assert latest["MTNGH"].value_traded > before
+    finally:
+        await connector.disconnect()
+
+    for t in latest.values():
+        assert validate_tick(t), (t.symbol, validate_tick(t).errors)
+        assert t.open == t.previous_close  # the report's opening price is a reference price
+        assert t.change == pytest.approx(t.vwap - t.previous_close, abs=0.005)
+        if t.volume == 0:
+            # No trades this session: VWAP carries over, nothing changed hands.
+            assert (t.vwap, t.change, t.value_traded) == (t.previous_close, 0, 0)
+        else:
+            assert t.vwap == pytest.approx(t.value_traded / t.volume, abs=0.005)
+
+    mtn = latest["MTNGH"]
+    assert mtn.volume > 0 and mtn.value_traded > 0
+    assert mtn.day_low - 0.01 <= mtn.vwap <= mtn.day_high + 0.01
 
 
 def test_websocket_initial_state_covers_every_tracked_symbol(client):

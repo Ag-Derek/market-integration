@@ -57,9 +57,15 @@ REST endpoint  WebSocketGateway   (app/gateways/)
   `/instruments` serves. Config, the connector and the API all take their
   symbol universe from here, so **adding an entry to the seed file puts
   the symbol in the feed, the API and the UI after a restart, with no
-  code change**. The feed carries only active equities; bills, bonds and
-  suspended or delisted names are listed by `/instruments` but not
-  streamed.
+  code change**. The seed holds all 42 GSE equities plus the 161
+  government bonds, T-bills and corporate bonds from the GFIM sample
+  report (fixed income uses the ISIN as its symbol). The feed carries
+  only active equities; bills, bonds and suspended names (ALW, PBC) are
+  listed by `/instruments` but not streamed.
+- **`docs/`** — `data-formats.md` maps every field of the official GSE and
+  GFIM daily reports to our models and records their data quirks, for
+  whoever builds the real GSE connector. The sample reports it's based on
+  are in `docs/samples/`.
 - **`app/models/`** — `MarketData`, the canonical shape everything downstream
   of a connector deals with: the live tick (`symbol`, `price`, `volume`,
   `timestamp`) plus the quote-page fundamentals (`previous_close`, day/52-week
@@ -173,7 +179,8 @@ QUEUE_MAX_SIZE=200
 ```
 
 Leave `MARKET_SYMBOLS` empty to track every active equity in the
-instrument master (`data/instruments.json`, 42 GSE codes). A symbol
+instrument master (`data/instruments.json`: 40 of the 42 GSE equities;
+ALW and PBC are suspended). A symbol
 that isn't in the instrument master, or that the feed can't carry
 (a bill, bond, or suspended/delisted name), stops the service at startup
 with an error naming it. Untracked symbols get a 404 from
@@ -218,6 +225,9 @@ Uvicorn running on http://127.0.0.1:8000
 | `http://127.0.0.1:8000/health`    | Health check                         |
 | `http://127.0.0.1:8000/instruments` | Instrument master as JSON. Optional `?asset_class=equity\|bill\|bond` and `?sector=Banking` (case-insensitive) filters |
 | `http://127.0.0.1:8000/instruments/{symbol}` | One instrument's reference data (e.g. `/instruments/MTNGH`); 404 if unknown |
+| `http://127.0.0.1:8000/fixed-income/report` | Today's fixed-income report in the shape of the GFIM daily trading report: every section plus the summary. Blank report cells are `null` |
+| `http://127.0.0.1:8000/fixed-income/summary` | Volume, number of trades and largest trade per section, plus grand totals |
+| `http://127.0.0.1:8000/fixed-income/{section}` | One section's rows: `new_gog`, `ddep`, `old_gog`, `treasury_bill`, `corporate` or `sell_buy_back` |
 | `http://127.0.0.1:8000/market/{symbol}` | Latest snapshot for a tracked symbol (e.g. `/market/MTNGH`); 404 if unknown |
 | `ws://127.0.0.1:8000/ws/market`   | WebSocket — live-streaming updates, sends initial state then pushes ticks as they arrive |
 | `http://127.0.0.1:8000/ticker`    | Live quote card UI (`app/static/ticker.html`), driven by the WebSocket feed above |
@@ -281,6 +291,7 @@ market-integration/
 │   ├── models/
 │   │   ├── market_data.py         # canonical MarketData schema
 │   │   ├── candle.py              # OHLCV candle + time-bucket grid
+│   │   ├── fixed_income.py        # GFIM report rows (bonds, bills, corporates, sell/buy-backs)
 │   │   └── instrument.py          # Instrument reference-data schema
 │   │
 │   ├── instruments/
@@ -289,7 +300,8 @@ market-integration/
 │   │
 │   ├── connectors/
 │   │   ├── base_connector.py      # interface every provider must implement
-│   │   ├── market_connector.py    # mock provider (current)
+│   │   ├── market_connector.py    # mock equity provider (current)
+│   │   ├── fixed_income_mock.py   # mock GFIM fixed-income market (current)
 │   │   └── gse_mock_profiles.py   # mock calibration fields + defaults
 │   │
 │   ├── queue/
@@ -312,6 +324,10 @@ market-integration/
 │
 ├── data/
 │   └── instruments.json           # instrument master seed (source of truth)
+│
+├── docs/
+│   ├── data-formats.md            # GSE/GFIM report fields -> our models, data quirks
+│   └── samples/                   # official daily reports for 28-Sep-2026 (xlsx + pdf)
 │
 ├── requirements.txt
 ├── .env.example
