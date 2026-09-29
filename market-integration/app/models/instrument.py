@@ -5,6 +5,7 @@ data/instruments.json (see app/instruments/).
 """
 
 import re
+from datetime import date
 from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, field_validator
@@ -14,6 +15,10 @@ InstrumentStatus = Literal["active", "suspended", "delisted"]
 # Finer-grained than asset_class for equities, so an ETF or preference
 # share can still be told apart from an ordinary share.
 EquityKind = Literal["ordinary", "preference", "depositary", "etf"]
+# The sections of the GFIM daily trading report a fixed-income security
+# is listed under (sell/buy-back trades are a trade type across the GoG
+# segments, not a segment of their own). See docs/data-formats.md.
+FixedIncomeSegment = Literal["new_gog", "ddep", "old_gog", "corporate", "treasury_bill"]
 
 _ISIN_FORMAT = re.compile(r"[A-Z]{2}[A-Z0-9]{9}[0-9]")
 
@@ -39,6 +44,15 @@ class Instrument(BaseModel):
     isin: Optional[str] = None
     status: InstrumentStatus = "active"
     kind: Optional[EquityKind] = None
+
+    # Fixed income only (None for equities). For bills and bonds the
+    # symbol is the ISIN and the name is the GFIM security description,
+    # e.g. "GOG-BD-17/08/27-A6139-1838-10.00", which has slashes.
+    issuer: Optional[str] = None
+    segment: Optional[FixedIncomeSegment] = None
+    tenor: Optional[str] = None           # as the report labels it, e.g. "7-YEAR BOND", "2023-GC-3"
+    maturity_date: Optional[date] = None
+    coupon_rate: Optional[float] = None   # % a year; 0 for bills, None if the description has none
 
     @field_validator("symbol")
     @classmethod

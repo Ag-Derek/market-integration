@@ -227,8 +227,11 @@ async def test_mock_history_is_continuous_and_matches_the_live_quote():
             assert all(c.tick_count == 0 for c in candles)
 
         midnight = bucket_start(datetime.now(timezone.utc), "1d")
-        assert profile["previous_close"] == daily[-2].close
-        assert session["open"] == daily[-1].open
+        # Previous close is yesterday's VWAP (MTNGH trades all day), so it
+        # lies within yesterday's range; the open is that reference price,
+        # as in the GSE report.
+        assert daily[-2].low <= profile["previous_close"] <= daily[-2].high
+        assert session["open"] == profile["previous_close"]
         assert daily[-1].window_start == midnight
         assert profile["week52_low"] <= price <= profile["week52_high"]
 
@@ -314,6 +317,44 @@ async def test_dormant_names_stay_flat_and_quote_a_thin_book():
         assert validate_tick(pbc) and validate_tick(access)
     finally:
         await connector.disconnect()
+
+
+async def test_mock_emits_the_gse_report_fields_consistently():
+    # MTNGH trades every few seconds; PBC and AGA are dormant (no trades on
+    # 28-Sep-2026) and ACCESS quotes a bid only.
+    symbols = ["MTNGH", "PBC", "AGA", "ACCESS"]
+    connector = MockMarketConnector(symbols=symbols, interval_seconds=0.01)
+    await connector.connect()
+    try:
+        # The opening snapshot (one tick per symbol), then one forced live
+        # MTNGH trade, so both the backfilled and live turnover are covered.
+        latest = {}
+        stream = connector.stream()
+        async for tick in stream:
+            latest[tick.symbol] = tick
+            if len(latest) == len(symbols):
+                break
+        await stream.aclose()
+        profile = connector._profiles["MTNGH"]
+        before = latest["MTNGH"].value_traded
+        connector._trade("MTNGH", profile, profile["trade_gap"])
+        latest["MTNGH"] = connector.normalize(connector._quote("MTNGH", profile))
+        assert latest["MTNGH"].value_traded > before
+    finally:
+        await connector.disconnect()
+
+    for t in latest.values():
+        assert t.open == t.previous_close  # the report's opening price is a reference price
+        assert t.change == pytest.approx(t.vwap - t.previous_close, abs=0.005)
+        if t.volume == 0:
+            # No trades this session: VWAP carries over, nothing changed hands.
+            assert (t.vwap, t.change, t.value_traded) == (t.previous_close, 0, 0)
+        else:
+            assert t.vwap == pytest.approx(t.value_traded / t.volume, abs=0.005)
+
+    mtn = latest["MTNGH"]
+    assert mtn.volume > 0 and mtn.value_traded > 0
+    assert mtn.day_low - 0.01 <= mtn.vwap <= mtn.day_high + 0.01
 
 
 def test_websocket_initial_state_covers_every_tracked_symbol(client):
