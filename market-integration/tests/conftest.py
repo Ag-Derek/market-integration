@@ -36,6 +36,8 @@ def make_tick():
             change=0.32,
             day_high=6.60,
             day_low=6.48,
+            year_high=7.15,
+            year_low=4.20,
             week52_high=7.15,
             week52_low=4.20,
             market_cap=80_000_000_000.0,

@@ -5,8 +5,8 @@ Pydantic's `MarketData` model already enforces structural rules (types,
 positive prices, non-negative volumes, ...) at construction time -- a
 tick that violates those never even becomes a MarketData object. This
 module adds the cross-field business rules the schema can't express on
-its own: relationships between fields (bid < ask, price within the
-day's range) and freshness (the tick isn't stale or timestamped in the
+its own: relationships between fields (bid < ask when both sides are
+quoted, price within the day's and year's range) and freshness (the tick isn't stale or timestamped in the
 future).
 
 `validate_tick` is a plain, dependency-free function on purpose: it is
@@ -58,16 +58,24 @@ def validate_tick(tick: MarketData, *, now: datetime | None = None) -> Validatio
 
     if tick.day_low > tick.day_high:
         errors.append(f"day_low ({tick.day_low}) > day_high ({tick.day_high})")
-    elif not (tick.day_low <= tick.price <= tick.day_high):
-        errors.append(
-            f"price ({tick.price}) outside day range [{tick.day_low}, {tick.day_high}]"
-        )
+    else:
+        # The session VWAP is only made of today's trades once there are
+        # some; before that it is the previous session's, carried over.
+        fields = ("price", "vwap") if tick.volume > 0 else ("price",)
+        for field in fields:
+            value = getattr(tick, field)
+            if not (tick.day_low <= value <= tick.day_high):
+                errors.append(
+                    f"{field} ({value}) outside day range "
+                    f"[{tick.day_low}, {tick.day_high}]"
+                )
 
-    if not (tick.week52_low <= tick.price <= tick.week52_high):
-        errors.append(
-            f"price ({tick.price}) outside 52-week range "
-            f"[{tick.week52_low}, {tick.week52_high}]"
-        )
+    for label, low, high in (
+        ("year", tick.year_low, tick.year_high),
+        ("52-week", tick.week52_low, tick.week52_high),
+    ):
+        if not (low <= tick.price <= high):
+            errors.append(f"price ({tick.price}) outside {label} range [{low}, {high}]")
 
     age = now - tick.timestamp
     if age > MAX_TICK_AGE:

@@ -233,7 +233,15 @@ async def test_mock_history_is_continuous_and_matches_the_live_quote():
         assert daily[-2].low <= profile["previous_close"] <= daily[-2].high
         assert session["open"] == profile["previous_close"]
         assert daily[-1].window_start == midnight
-        assert profile["week52_low"] <= price <= profile["week52_high"]
+        # The year range is this calendar year's and the 52-week range
+        # the trailing year's; both cover the live price and the
+        # carried-over close.
+        this_year = [c for c in daily if c.window_start.year == midnight.year]
+        assert profile["year_low"] <= min(c.low for c in this_year)
+        assert profile["year_high"] >= max(c.high for c in this_year)
+        for key in ("year", "week52"):
+            assert profile[f"{key}_low"] <= price <= profile[f"{key}_high"]
+            assert profile[f"{key}_low"] <= profile["previous_close"] <= profile[f"{key}_high"]
 
         since = await connector.fetch_history("MTNGH", "1h", midnight)
         assert since[0].window_start == midnight
@@ -344,6 +352,7 @@ async def test_mock_emits_the_gse_report_fields_consistently():
         await connector.disconnect()
 
     for t in latest.values():
+        assert validate_tick(t), (t.symbol, validate_tick(t).errors)
         assert t.open == t.previous_close  # the report's opening price is a reference price
         assert t.change == pytest.approx(t.vwap - t.previous_close, abs=0.005)
         if t.volume == 0:

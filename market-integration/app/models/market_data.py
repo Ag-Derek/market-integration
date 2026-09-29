@@ -5,11 +5,12 @@ Every connector (mock or real) is responsible for normalizing whatever
 format its provider uses into this shape. Nothing outside of connectors/
 should ever need to know a provider's raw field names.
 
-Beyond the core tick (symbol, price, volume, timestamp), this also carries
-the fundamentals a quote page needs (previous close, day/52-week range,
-market cap, bid/ask, dividend info, ...). None of that exists in a real
-GSE entitlement yet, so the mock connector fills it with generated
-placeholder values -- see app/connectors/market_connector.py.
+The trading fields follow the GSE "Daily Shares & ETFs" report; see
+docs/data-formats.md for the column-by-column mapping. Beyond those,
+this also carries the fundamentals a quote page needs (market cap,
+dividend info, ...). None of that exists in a real GSE entitlement yet,
+so the mock connector fills it with generated placeholder values -- see
+app/connectors/market_connector.py.
 """
 
 from datetime import datetime
@@ -33,6 +34,12 @@ class MarketData(BaseModel):
     change: float                         # vwap - previous_close, not price - previous_close
     day_high: float = Field(gt=0)
     day_low: float = Field(gt=0)
+    # The report's "Year High/Low". Whether the GSE means the calendar
+    # year or a trailing 52 weeks is unconfirmed (docs/data-formats.md,
+    # open questions); the trailing 52-week range is kept alongside
+    # until it is.
+    year_high: float = Field(gt=0)
+    year_low: float = Field(gt=0)
     week52_high: float = Field(gt=0)
     week52_low: float = Field(gt=0)
 

@@ -42,6 +42,15 @@ def test_price_outside_day_range_is_rejected(make_tick):
     assert any("day range" in error for error in result.errors)
 
 
+def test_vwap_outside_day_range_is_rejected_once_traded(make_tick):
+    tick = make_tick(vwap=6.70, change=0.48, day_low=6.48, day_high=6.60)
+
+    result = validate_tick(tick)
+
+    assert not result.is_valid
+    assert any("vwap" in error for error in result.errors)
+
+
 def test_price_outside_52_week_range_is_rejected(make_tick):
     tick = make_tick(price=6.54, day_low=4.00, day_high=8.00, week52_low=4.20, week52_high=6.00)
 
@@ -49,6 +58,27 @@ def test_price_outside_52_week_range_is_rejected(make_tick):
 
     assert not result.is_valid
     assert any("52-week range" in error for error in result.errors)
+
+
+def test_price_outside_year_range_is_rejected(make_tick):
+    tick = make_tick(price=6.54, day_low=4.00, day_high=8.00, year_low=4.20, year_high=6.00)
+
+    result = validate_tick(tick)
+
+    assert not result.is_valid
+    assert any("year range" in error for error in result.errors)
+
+
+def test_no_trade_day_carries_the_previous_vwap_outside_the_range(make_tick):
+    # No trades yet: the closing VWAP is the previous session's, carried
+    # over (docs/data-formats.md, quirk 3), so it needn't sit inside the
+    # range around the (stale) last trade.
+    tick = make_tick(
+        price=6.61, previous_close=6.40, open=6.40, vwap=6.40, change=0,
+        day_low=6.61, day_high=6.61, volume=0, value_traded=0,
+    )
+
+    assert validate_tick(tick).is_valid
 
 
 def test_stale_tick_is_rejected(make_tick):

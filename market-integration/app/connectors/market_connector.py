@@ -25,10 +25,11 @@ charts have years of data to show immediately rather than only what
 has been recorded since startup. The history is one continuous random
 walk that ends exactly at the live starting price, with flat,
 zero-volume bars wherever the symbol didn't trade, and the quote's
-previous close / open / day range / session volume / 52-week range are
-all read off it, so the chart and the quote card agree. The live walk
-uses the same volatility and trade frequency, so the live tail of a
-chart looks like a continuation of the backfilled part.
+previous close / open / day range / session volume and value / year and
+52-week ranges are all read off it, so the chart and the quote card
+agree. The live walk uses the same volatility and trade frequency, so
+the live tail of a chart looks like a continuation of the backfilled
+part.
 
 stream() emits one snapshot per symbol when it starts, so every symbol
 has a quote downstream from the outset, and after that only a tick for
@@ -164,7 +165,13 @@ class MockMarketConnector(BaseMarketConnector):
             intraday = history["5m"]
             session_bars = [c for c in intraday if c.window_start >= midnight]
             previous_close = _previous_session_vwap(history, midnight)
-            year_bars = [c for c in history["1d"] if c.window_start >= now - timedelta(days=365)]
+            # The report's year range (calendar year, pending confirmation)
+            # and the trailing 52 weeks. Both also cover the carried-over
+            # closing VWAP, which can predate them for a name that hasn't
+            # traded in a while.
+            closes = (previous_close, price)
+            year_bars = [c for c in history["1d"] if c.window_start.year == now.year]
+            week52_bars = [c for c in history["1d"] if c.window_start >= now - timedelta(days=365)]
 
             forward_dividend = round(price * random.uniform(0, 0.08), 2)
             ex_dividend_date = today + timedelta(days=random.randint(5, 60))
@@ -177,8 +184,10 @@ class MockMarketConnector(BaseMarketConnector):
                 "book": mp.book,
                 "spread": mp.spread,
                 "previous_close": previous_close,
-                "week52_low": min(c.low for c in year_bars),
-                "week52_high": max(c.high for c in year_bars),
+                "year_low": min(min(c.low for c in year_bars), *closes),
+                "year_high": max(max(c.high for c in year_bars), *closes),
+                "week52_low": min(min(c.low for c in week52_bars), *closes),
+                "week52_high": max(max(c.high for c in week52_bars), *closes),
                 # Placeholder: no shares-outstanding data yet.
                 "market_cap": round(price * random.randint(100_000_000, 5_000_000_000), 0),
                 "beta": round(random.uniform(0.3, 1.2), 2),
@@ -361,10 +370,11 @@ class MockMarketConnector(BaseMarketConnector):
         session["volume"] += size
         session["value"] += price * size
 
-        # A new high/low extends the 52-week range rather than making the
-        # tick fail validation.
-        profile["week52_high"] = max(profile["week52_high"], price)
-        profile["week52_low"] = min(profile["week52_low"], price)
+        # A new high/low extends the year and 52-week ranges rather than
+        # making the tick fail validation.
+        for key in ("year", "week52"):
+            profile[f"{key}_high"] = max(profile[f"{key}_high"], price)
+            profile[f"{key}_low"] = min(profile[f"{key}_low"], price)
 
     def _quote(self, symbol: str, profile: dict) -> dict:
         price = round(self._prices[symbol], 2)
@@ -386,6 +396,8 @@ class MockMarketConnector(BaseMarketConnector):
             "open": round(session["open"], 2),
             "day_high": round(session["day_high"], 2),
             "day_low": round(session["day_low"], 2),
+            "year_high": profile["year_high"],
+            "year_low": profile["year_low"],
             "week52_high": profile["week52_high"],
             "week52_low": profile["week52_low"],
             "market_cap": profile["market_cap"],
