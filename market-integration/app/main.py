@@ -15,6 +15,9 @@ from app.aggregation.market_aggregator import MarketAggregator
 from app.aggregation.ranges import RANGES
 from app.connectors.market_connector import MockMarketConnector
 from app.gateways.websocket_gateway import WebSocketGateway
+from app.instruments import INSTRUMENTS
+from app.instruments.store import InstrumentStore
+from app.models.instrument import AssetClass, Instrument
 from app.processors.market_processor import MarketProcessor
 from app.queue.market_buffer import MarketDataBuffer
 from app.validation.market_validator import ValidatingStream
@@ -33,6 +36,10 @@ connector = MockMarketConnector(
 processor = MarketProcessor()
 gateway = WebSocketGateway()
 
+# Queryable copy of the instrument master; re-seeded from
+# data/instruments.json on every startup.
+instrument_store = InstrumentStore(config.DB_PATH)
+
 # The buffer decouples ingestion (connector) from its downstream
 # consumers, each getting an independent bounded queue with drop-oldest
 # backpressure. See queue/market_buffer.py for why.
@@ -44,7 +51,7 @@ validated_feed = ValidatingStream(buffer.subscribe("processor"), name="processor
 
 # OHLCV persistence: a separate branch off the buffer, so a slow database
 # write can never delay real-time delivery. Validates independently.
-aggregator = MarketAggregator(buffer.subscribe("aggregator"))
+aggregator = MarketAggregator(buffer.subscribe("aggregator"), db_path=config.DB_PATH)
 
 # Set once startup() creates it, so /health can check whether it's still
 # alive (e.g. hasn't died from an unhandled exception in processor.consume).
@@ -69,11 +76,34 @@ async def health():
     )
 
 
+@app.get("/instruments", response_model=list[Instrument])
+async def list_instruments(
+    asset_class: Optional[AssetClass] = None,
+    sector: Optional[str] = None,
+):
+    """The instrument master, optionally filtered by asset class and/or
+    sector (sector match is case-insensitive). Includes suspended and
+    delisted instruments and ones the feed doesn't stream."""
+    return await asyncio.to_thread(instrument_store.list, asset_class, sector)
+
+
+@app.get("/instruments/{symbol}", response_model=Instrument)
+async def instrument_detail(symbol: str):
+    instrument = await asyncio.to_thread(instrument_store.get, symbol.upper())
+    if instrument is None:
+        raise HTTPException(status_code=404, detail=f"Unknown instrument '{symbol.upper()}'")
+    return instrument
+
+
 @app.get("/market/{symbol}")
 async def get_market(symbol: str):
-    data = processor.get_latest(symbol.upper())
+    symbol = symbol.upper()
+    if symbol not in connector.symbols:
+        raise HTTPException(status_code=404, detail=f"Unknown symbol '{symbol}'")
+    data = processor.get_latest(symbol)
     if data is None:
-        return {"error": "Symbol not found"}
+        # Tracked, but its opening snapshot hasn't come through yet.
+        raise HTTPException(status_code=404, detail=f"No market data yet for '{symbol}'")
     return data
 
 
@@ -234,6 +264,7 @@ async def consumer_loop() -> None:
 @app.on_event("startup")
 async def startup():
     global consumer_task
+    await asyncio.to_thread(instrument_store.seed, INSTRUMENTS.values())
     await connector.connect()
     # Before any live ticks flow, so history is in place (and open
     # windows seeded) by the time the aggregator starts recording.

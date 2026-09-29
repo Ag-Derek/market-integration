@@ -45,13 +45,21 @@ REST endpoint  WebSocketGateway   (app/gateways/)
 - **`app/connectors/`** — talks to the market-data source. `base_connector.py`
   defines the interface every provider adapter must implement
   (`connect`, `stream`, `disconnect`, `normalize`). `market_connector.py` is
-  the current mock implementation, and `gse_mock_profiles.py` holds its
-  per-symbol calibration (starting price, volatility, trade frequency,
-  book shape). A real provider gets its own class here implementing the
-  same interface — nothing else in the app changes.
-- **`app/instruments/`** — the instrument master: every tradable symbol
-  and its reference data (name, sector, kind). Config, connectors and the
-  API take their symbol universe from here.
+  the current mock implementation; `gse_mock_profiles.py` documents the
+  per-symbol calibration it reads (starting price, volatility, trade
+  frequency, book shape). A real provider gets its own class here
+  implementing the same interface — nothing else in the app changes.
+- **`app/instruments/`** — the instrument master. The source of truth is
+  the checked-in seed file `data/instruments.json`: every tradable symbol
+  with its reference data (name, asset class, sector, currency, ISIN,
+  status) plus an optional `mock` block calibrating the simulator. On
+  startup it is copied into the `instruments` SQLite table that
+  `/instruments` serves. Config, the connector and the API all take their
+  symbol universe from here, so **adding an entry to the seed file puts
+  the symbol in the feed, the API and the UI after a restart, with no
+  code change**. The feed carries only active equities; bills, bonds and
+  suspended or delisted names are listed by `/instruments` but not
+  streamed.
 - **`app/models/`** — `MarketData`, the canonical shape everything downstream
   of a connector deals with: the live tick (`symbol`, `price`, `volume`,
   `timestamp`) plus the quote-page fundamentals (`previous_close`, day/52-week
@@ -164,11 +172,17 @@ MOCK_INTERVAL_SECONDS=0.5
 QUEUE_MAX_SIZE=200
 ```
 
-Leave `MARKET_SYMBOLS` empty to track every GSE-listed security in the
-instrument master (`app/instruments/gse_equities.py`, 42 codes). A
-symbol that isn't in the instrument master stops the service at startup
-with an error naming it. Untracked symbols return
-`{"error": "Symbol not found"}` from `/market/{symbol}`.
+Leave `MARKET_SYMBOLS` empty to track every active equity in the
+instrument master (`data/instruments.json`, 42 GSE codes). A symbol
+that isn't in the instrument master, or that the feed can't carry
+(a bill, bond, or suspended/delisted name), stops the service at startup
+with an error naming it. Untracked symbols get a 404 from
+`/market/{symbol}` and `/candles`.
+
+`MARKET_DB_PATH` (default `market_data.db`) sets where the SQLite
+database holding the instruments table and aggregated candles lives.
+The test suite points it at a temporary file, so running `pytest` never
+touches a running dev server's database.
 
 ## Running the service
 
@@ -202,7 +216,9 @@ Uvicorn running on http://127.0.0.1:8000
 | `http://127.0.0.1:8000/docs`      | Interactive Swagger UI — try endpoints directly in the browser |
 | `http://127.0.0.1:8000/redoc`     | Alternative API documentation        |
 | `http://127.0.0.1:8000/health`    | Health check                         |
-| `http://127.0.0.1:8000/market/{symbol}` | Latest snapshot for a tracked symbol (e.g. `/market/MTNGH`) |
+| `http://127.0.0.1:8000/instruments` | Instrument master as JSON. Optional `?asset_class=equity\|bill\|bond` and `?sector=Banking` (case-insensitive) filters |
+| `http://127.0.0.1:8000/instruments/{symbol}` | One instrument's reference data (e.g. `/instruments/MTNGH`); 404 if unknown |
+| `http://127.0.0.1:8000/market/{symbol}` | Latest snapshot for a tracked symbol (e.g. `/market/MTNGH`); 404 if unknown |
 | `ws://127.0.0.1:8000/ws/market`   | WebSocket — live-streaming updates, sends initial state then pushes ticks as they arrive |
 | `http://127.0.0.1:8000/ticker`    | Live quote card UI (`app/static/ticker.html`), driven by the WebSocket feed above |
 | `http://127.0.0.1:8000/candles/export` | Historical OHLCV candles as a CSV download (opens in Excel). Optional `?symbol=MTNGH` and `?interval=15m` query params |
@@ -263,11 +279,18 @@ market-integration/
 │   ├── config.py                  # env-driven settings
 │   │
 │   ├── models/
-│   │   └── market_data.py         # canonical MarketData schema
+│   │   ├── market_data.py         # canonical MarketData schema
+│   │   ├── candle.py              # OHLCV candle + time-bucket grid
+│   │   └── instrument.py          # Instrument reference-data schema
+│   │
+│   ├── instruments/
+│   │   ├── __init__.py            # loads data/instruments.json (instrument master)
+│   │   └── store.py               # instruments SQLite table behind /instruments
 │   │
 │   ├── connectors/
 │   │   ├── base_connector.py      # interface every provider must implement
-│   │   └── market_connector.py    # mock provider (current)
+│   │   ├── market_connector.py    # mock provider (current)
+│   │   └── gse_mock_profiles.py   # mock calibration fields + defaults
 │   │
 │   ├── queue/
 │   │   └── market_buffer.py       # per-subscriber bounded queues, drop-oldest
@@ -286,6 +309,9 @@ market-integration/
 │   │
 │   └── static/
 │       └── ticker.html            # live quote card UI, served at /ticker
+│
+├── data/
+│   └── instruments.json           # instrument master seed (source of truth)
 │
 ├── requirements.txt
 ├── .env.example

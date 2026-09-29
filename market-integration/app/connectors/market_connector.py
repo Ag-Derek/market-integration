@@ -8,7 +8,8 @@ provider is chosen. When a provider is picked, write a new class here
 way -- nothing else in the app needs to change.
 
 The universe is the GSE instrument master (app/instruments/), and each
-symbol behaves according to its calibration in gse_mock_profiles.py:
+symbol behaves according to the "mock" block of its seed entry in
+data/instruments.json (see gse_mock_profiles.py for the fields):
 it starts at a real recent closing price, moves with a volatility sized
 to its real 52-week range, and trades about as often as it does on the
 GSE. Thinly traded names can go days without a trade, and many quote
@@ -45,12 +46,13 @@ from typing import AsyncIterator, Optional
 from app.connectors.base_connector import BaseMarketConnector
 from app.connectors.gse_mock_profiles import (
     DEFAULT_ANNUAL_VOL,
-    MOCK_PROFILES,
     TRADE_GAP_SECONDS,
     MockProfile,
+    mock_profile,
 )
-from app.instruments import get_instrument
+from app.instruments import INSTRUMENTS, MOCK_SEEDS, get_instrument
 from app.models.candle import INTERVALS, Candle, bucket_start, resample
+from app.models.instrument import Instrument
 from app.models.market_data import MarketData
 
 EXCHANGE_LABEL = "GSE - Simulated Quote - GHS"
@@ -94,12 +96,23 @@ def _trade_probability(span_seconds: float, trade_gap_seconds: float) -> float:
 
 class MockMarketConnector(BaseMarketConnector):
 
-    def __init__(self, symbols: list[str], interval_seconds: float = 0.5):
+    def __init__(
+        self,
+        symbols: list[str],
+        interval_seconds: float = 0.5,
+        instruments: Optional[dict[str, Instrument]] = None,
+        mock_seeds: Optional[dict[str, dict]] = None,
+    ):
+        """`instruments` / `mock_seeds` default to the instrument master
+        loaded from data/instruments.json; pass another load_seed() result
+        to run against a different seed file."""
         super().__init__(symbols)
-        for symbol in symbols:
-            get_instrument(symbol)  # raises for anything not in the master
-            if symbol not in MOCK_PROFILES:
-                raise KeyError(f"No mock calibration for '{symbol}' in gse_mock_profiles.py")
+        instruments = INSTRUMENTS if instruments is None else instruments
+        mock_seeds = MOCK_SEEDS if mock_seeds is None else mock_seeds
+        # Resolved up front so an unknown symbol or a bad mock block fails
+        # at construction, not halfway through connect().
+        self._instruments = {s: get_instrument(s, instruments) for s in symbols}
+        self._mock = {s: mock_profile(mock_seeds.get(s)) for s in symbols}
         self.interval_seconds = interval_seconds
         self._prices: dict[str, float] = {}
         self._profiles: dict[str, dict] = {}
@@ -114,8 +127,8 @@ class MockMarketConnector(BaseMarketConnector):
         today = now.date()
 
         for symbol in self.symbols:
-            instrument = get_instrument(symbol)
-            mp = MOCK_PROFILES[symbol]
+            instrument = self._instruments[symbol]
+            mp = self._mock[symbol]
             price = mp.price
             self._prices[symbol] = price
 

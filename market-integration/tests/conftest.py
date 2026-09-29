@@ -1,11 +1,19 @@
+import os
+import shutil
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 
-from app.models.market_data import MarketData
+# Point the app at a throwaway database before anything imports
+# app.config, so the test session never reads, writes or deletes the
+# market_data.db a running dev server is using. load_dotenv() doesn't
+# override variables that are already set, so .env can't undo this.
+_TEST_DB_DIR = Path(tempfile.mkdtemp(prefix="market-integration-tests-"))
+os.environ["MARKET_DB_PATH"] = str(_TEST_DB_DIR / "market_data.db")
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+from app.models.market_data import MarketData  # noqa: E402
 
 
 @pytest.fixture
@@ -67,11 +75,6 @@ def client():
 
 
 @pytest.fixture(scope="session", autouse=True)
-def _cleanup_market_data_db():
-    """MarketAggregator's default db path (and app.main's, which uses it)
-    is relative to the process cwd. Clean up whatever this test session
-    caused to be created there, wherever pytest was invoked from."""
+def _cleanup_test_db():
     yield
-    for db_path in {REPO_ROOT / "market_data.db", Path.cwd() / "market_data.db"}:
-        if db_path.exists():
-            db_path.unlink()
+    shutil.rmtree(_TEST_DB_DIR, ignore_errors=True)
