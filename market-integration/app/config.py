@@ -7,14 +7,28 @@ import os
 
 from dotenv import load_dotenv
 
+from app.instruments import INSTRUMENTS, all_symbols
+
 load_dotenv()
 
-# Symbols to track — comma separated, e.g. "AAPL,MSFT,TSLA"
-SYMBOLS: list[str] = [
-    s.strip()
-    for s in os.getenv("MARKET_SYMBOLS", "AAPL,MSFT,TSLA,NVDA,SNAP,META").split(",")
-    if s.strip()
-]
+
+def _symbols_from_env() -> list[str]:
+    raw = os.getenv("MARKET_SYMBOLS", "").strip()
+    if not raw:
+        return all_symbols()
+    symbols = [s.strip().upper() for s in raw.split(",") if s.strip()]
+    unknown = [s for s in symbols if s not in INSTRUMENTS]
+    if unknown:
+        raise ValueError(
+            f"MARKET_SYMBOLS contains symbols missing from the instrument master "
+            f"(app/instruments/): {', '.join(unknown)}"
+        )
+    return symbols
+
+
+# Symbols to track, comma separated, e.g. "MTNGH,GCB,SCB". Unset or empty
+# tracks every instrument in the instrument master (app/instruments/).
+SYMBOLS: list[str] = _symbols_from_env()
 
 # How often the mock connector emits an update, in seconds
 MOCK_INTERVAL_SECONDS: float = float(os.getenv("MOCK_INTERVAL_SECONDS", "0.5"))

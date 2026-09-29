@@ -35,10 +35,13 @@ class MarketData(BaseModel):
     pe_ratio: float = Field(gt=0)
     eps: float
 
-    bid: float = Field(gt=0)
-    bid_size: int = Field(ge=0)
-    ask: float = Field(gt=0)
-    ask_size: int = Field(ge=0)
+    # Either side of the book can be empty -- thinly traded GSE names
+    # often close with only a bid, only an offer, or neither. An empty
+    # side is None with a size of 0.
+    bid: float | None = Field(default=None, gt=0)
+    bid_size: int = Field(default=0, ge=0)
+    ask: float | None = Field(default=None, gt=0)
+    ask_size: int = Field(default=0, ge=0)
 
     volume: int = Field(ge=0)
     avg_volume: int = Field(ge=0)

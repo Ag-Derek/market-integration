@@ -51,7 +51,9 @@ def validate_tick(tick: MarketData, *, now: datetime | None = None) -> Validatio
     now = now or datetime.now(timezone.utc)
     errors: list[str] = []
 
-    if tick.bid >= tick.ask:
+    # A one-sided or empty book is normal on the GSE; only a crossed or
+    # locked two-sided book is an error.
+    if tick.bid is not None and tick.ask is not None and tick.bid >= tick.ask:
         errors.append(f"bid ({tick.bid}) is not less than ask ({tick.ask})")
 
     if tick.day_low > tick.day_high:

@@ -19,9 +19,9 @@ async def test_full_pipeline_delivers_only_validated_ticks(make_tick):
     """connector -> buffer -> validator -> processor -> broadcast, wired
     the way app.main wires it. A bad tick (bid >= ask) must never reach
     the processor's latest-state or the broadcast callback."""
-    good_1 = make_tick(price=250.00)
-    bad = make_tick(bid=300.00, ask=290.00)
-    good_2 = make_tick(price=251.00)
+    good_1 = make_tick(price=6.54)
+    bad = make_tick(bid=6.60, ask=6.55)
+    good_2 = make_tick(price=6.55)
 
     buffer = MarketDataBuffer(_source([good_1, bad, good_2]), maxsize=10)
     processor = MarketProcessor()
@@ -43,15 +43,15 @@ async def test_full_pipeline_delivers_only_validated_ticks(make_tick):
         consume_task.cancel()
         await buffer.stop()
 
-    assert [tick.price for tick in broadcasted] == [250.00, 251.00]
-    assert processor.get_latest(good_1.symbol).price == 251.00
+    assert [tick.price for tick in broadcasted] == [6.54, 6.55]
+    assert processor.get_latest(good_1.symbol).price == 6.55
 
 
 async def test_aggregator_persists_ohlcv_for_valid_ticks_only(make_tick, tmp_path):
     t0 = datetime.now(timezone.utc)
-    good_1 = make_tick(price=250.00, volume=1000, timestamp=t0)
-    bad = make_tick(bid=300.00, ask=290.00, timestamp=t0)
-    good_2 = make_tick(price=252.00, volume=1500, timestamp=t0)
+    good_1 = make_tick(price=6.54, volume=1000, timestamp=t0)
+    bad = make_tick(bid=6.60, ask=6.55, timestamp=t0)
+    good_2 = make_tick(price=6.56, volume=1500, timestamp=t0)
 
     buffer = MarketDataBuffer(_source([good_1, bad, good_2]), maxsize=10)
     db_path = tmp_path / "candles.db"
@@ -87,13 +87,13 @@ async def test_aggregator_persists_ohlcv_for_valid_ticks_only(make_tick, tmp_pat
 
     assert len(rows) == 1
     open_, high, low, close, volume, tick_count = rows[0]
-    assert (open_, close) == (250.00, 252.00)
+    assert (open_, close) == (6.54, 6.56)
     assert tick_count == 2  # the bad tick was dropped before recording
     assert volume == 500  # cumulative-volume delta: 1500 - 1000
 
 
 async def test_buffer_drops_oldest_when_a_subscriber_falls_behind(make_tick):
-    ticks = [make_tick(price=float(100 + i)) for i in range(10)]
+    ticks = [make_tick(price=round(6.40 + i * 0.01, 2)) for i in range(10)]
     buffer = MarketDataBuffer(_source(ticks), maxsize=2)
     feed = buffer.subscribe("slow")
 
@@ -113,6 +113,6 @@ async def test_buffer_drops_oldest_when_a_subscriber_falls_behind(make_tick):
                 break
 
         # Drop-oldest means the newest tick always survives.
-        assert seen[-1].price == 109.0
+        assert seen[-1].price == 6.49
     finally:
         await buffer.stop()
