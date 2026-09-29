@@ -1,51 +1,250 @@
 """
-Real-time delivery layer. Knows nothing about market data specifically —
-its only job is tracking connected clients and pushing whatever it's
-given to all of them, cleaning up any that have dropped.
+Real-time delivery layer: per-client subscriptions over /ws/market.
+
+Protocol (JSON text frames):
+
+  server -> client, on connect
+    {"type": "welcome", "symbols": [...]}        what can be subscribed to; no prices
+  client -> server
+    {"action": "subscribe",   "symbols": [...]}
+    {"action": "unsubscribe", "symbols": [...]}
+  server -> client
+    {"type": "subscribed",   "symbols": [newly added], "subscriptions": [all]}
+    {"type": "snapshot",     "data": {symbol: quote}}   newly subscribed symbols only
+    {"type": "unsubscribed", "symbols": [removed],     "subscriptions": [all]}
+    {"type": "tick",         "data": quote}             subscribed symbols only
+    {"type": "error", "code": "bad_json" | "bad_request" | "unknown_symbols",
+     "message": ..., "symbols": [...]}
+
+A client that never subscribes gets the welcome message and nothing
+else. Unknown symbols in a request are reported in an error and the
+valid ones are still applied. Symbols are case-insensitive.
+
+Slow clients: broadcast() never awaits a send. Each client has its own
+outbox -- control messages (acks, snapshots, errors) in order, plus at
+most one pending tick per symbol -- drained by a per-client sender
+task. A newer tick for a symbol replaces one that hasn't been sent yet
+(conflation), so a slow client can't build a backlog or delay the feed
+or anyone else; it just skips intermediate prices and catches up to the
+current one.
+
+This is the same "latest per symbol" idea as
+MarketDataBuffer.subscribe_latest(), but it deliberately lives here
+rather than there: that buffer mode sits before validation and the
+processor, so using it per client would hand browsers unvalidated
+ticks and make every connection a separate buffer subscriber.
 """
 
 import asyncio
+import json
+import logging
+from collections import deque
+from typing import Callable, Iterable, Mapping, Optional
 
-from fastapi import WebSocket
+from fastapi import WebSocket, WebSocketDisconnect
+
+from app.models.market_data import MarketData
+
+logger = logging.getLogger(__name__)
+
+
+class _Client:
+    """One connection: its subscriptions and its outbox."""
+
+    __slots__ = ("ws", "subscriptions", "control", "pending", "wakeup", "sender", "closed", "conflated")
+
+    def __init__(self, ws: WebSocket):
+        self.ws = ws
+        self.subscriptions: set[str] = set()
+        self.control: deque[dict] = deque()     # sent in order, never dropped
+        self.pending: dict[str, dict] = {}      # symbol -> latest unsent tick
+        self.wakeup = asyncio.Event()
+        self.sender: Optional[asyncio.Task] = None
+        self.closed = False
+        self.conflated = 0                      # ticks replaced before they were sent
+
+    def send_control(self, message: dict) -> None:
+        self.control.append(message)
+        self.wakeup.set()
+
+    def offer_tick(self, symbol: str, message: dict) -> None:
+        if symbol in self.pending:
+            self.conflated += 1
+        self.pending[symbol] = message
+        self.wakeup.set()
 
 
 class WebSocketGateway:
 
-    def __init__(self):
-        self.clients: set[WebSocket] = set()
+    def __init__(
+        self,
+        symbols: Iterable[str],
+        snapshot: Callable[[list[str]], Mapping[str, MarketData]],
+    ):
+        """`symbols` is what clients may subscribe to (the feed's
+        universe); `snapshot` returns the latest quote for each of the
+        given symbols that has one."""
+        self._symbols = list(symbols)
+        self._known = set(self._symbols)
+        self._snapshot = snapshot
+        self._clients: dict[WebSocket, _Client] = {}
+        self._subscribers: dict[str, set[_Client]] = {}
 
-    async def connect(self, websocket: WebSocket) -> None:
+    @property
+    def client_count(self) -> int:
+        return len(self._clients)
+
+    def subscribers(self, symbol: str) -> int:
+        return len(self._subscribers.get(symbol, ()))
+
+    # ------------------------------------------------------------ lifecycle
+
+    async def serve(self, websocket: WebSocket) -> None:
+        """Run one connection until the client goes away."""
+        client = await self.connect(websocket)
+        try:
+            while True:
+                self.handle_message(client, await websocket.receive_text())
+        except WebSocketDisconnect:
+            pass
+        except Exception:
+            logger.exception("Market websocket connection failed")
+        finally:
+            await self.disconnect(websocket)
+
+    async def connect(self, websocket: WebSocket) -> _Client:
         await websocket.accept()
-        self.clients.add(websocket)
-        print(f"Client connected. Total clients: {len(self.clients)}")
+        client = _Client(websocket)
+        self._clients[websocket] = client
+        client.sender = asyncio.create_task(self._send_loop(client))
+        client.send_control({"type": "welcome", "symbols": self._symbols})
+        logger.info("Client connected. Total clients: %d", len(self._clients))
+        return client
 
     async def disconnect(self, websocket: WebSocket) -> None:
-        self.clients.discard(websocket)
-        print(f"Client disconnected. Total clients: {len(self.clients)}")
+        client = self._clients.pop(websocket, None)
+        if client is None:
+            return
+        self._drop(client)
+        if client.sender is not None and client.sender is not asyncio.current_task():
+            client.sender.cancel()
+            try:
+                await client.sender
+            except (asyncio.CancelledError, Exception):
+                pass
+        logger.info("Client disconnected. Total clients: %d", len(self._clients))
 
-    async def broadcast(self, data) -> None:
-        # Fan out concurrently -- sequential awaits here would let one
-        # slow/stalled client delay delivery to every other client and,
-        # since the caller awaits this before pulling the next item off
-        # the feed, back up ingestion for all symbols.
-        #
-        # Snapshot self.clients once: a client's own handler task can call
-        # disconnect() concurrently while we're suspended on gather() below
-        # (each websocket connection runs in its own task). Re-reading
-        # self.clients afterwards would zip a possibly-mutated set against
-        # results computed from the original one, pairing the wrong client
-        # with the wrong outcome.
-        payload = data.model_dump(mode="json")
-        clients = list(self.clients)
-        results = await asyncio.gather(
-            *(client.send_json(payload) for client in clients),
-            return_exceptions=True,
-        )
+    def _drop(self, client: _Client) -> None:
+        """Remove a client from the symbol index (idempotent)."""
+        client.closed = True
+        for symbol in client.subscriptions:
+            subs = self._subscribers.get(symbol)
+            if subs is not None:
+                subs.discard(client)
+                if not subs:
+                    del self._subscribers[symbol]
+        client.subscriptions.clear()
+        client.pending.clear()
 
-        disconnected = [
-            client
-            for client, result in zip(clients, results)
-            if isinstance(result, Exception)
-        ]
-        for client in disconnected:
-            await self.disconnect(client)
+    # ------------------------------------------------------------ protocol
+
+    def handle_message(self, client: _Client, text: str) -> None:
+        try:
+            message = json.loads(text)
+        except ValueError:
+            client.send_control(_error("bad_json", "Message is not valid JSON."))
+            return
+        action = message.get("action") if isinstance(message, dict) else None
+        symbols = message.get("symbols") if isinstance(message, dict) else None
+        if action not in ("subscribe", "unsubscribe") or not (
+            isinstance(symbols, list) and all(isinstance(s, str) for s in symbols)
+        ):
+            client.send_control(_error(
+                "bad_request",
+                'Expected {"action": "subscribe" | "unsubscribe", "symbols": [...]}.',
+            ))
+            return
+
+        requested = list(dict.fromkeys(s.strip().upper() for s in symbols))
+        unknown = [s for s in requested if s not in self._known]
+        valid = [s for s in requested if s in self._known]
+        if unknown:
+            client.send_control(_error(
+                "unknown_symbols", "Not available on this feed: " + ", ".join(unknown), symbols=unknown,
+            ))
+        if action == "subscribe":
+            self._subscribe(client, valid)
+        else:
+            self._unsubscribe(client, valid)
+
+    def _subscribe(self, client: _Client, symbols: list[str]) -> None:
+        added = [s for s in symbols if s not in client.subscriptions]
+        for symbol in added:
+            client.subscriptions.add(symbol)
+            self._subscribers.setdefault(symbol, set()).add(client)
+        client.send_control({
+            "type": "subscribed", "symbols": added, "subscriptions": sorted(client.subscriptions),
+        })
+        if added:
+            # Ticks that arrive from here on are queued behind this in the
+            # outbox (control messages go first), so the snapshot always
+            # reaches the client before any tick for these symbols.
+            latest = self._snapshot(added)
+            client.send_control({
+                "type": "snapshot",
+                "data": {s: latest[s].model_dump(mode="json") for s in added if s in latest},
+            })
+
+    def _unsubscribe(self, client: _Client, symbols: list[str]) -> None:
+        removed = [s for s in symbols if s in client.subscriptions]
+        for symbol in removed:
+            client.subscriptions.discard(symbol)
+            client.pending.pop(symbol, None)
+            subs = self._subscribers.get(symbol)
+            if subs is not None:
+                subs.discard(client)
+                if not subs:
+                    del self._subscribers[symbol]
+        client.send_control({
+            "type": "unsubscribed", "symbols": removed, "subscriptions": sorted(client.subscriptions),
+        })
+
+    # ------------------------------------------------------------ delivery
+
+    async def broadcast(self, data: MarketData) -> None:
+        """Queue a tick for the symbol's subscribers. Never awaits a send,
+        so no client can hold up the feed or the other clients."""
+        subs = self._subscribers.get(data.symbol)
+        if not subs:
+            return
+        message = {"type": "tick", "data": data.model_dump(mode="json")}
+        for client in subs:
+            client.offer_tick(data.symbol, message)
+
+    async def _send_loop(self, client: _Client) -> None:
+        try:
+            while not client.closed:
+                await client.wakeup.wait()
+                client.wakeup.clear()
+                while client.control:
+                    await client.ws.send_json(client.control.popleft())
+                # Swap the dict out before sending: ticks that arrive while
+                # we await a send land in the fresh one, not the one being
+                # iterated.
+                pending, client.pending = client.pending, {}
+                for message in pending.values():
+                    await client.ws.send_json(message)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            # The connection is gone or broken. Stop delivering to it; the
+            # receive side of serve() notices and calls disconnect().
+            logger.debug("Send to websocket client failed; dropping it", exc_info=True)
+            self._drop(client)
+
+
+def _error(code: str, message: str, symbols: Optional[list[str]] = None) -> dict:
+    error = {"type": "error", "code": code, "message": message}
+    if symbols is not None:
+        error["symbols"] = symbols
+    return error

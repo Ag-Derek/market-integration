@@ -229,7 +229,7 @@ Uvicorn running on http://127.0.0.1:8000
 | `http://127.0.0.1:8000/fixed-income/summary` | Volume, number of trades and largest trade per section, plus grand totals |
 | `http://127.0.0.1:8000/fixed-income/{section}` | One section's rows: `new_gog`, `ddep`, `old_gog`, `treasury_bill`, `corporate` or `sell_buy_back` |
 | `http://127.0.0.1:8000/market/{symbol}` | Latest snapshot for a tracked symbol (e.g. `/market/MTNGH`); 404 if unknown |
-| `ws://127.0.0.1:8000/ws/market`   | WebSocket — live-streaming updates, sends initial state then pushes ticks as they arrive |
+| `ws://127.0.0.1:8000/ws/market`   | WebSocket — live quotes for the symbols a client subscribes to (protocol below) |
 | `http://127.0.0.1:8000/ticker`    | Live quote card UI (`app/static/ticker.html`), driven by the WebSocket feed above |
 | `http://127.0.0.1:8000/candles/export` | Historical OHLCV candles as a CSV download (opens in Excel). Optional `?symbol=MTNGH` and `?interval=15m` query params |
 
@@ -244,10 +244,27 @@ curl http://127.0.0.1:8000/market/MTNGH
 curl http://127.0.0.1:8000/candles/export -o market_candles.csv
 ```
 
-### Quick test of the live WebSocket feed
+### The live WebSocket feed
 
-Save this as `test-client.html` and open it in a browser while the server
-is running:
+`/ws/market` sends each client only the symbols it subscribes to. All
+messages are JSON:
+
+| Direction | Message | Meaning |
+|---|---|---|
+| server → client | `{"type": "welcome", "symbols": [...]}` | Sent on connect: the symbols you can subscribe to. No prices; a client that never subscribes gets nothing else. |
+| client → server | `{"action": "subscribe", "symbols": ["MTNGH", "GCB"]}` | Start receiving these symbols (case-insensitive). |
+| client → server | `{"action": "unsubscribe", "symbols": ["GCB"]}` | Stop receiving them. |
+| server → client | `{"type": "subscribed" \| "unsubscribed", "symbols": [...], "subscriptions": [...]}` | Confirmation: what changed, and everything you're now subscribed to. |
+| server → client | `{"type": "snapshot", "data": {"MTNGH": {...}}}` | Current quotes for the symbols you just subscribed to. |
+| server → client | `{"type": "tick", "data": {...}}` | A new quote for a subscribed symbol. |
+| server → client | `{"type": "error", "code": "bad_json" \| "bad_request" \| "unknown_symbols", "message": "...", "symbols": [...]}` | Your message couldn't be used. Unknown symbols are listed; the valid ones in the same request still apply. |
+
+A slow client never holds up the feed or other clients. It skips
+intermediate prices and always catches up to the latest one for each
+symbol (see `app/gateways/websocket_gateway.py`).
+
+To try it, save this as `test-client.html` and open it in a browser while
+the server is running:
 
 ```html
 <!DOCTYPE html>
@@ -258,6 +275,9 @@ is running:
   <pre id="market"></pre>
   <script>
     const socket = new WebSocket("ws://127.0.0.1:8000/ws/market");
+    socket.onopen = () => {
+      socket.send(JSON.stringify({ action: "subscribe", symbols: ["MTNGH", "GCB"] }));
+    };
     socket.onmessage = (event) => {
       document.getElementById("market").textContent =
         JSON.stringify(JSON.parse(event.data), null, 2);
