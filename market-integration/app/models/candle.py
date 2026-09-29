@@ -58,27 +58,43 @@ def bucket_end(start: datetime, interval: str) -> datetime:
 
 def resample(candles: Iterable[Candle], interval: str) -> list[Candle]:
     """Roll finer, time-ordered candles up into coarser `interval` ones."""
+    # Accumulates each bucket in a plain list and builds its Candle once:
+    # mutating pydantic models field by field is slow at the scale of a
+    # startup backfill (hundreds of thousands of input candles).
     out: list[Candle] = []
+    symbol = None
+    acc = None  # [start, open, high, low, close, volume, tick_count]
+
+    def emit() -> None:
+        start, open_, high, low, close, volume, tick_count = acc
+        out.append(Candle(
+            symbol=symbol,
+            interval=interval,
+            window_start=start,
+            window_end=bucket_end(start, interval),
+            open=open_,
+            high=high,
+            low=low,
+            close=close,
+            volume=volume,
+            tick_count=tick_count,
+        ))
+
     for c in candles:
         start = bucket_start(c.window_start, interval)
-        if out and out[-1].window_start == start:
-            last = out[-1]
-            last.high = max(last.high, c.high)
-            last.low = min(last.low, c.low)
-            last.close = c.close
-            last.volume += c.volume
-            last.tick_count += c.tick_count
+        if acc is not None and acc[0] == start:
+            if c.high > acc[2]:
+                acc[2] = c.high
+            if c.low < acc[3]:
+                acc[3] = c.low
+            acc[4] = c.close
+            acc[5] += c.volume
+            acc[6] += c.tick_count
         else:
-            out.append(Candle(
-                symbol=c.symbol,
-                interval=interval,
-                window_start=start,
-                window_end=bucket_end(start, interval),
-                open=c.open,
-                high=c.high,
-                low=c.low,
-                close=c.close,
-                volume=c.volume,
-                tick_count=c.tick_count,
-            ))
+            if acc is not None:
+                emit()
+            symbol = c.symbol
+            acc = [start, c.open, c.high, c.low, c.close, c.volume, c.tick_count]
+    if acc is not None:
+        emit()
     return out

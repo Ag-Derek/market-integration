@@ -4,8 +4,11 @@ A market-data integration service that ingests a live price feed, normalizes
 it into a canonical format, and exposes it for consumption (initially via
 REST/WebSocket, eventually via Symphony webhooks).
 
-Currently wired to a **mock** provider that simulates live ticks for a
-configurable list of symbols, so the full pipeline — connector → buffer →
+Currently wired to a **mock** provider that simulates live trading in
+every GSE-listed equity (plus the GLD ETF), calibrated from real GSE
+daily reports: real price levels, one-sided or empty order books, and
+thinly traded names that go days without a trade. That lets the full
+pipeline — connector → buffer →
 validation/processor → gateway, plus a parallel aggregation branch — can be
 built and tested before a real market-data source is chosen.
 
@@ -42,8 +45,13 @@ REST endpoint  WebSocketGateway   (app/gateways/)
 - **`app/connectors/`** — talks to the market-data source. `base_connector.py`
   defines the interface every provider adapter must implement
   (`connect`, `stream`, `disconnect`, `normalize`). `market_connector.py` is
-  the current mock implementation. A real provider gets its own class here
-  implementing the same interface — nothing else in the app changes.
+  the current mock implementation, and `gse_mock_profiles.py` holds its
+  per-symbol calibration (starting price, volatility, trade frequency,
+  book shape). A real provider gets its own class here implementing the
+  same interface — nothing else in the app changes.
+- **`app/instruments/`** — the instrument master: every tradable symbol
+  and its reference data (name, sector, kind). Config, connectors and the
+  API take their symbol universe from here.
 - **`app/models/`** — `MarketData`, the canonical shape everything downstream
   of a connector deals with: the live tick (`symbol`, `price`, `volume`,
   `timestamp`) plus the quote-page fundamentals (`previous_close`, day/52-week
@@ -148,16 +156,19 @@ Copy-Item .env.example .env
 cp .env.example .env
 ```
 
-Open `.env` and adjust if you want different tracked symbols:
+Open `.env` and adjust if you want to track only some symbols:
 
 ```env
-MARKET_SYMBOLS=AAPL,MSFT,TSLA
+MARKET_SYMBOLS=MTNGH,GCB,SCB
 MOCK_INTERVAL_SECONDS=0.5
 QUEUE_MAX_SIZE=200
 ```
 
-Only symbols listed in `MARKET_SYMBOLS` will return data from
-`/market/{symbol}` — unlisted symbols return `{"error": "Symbol not found"}`.
+Leave `MARKET_SYMBOLS` empty to track every GSE-listed security in the
+instrument master (`app/instruments/gse_equities.py`, 42 codes). A
+symbol that isn't in the instrument master stops the service at startup
+with an error naming it. Untracked symbols return
+`{"error": "Symbol not found"}` from `/market/{symbol}`.
 
 ## Running the service
 
@@ -191,10 +202,10 @@ Uvicorn running on http://127.0.0.1:8000
 | `http://127.0.0.1:8000/docs`      | Interactive Swagger UI — try endpoints directly in the browser |
 | `http://127.0.0.1:8000/redoc`     | Alternative API documentation        |
 | `http://127.0.0.1:8000/health`    | Health check                         |
-| `http://127.0.0.1:8000/market/{symbol}` | Latest snapshot for a tracked symbol (e.g. `/market/AAPL`) |
+| `http://127.0.0.1:8000/market/{symbol}` | Latest snapshot for a tracked symbol (e.g. `/market/MTNGH`) |
 | `ws://127.0.0.1:8000/ws/market`   | WebSocket — live-streaming updates, sends initial state then pushes ticks as they arrive |
 | `http://127.0.0.1:8000/ticker`    | Live quote card UI (`app/static/ticker.html`), driven by the WebSocket feed above |
-| `http://127.0.0.1:8000/candles/export` | Historical OHLCV candles as a CSV download (opens in Excel). Optional `?symbol=AAPL` and `?interval=15m` query params |
+| `http://127.0.0.1:8000/candles/export` | Historical OHLCV candles as a CSV download (opens in Excel). Optional `?symbol=MTNGH` and `?interval=15m` query params |
 
 `127.0.0.1` means "this machine only" — the service isn't reachable from
 another computer or from Symphony yet. That's expected during development.
@@ -203,7 +214,7 @@ another computer or from Symphony yet. That's expected during development.
 
 ```bash
 curl http://127.0.0.1:8000/health
-curl http://127.0.0.1:8000/market/AAPL
+curl http://127.0.0.1:8000/market/MTNGH
 curl http://127.0.0.1:8000/candles/export -o market_candles.csv
 ```
 

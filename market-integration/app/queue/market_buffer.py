@@ -32,7 +32,7 @@ Supports any number of independent subscribers, each in one of two modes:
 
 Usage:
 
-    connector = MockMarketConnector(symbols=["AAPL", "TSLA"])
+    connector = MockMarketConnector(symbols=["MTNGH", "GCB"])
     await connector.connect()
 
     buffer = MarketDataBuffer(connector.stream(), maxsize=200)

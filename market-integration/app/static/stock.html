@@ -615,10 +615,11 @@
     statEls.exDividend.textContent = d.forward_dividend > 0 ? fmtDate(d.ex_dividend_date) : "N/A";
     statEls.target.textContent = fmtPrice(d.target_est);
 
-    $("bid").textContent = fmtPrice(d.bid);
-    $("bidSize").textContent = "× " + fmtNum(d.bid_size);
-    $("ask").textContent = fmtPrice(d.ask);
-    $("askSize").textContent = "× " + fmtNum(d.ask_size);
+    // Thin GSE names often quote one side only, or neither.
+    $("bid").textContent = d.bid == null ? "—" : fmtPrice(d.bid);
+    $("bidSize").textContent = d.bid == null ? "" : "× " + fmtNum(d.bid_size);
+    $("ask").textContent = d.ask == null ? "—" : fmtPrice(d.ask);
+    $("askSize").textContent = d.ask == null ? "" : "× " + fmtNum(d.ask_size);
   }
 
   function renderAsOf() {
