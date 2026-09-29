@@ -22,9 +22,15 @@ class MarketData(BaseModel):
     name: str
     exchange_label: str
 
-    price: float = Field(gt=0)
-    previous_close: float = Field(gt=0)
+    # Field meanings follow the GSE daily shares report; see
+    # docs/data-formats.md for the column-by-column mapping.
+    price: float = Field(gt=0)            # last transaction price
+    previous_close: float = Field(gt=0)   # previous session's VWAP, not its last trade
     open: float = Field(gt=0)
+    # Session VWAP: the GSE's official closing price. Carries the previous
+    # one over when there have been no trades this session.
+    vwap: float = Field(gt=0)
+    change: float                         # vwap - previous_close, not price - previous_close
     day_high: float = Field(gt=0)
     day_low: float = Field(gt=0)
     week52_high: float = Field(gt=0)
@@ -43,7 +49,8 @@ class MarketData(BaseModel):
     ask: float | None = Field(default=None, gt=0)
     ask_size: int = Field(default=0, ge=0)
 
-    volume: int = Field(ge=0)
+    volume: int = Field(ge=0)             # shares traded this session
+    value_traded: float = Field(ge=0)     # GHS turnover this session
     avg_volume: int = Field(ge=0)
 
     forward_dividend: float = Field(ge=0)

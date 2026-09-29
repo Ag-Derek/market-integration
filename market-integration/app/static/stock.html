@@ -540,11 +540,13 @@
   // ---------------------------------------------------------------- quote
 
   const STAT_DEFS = [
-    ["previousClose", "Previous Close"],
+    ["previousClose", "Previous Close (VWAP)"],
     ["open", "Open"],
+    ["vwap", "VWAP (Official Close)"],
     ["dayRange", "Day's Range"],
     ["week52", "52 Week Range"],
     ["volume", "Volume"],
+    ["valueTraded", "Value Traded"],
     ["avgVolume", "Avg. Volume"],
     ["marketCap", "Market Cap"],
     ["beta", "Beta"],
@@ -600,9 +602,12 @@
 
     statEls.previousClose.textContent = fmtPrice(d.previous_close);
     statEls.open.textContent = fmtPrice(d.open);
+    // Official close per the GSE; "change" in the report is VWAP vs previous VWAP.
+    statEls.vwap.textContent = fmtPrice(d.vwap) + " (" + (d.change > 0 ? "+" : "") + d.change.toFixed(2) + ")";
     statEls.dayRange.textContent = fmtPrice(d.day_low) + " – " + fmtPrice(d.day_high);
     statEls.week52.textContent = fmtPrice(d.week52_low) + " – " + fmtPrice(d.week52_high);
     statEls.volume.textContent = fmtNum(d.volume);
+    statEls.valueTraded.textContent = fmtMoney(d.value_traded);
     statEls.avgVolume.textContent = fmtNum(d.avg_volume);
     statEls.marketCap.textContent = fmtLarge(d.market_cap);
     statEls.beta.textContent = d.beta.toFixed(2);

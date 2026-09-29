@@ -21,13 +21,37 @@ def _seed_entries():
 
 # ---------------------------------------------------------------- seed file
 
-def test_checked_in_seed_covers_the_gse_and_every_entry_is_calibrated():
-    assert len(INSTRUMENTS) == 42
-    assert {"MTNGH", "GCB", "SCB", "SCB-PREF", "TOTAL", "UNIL", "PBC", "GLD"} <= set(INSTRUMENTS)
-    assert all(i.asset_class == "equity" and i.status == "active" for i in INSTRUMENTS.values())
-    assert set(MOCK_SEEDS) == set(INSTRUMENTS)
+EQUITIES = {s for s, i in INSTRUMENTS.items() if i.asset_class == "equity"}
+
+
+def test_checked_in_seed_covers_the_gse_and_every_equity_is_calibrated():
+    assert len(EQUITIES) == 42
+    assert {"MTNGH", "GCB", "SCB", "SCB-PREF", "TOTAL", "UNIL", "PBC", "GLD"} <= EQUITIES
+    assert set(MOCK_SEEDS) == set(INSTRUMENTS)  # every instrument, equity or fixed income
     assert INSTRUMENTS["MTNGH"].isin == "GHEMTN051541"
     assert INSTRUMENTS["GLD"].kind == "etf"
+    # Marked **ALW** / PBC** in the 28-Sep-2026 daily shares report.
+    assert {s for s, i in INSTRUMENTS.items() if i.status != "active"} == {"ALW", "PBC"}
+    assert {"ALW", "PBC"}.isdisjoint(config.SYMBOLS)
+
+
+def test_checked_in_seed_has_every_gfim_sample_security():
+    fixed = [i for i in INSTRUMENTS.values() if i.asset_class != "equity"]
+    counts = {}
+    for i in fixed:
+        counts[i.segment] = counts.get(i.segment, 0) + 1
+    # Rows in the 28-Sep-2026 GFIM report, per section.
+    assert counts == {"new_gog": 2, "ddep": 29, "old_gog": 17, "treasury_bill": 91, "corporate": 22}
+    assert all(i.symbol == i.isin and i.maturity_date and i.issuer for i in fixed)
+    assert all(i.asset_class == "bill" and i.coupon_rate == 0 for i in fixed if i.segment == "treasury_bill")
+
+    gfsf = INSTRUMENTS["GHGGOG072851"]  # GFSF-5-14YR
+    # The report's maturity column says 2028-12-05; the description (and
+    # the tenor) say 2037. See docs/data-formats.md.
+    assert (gfsf.tenor, gfsf.maturity_date.isoformat(), gfsf.coupon_rate) == ("GFSF-5-14YR", "2037-11-24", 9.85)
+    assert INSTRUMENTS["GHGGOG071689"].currency == "USD"  # USD-DDE-FCA-27
+    assert INSTRUMENTS["GHGGOGI02055"].tenor == "182-DAY BILL"  # ISIN had a trailing space in the report
+    assert INSTRUMENTS["GHCLGH075751"].coupon_rate is None  # LGH-BD-04/10/29-C0936: no coupon given
 
 
 @pytest.mark.parametrize("isin,ok", [
@@ -152,14 +176,27 @@ def test_list_instruments(client):
         "symbol": "MTNGH", "name": "Scancom PLC (MTN Ghana)", "asset_class": "equity",
         "sector": "Telecommunications", "currency": "GHS", "isin": "GHEMTN051541",
         "status": "active", "kind": "ordinary",
+        "issuer": None, "segment": None, "tenor": None, "maturity_date": None, "coupon_rate": None,
     }
     assert all("mock" not in i for i in body)
+
+    bill = next(i for i in body if i["symbol"] == "GHGGOGI01883")
+    assert bill == {
+        "symbol": "GHGGOGI01883", "name": "GOG-BL-21/06/27-A7064-2012-0", "asset_class": "bill",
+        "sector": "Government", "currency": "GHS", "isin": "GHGGOGI01883", "status": "active",
+        "kind": None, "issuer": "Government of Ghana", "segment": "treasury_bill",
+        "tenor": "364-DAY BILL", "maturity_date": "2027-06-21", "coupon_rate": 0.0,
+    }
 
 
 def test_filter_instruments_by_asset_class_and_sector(client):
     equities = client.get("/instruments", params={"asset_class": "equity"}).json()
-    assert len(equities) == len(INSTRUMENTS)
-    assert client.get("/instruments", params={"asset_class": "bond"}).json() == []
+    assert {i["symbol"] for i in equities} == EQUITIES
+    assert len(client.get("/instruments", params={"asset_class": "bond"}).json()) == 70
+    assert len(client.get("/instruments", params={"asset_class": "bill"}).json()) == 91
+
+    gov_bills = client.get("/instruments", params={"asset_class": "bill", "sector": "government"}).json()
+    assert len(gov_bills) == 91
 
     banks = client.get("/instruments", params={"sector": "banking"}).json()  # case-insensitive
     expected = sorted(s for s, i in INSTRUMENTS.items() if i.sector == "Banking")
@@ -177,6 +214,29 @@ def test_get_one_instrument(client):
     response = client.get("/instruments/scb-pref")
     assert response.status_code == 200
     assert response.json()["kind"] == "preference"
+
+
+def test_suspended_and_fixed_income_instruments_are_listed_but_not_streamed(client):
+    assert client.get("/instruments/PBC").json()["status"] == "suspended"
+    assert client.get("/instruments/GHGGOG069931").json()["tenor"] == "2023-GC-3"
+    for symbol in ("PBC", "ALW", "GHGGOG069931"):
+        assert client.get(f"/market/{symbol}").status_code == 404
+
+
+def test_reseeding_upgrades_a_table_with_an_older_layout(tmp_path):
+    import sqlite3
+
+    db = tmp_path / "db.sqlite"
+    conn = sqlite3.connect(db)
+    conn.execute("CREATE TABLE instruments (symbol TEXT PRIMARY KEY, name TEXT)")  # pre-#11 shape
+    conn.execute("INSERT INTO instruments VALUES ('OLD', 'Old row')")
+    conn.commit()
+    conn.close()
+
+    store = InstrumentStore(db)
+    store.seed([INSTRUMENTS["GHGGOG072851"]])
+    assert [i.symbol for i in store.list()] == ["GHGGOG072851"]
+    assert store.get("GHGGOG072851").maturity_date.isoformat() == "2037-11-24"
 
 
 def test_unknown_symbols_are_404_everywhere(client):
