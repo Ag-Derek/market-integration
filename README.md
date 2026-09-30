@@ -260,6 +260,7 @@ Uvicorn running on http://127.0.0.1:8000
 | `http://127.0.0.1:8000/health`    | Health check                         |
 | `http://127.0.0.1:8000/instruments` | Instrument master as JSON. Optional `?asset_class=equity\|bill\|bond` and `?sector=Banking` (case-insensitive) filters |
 | `http://127.0.0.1:8000/instruments/{symbol}` | One instrument's reference data (e.g. `/instruments/MTNGH`); 404 if unknown |
+| `http://127.0.0.1:8000/search?q=gc` | Typeahead for the search bar: `symbol`, `name`, `asset_class`, `price` and `change` (null until quoted). Matches symbol, name, ISIN, tenor, issuer and maturity date (`?q=2027`), ignoring case and punctuation (`?q=fan milk`); ranked exact symbol, symbol prefix, name word prefix, then substring. Optional `limit` (1–50, default 10) and `asset_class` |
 | `http://127.0.0.1:8000/fixed-income/report` | Today's fixed-income report in the shape of the GFIM daily trading report: every section plus the summary. Blank report cells are `null` |
 | `http://127.0.0.1:8000/fixed-income/summary` | Volume, number of trades and largest trade per section, plus grand totals |
 | `http://127.0.0.1:8000/fixed-income/{section}` | One section's rows: `new_gog`, `ddep`, `old_gog`, `treasury_bill`, `corporate` or `sell_buy_back` |
@@ -359,6 +360,7 @@ market-integration/
 │   │
 │   ├── instruments/
 │   │   ├── __init__.py            # loads data/instruments.json (instrument master)
+│   │   ├── search.py              # in-memory typeahead index behind /search
 │   │   └── store.py               # instruments SQLite table behind /instruments
 │   │
 │   ├── connectors/
