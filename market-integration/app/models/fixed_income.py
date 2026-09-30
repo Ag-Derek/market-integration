@@ -125,6 +125,45 @@ class FixedIncomeReport(BaseModel):
     sell_buy_back: list[SellBuyBackQuote]
 
 
+# ---------------------------------------------------------------- yield curve
+
+
+CurveSegment = Literal["treasury_bill", "new_gog", "ddep", "old_gog"]
+
+
+class CurveInstrument(BaseModel):
+    symbol: str
+    description: str
+    tenor: str                   # "91-DAY BILL", "2023-GC-3", ...
+
+
+class CurvePoint(BaseModel):
+    """One (tenor, yield) point of the curve. Bills of different tenors
+    maturing the same day share a close, so they are one point with
+    several instruments behind it; a bond is one point, one instrument."""
+    model_config = ConfigDict(populate_by_name=True)
+
+    tenor_years: float           # time to maturity from the session date, ACT/365.25
+    days_to_maturity: int
+    yield_: float = Field(alias="yield")   # closing yield, % a year
+    closing_price: Optional[float] = None
+    segment: CurveSegment
+    maturity_date: date
+    instruments: list[CurveInstrument]
+
+
+class GovernmentYieldCurve(BaseModel):
+    """The GHS Government of Ghana curve at a session's close (or so far,
+    for the current session): bills, New GoG, 2023 DDEP and Old GoG
+    bonds. GFSF bonds (structured) and USD DDE bonds (another currency)
+    are left out."""
+    date: date                   # the session: the latest on or before the date asked for
+    as_of: datetime
+    currency: str = "GHS"
+    exchange_label: Optional[str] = None
+    points: list[CurvePoint]     # by tenor
+
+
 # ---------------------------------------------------------------- ticks
 # The pipeline's shape for fixed income: one message per security, like
 # the equity MarketData, and in the same discriminated union

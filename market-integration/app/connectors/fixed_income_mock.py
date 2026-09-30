@@ -76,6 +76,8 @@ from app.models.candle import INTERVALS, Candle, bucket_start, resample
 from app.models.fixed_income import (
     REPORT_SECTIONS,
     CorporateBondQuote,
+    CurveInstrument,
+    CurvePoint,
     FixedIncomeReport,
     FixedIncomeSummary,
     FixedIncomeTick,
@@ -85,6 +87,7 @@ from app.models.fixed_income import (
     SectionSummary,
     SellBuyBackQuote,
     TreasuryBillQuote,
+    GovernmentYieldCurve,
 )
 from app.models.instrument import Instrument
 
@@ -406,6 +409,8 @@ class MockFixedIncomeMarket:
         self._sessions = _Sessions(calendar)
         self._with_history = history
         self._gov: list[_Gov] = []
+        # Every bond since start(), matured or not, for past curves.
+        self._all_gov: list[_Gov] = []
         self._corp: list[_Corp] = []
         self._bills: dict[tuple[str, date], _Bill] = {}
         self._points: dict[date, _Point] = {}
@@ -423,6 +428,8 @@ class MockFixedIncomeMarket:
         # Every bill ever outstanding, so a matured one's history stays
         # readable.
         self._all_bills: dict[str, _Bill] = {}
+        # Likewise every bill maturity's close path, for past curves.
+        self._all_points: dict[date, _Point] = {}
         self._daily_cache: dict[str, tuple[datetime, list[Candle]]] = {}
         # symbol -> the security's state, for the current universe.
         self._by_symbol: dict[str, _Gov | _Bill | _Corp] = {}
@@ -459,6 +466,8 @@ class MockFixedIncomeMarket:
         self._roll_bills(CALIBRATION_DATE)
         session = max(self._sessions.session_day(now), CALIBRATION_DATE)
         self._start_session(session)
+        self._all_points.update(self._points)
+        self._all_gov = list(self._gov)
         begin = min(self._sessions.bounds(session)[0], now)
 
         self._fit_curves(begin)
@@ -603,6 +612,7 @@ class MockFixedIncomeMarket:
                     p.spread = self._new_spread(p.close - self._curve_yield("GHS", maturity, t), t)
                     p.path.set(t, p.close)
                 self._points[maturity] = p
+                self._all_points[maturity] = p
         for (tenor, maturity), days in wanted.items():
             if (tenor, maturity) not in self._bills:
                 bill = self._new_bill(tenor, days, maturity)
@@ -923,6 +933,55 @@ class MockFixedIncomeMarket:
         return FixedIncomeReport(report_date=self._session, as_of=self._last, summary=summary,
                                  exchange_label=REPORT_LABEL, **sections)
 
+    def curve(self, on: Optional[date] = None) -> GovernmentYieldCurve:
+        """The GHS government curve at the close of the latest session on
+        or before `on` (default: the current session, so far). Each point
+        is a security's closing yield then, from the same close paths
+        the charts use; tenors are measured from that session's date.
+        Raises ValueError for a date after the current session."""
+        self._advance(self._clock())
+        if on is not None and on > self._session:
+            raise ValueError(f"{on} is after the current session ({self._session})")
+        day = self._session if on is None else min(
+            self._sessions.session_day(_midnight(on + timedelta(days=1)) - timedelta(microseconds=1)),
+            self._session,
+        )
+        t = min(self._sessions.bounds(day)[1], self._last)
+
+        points: list[CurvePoint] = []
+        for g in self._all_gov:
+            inst = g.inst
+            if not g.quoted or inst.currency != "GHS" or inst.maturity_date <= day:
+                continue
+            if inst.segment == "ddep" and not (inst.tenor or "").startswith("2023-"):
+                continue  # GFSF: structured, not on the curve
+            y = _path_at(g.path, t)
+            if y is None:
+                continue
+            points.append(_curve_point(
+                day, inst.maturity_date, y, g.price(y, day), inst.segment,
+                [CurveInstrument(symbol=inst.symbol, description=inst.name, tenor=inst.tenor or "")],
+            ))
+
+        by_maturity: dict[date, list[_Bill]] = {}
+        order = {tenor: n for n, tenor in enumerate(BILL_TENOR_DAYS)}
+        for b in self._all_bills.values():
+            if b.issue_date <= day < b.maturity:
+                by_maturity.setdefault(b.maturity, []).append(b)
+        for maturity, bills in by_maturity.items():
+            point = self._all_points.get(maturity)
+            y = None if point is None else _path_at(point.path, t)
+            if y is None:
+                continue
+            bills.sort(key=lambda b: order[b.tenor])
+            points.append(_curve_point(
+                day, maturity, y, bill_price(day, maturity, y), "treasury_bill",
+                [CurveInstrument(symbol=b.symbol, description=b.description, tenor=b.tenor) for b in bills],
+            ))
+
+        points.sort(key=lambda p: (p.days_to_maturity, p.segment))
+        return GovernmentYieldCurve(date=day, as_of=t, exchange_label=REPORT_LABEL, points=points)
+
     def ticks(self) -> list[FixedIncomeTick | RepoTick]:
         """Every security as a pipeline tick (with a two-way quote around
         its fair yield where it's quoted by yield), and a RepoTick per bond
@@ -1135,6 +1194,21 @@ def _prepend(path: _Path, trades: _Trades, begin: datetime, closes, sizes, end_v
     if sizes:
         trades.times[:0] = [t for t, _ in closes]
         trades.sizes[:0] = sizes
+
+
+def _path_at(path: _Path, t: datetime) -> Optional[float]:
+    """The close in force at `t`, or None before the path starts."""
+    i = bisect.bisect_right(path.times, t) - 1
+    return path.values[i] if i >= 0 else None
+
+
+def _curve_point(day: date, maturity: date, y: float, price: float, segment: str,
+                 instruments: list[CurveInstrument]) -> CurvePoint:
+    days = (maturity - day).days
+    return CurvePoint(
+        tenor_years=round(days / _DAYS_PER_YEAR, 4), days_to_maturity=days, yield_=_r(y),
+        closing_price=_r(price), segment=segment, maturity_date=maturity, instruments=instruments,
+    )
 
 
 def _r(value: Optional[float]) -> Optional[float]:

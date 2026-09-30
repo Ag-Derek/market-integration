@@ -3,7 +3,7 @@ import csv
 import io
 import logging
 import sqlite3
-from datetime import datetime, time, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -25,7 +25,7 @@ from app.models.fixed_income import (
     FixedIncomeReport,
     FixedIncomeSummary,
     FixedIncomeTick,
-    ReportSection,
+    GovernmentYieldCurve, ReportSection,
 )
 from app.models.instrument import AssetClass, Instrument
 from app.processors.market_processor import MarketProcessor
@@ -236,6 +236,19 @@ async def fixed_income_section(section: ReportSection):
     return getattr(fixed_income.report(), section)
 
 
+@app.get("/curve", response_model=GovernmentYieldCurve)
+async def yield_curve(day: Optional[date] = Query(None, alias="date")):
+    """The GHS Government of Ghana yield curve: (tenor in years, closing
+    yield) points from bills and bonds, each with the instruments behind
+    it. `date` (YYYY-MM-DD) picks the session -- the latest on or before
+    it, so a weekend or holiday gives the session before -- and defaults
+    to the current one, so far."""
+    try:
+        return fixed_income.curve(day)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @app.get("/market/status")
 async def get_market_status():
     """Whether the exchange is in session (open | pre_open | closed, and
@@ -360,9 +373,16 @@ async def export_candles(symbol: Optional[str] = None, interval: str = "15m"):
 
 @app.get("/fixed-income", response_class=HTMLResponse)
 async def fixed_income_page():
-    """The Fixed Income tab: bills and bonds by GFIM segment, the yield
-    curve and sell/buy-backs, live over /ws/market."""
+    """The Fixed Income tab: bills and bonds by GFIM segment and
+    sell/buy-backs, live over /ws/market. The curve is /yield-curve."""
     return (STATIC_DIR / "fixed_income.html").read_text(encoding="utf-8")
+
+
+@app.get("/yield-curve", response_class=HTMLResponse)
+async def yield_curve_page():
+    """The Yield Curve tab: the GoG curve from /curve against the
+    previous day, week or month, live over /ws/market."""
+    return (STATIC_DIR / "yield_curve.html").read_text(encoding="utf-8")
 
 
 @app.get("/bond/{symbol}", response_class=HTMLResponse)
