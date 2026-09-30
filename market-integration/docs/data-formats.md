@@ -8,6 +8,10 @@ connector will have to handle.
 This is a one-time reference. We don't import these reports on an ongoing
 basis.
 
+Fixed income sources, quoting and pricing conventions (day count, settlement,
+bill yield vs discount rate) are in
+[fixed-income-sources-and-conventions.md](fixed-income-sources-and-conventions.md).
+
 ## Samples
 
 Both samples are for Monday 28 September 2026, in `docs/samples/`:
