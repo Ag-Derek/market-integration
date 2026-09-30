@@ -1,20 +1,36 @@
 """
-Mock GFIM (Ghana Fixed Income Market) data, in the shape of the GFIM
-daily trading report (see app/models/fixed_income.py and
-docs/data-formats.md).
+Mock GFIM (Ghana Fixed Income Market) data: the market state behind both
+the GFIM-style daily report (report()) and the pipeline's fixed-income
+ticks (tick(), ticks()), plus invented history for the charts
+(history()). MockFixedIncomeConnector (fixed_income_connector.py)
+streams it.
 
 Stands in for the real fixed-income feed until the GSE API exists. The
 universe is every active bill and bond in the instrument master, and
 each starts from its closing values in the 28-Sep-2026 sample report
-(the "mock" block of its seed entry). From there it simulates what the
-report shows:
+(the "mock" block of its seed entry), which are taken as the closes of
+the session before the one the market starts in.
 
-  * securities trade at about their sample rate, so most rows on a
-    given day have no volume, and the ones that were blank in the
-    sample (no prices at all) stay blank;
+How it moves:
+
+  * a yield curve per currency (Nelson-Siegel, fitted to the sample's
+    bill, New GoG and 2023 DDEP closes; flat for the four USD bonds)
+    drifts over time, and each security sits at a spread to it that
+    drifts too (yield_curve.py). Curve + spread is the security's fair
+    yield;
+  * two-way quotes sit either side of the fair yield, and trades print
+    around it, at about each security's sample rate, so most rows on a
+    given day have no volume. The ones that were blank in the sample (no
+    prices at all) stay blank and never trade;
   * closing yields follow an end-of-day methodology -- they move only
     part-way toward each trade -- so they can end up outside the day's
-    traded range, and some bonds trade over wide yield ranges;
+    traded range;
+  * every price is derived from its yield with app.bond_math, so price
+    and yield always agree. The GFSF and USD DDE bonds, which don't
+    price as plain bullets, keep a fixed offset calibrated from the
+    sample (see docs/fixed-income-sources-and-conventions.md);
+  * corporates are quoted by price only, as in the report, and trade
+    around their last close;
   * T-bills roll weekly: bills are issued on Mondays for 91, 182 and 364
     days, the ones that have matured drop out, and a new issue has no
     opening price or yield on its first day. Bills of different tenors
@@ -29,25 +45,34 @@ dates, junk or reversed price ranges, prices in yield columns); those
 are for the real connector to handle, and docs/data-formats.md lists
 them.
 
-ticks() gives the same state as pipeline ticks (FixedIncomeTick and, for
-sell/buy-back trades, RepoTick) -- what a fixed-income connector's
-stream will yield.
+Sessions: given a MarketCalendar, trades only happen in its sessions
+(GFIM: 09:00-16:00 GMT on business days) and a new session starts at
+each trading day's open. Without one (tests), or with one overridden to
+"open", it trades around the clock with a session per UTC day.
 
-Like the equity mock it trades 24/7, with a session per UTC day (Ghana
-is on UTC). There is no background task: every read first advances the
-market to "now", simulating the trades that would have happened since
-the last read, so the state is always current and tests can drive it
-with a fake clock.
+History: at start() it invents the past the same way -- the curve and
+spreads walked back from their starting values, and the same trade and
+closing process run over them -- up to 10 years back or to the
+security's issue, landing exactly on the starting closes. Live trades
+extend it, so history() always ends at "now".
+
+There is no background task: every read first advances the market to
+"now", simulating whatever would have happened since the last read, so
+the state is always current and tests can drive it with a fake clock.
 """
 
+import bisect
 import math
 import random
+import re
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta, timezone
-from typing import Callable, Optional
+from typing import TYPE_CHECKING, Callable, Optional
 
-from app.bond_math import Bond, bill_price, clean_price
+from app.bond_math import Bond, bill_price, clean_price, supports
+from app.connectors.yield_curve import OrnsteinUhlenbeck, YieldCurve, fit_curve, yield_from_factors
 from app.instruments import INSTRUMENTS, MOCK_SEEDS
+from app.models.candle import INTERVALS, Candle, bucket_start, resample
 from app.models.fixed_income import (
     REPORT_SECTIONS,
     CorporateBondQuote,
@@ -63,14 +88,24 @@ from app.models.fixed_income import (
 )
 from app.models.instrument import Instrument
 
+if TYPE_CHECKING:
+    from app.session.calendar import MarketCalendar
+
 # The session the seed calibration comes from.
 CALIBRATION_DATE = date(2026, 9, 28)
+
+REPORT_LABEL = "GFIM - Simulated Report"
+
+
+def exchange_label(currency: str) -> str:
+    return f"GFIM - Simulated Quote - {currency}"
+
 
 BILL_TENOR_DAYS = {"91-DAY BILL": 91, "182-DAY BILL": 182, "364-DAY BILL": 364}
 _BILL_SYNTHETIC_CODE = {91: "A", 182: "B", 364: "C"}
 DEFAULT_BILL_YIELD = 8.0  # only if the seed has no bills to build a curve from
 
-# Trades per day for a security with fewer (or none) in the sample.
+# Trades per session for a security with fewer (or none) in the sample.
 BASE_TRADES_PER_DAY = {
     "new_gog": 1.0,
     "ddep": 0.5,
@@ -92,14 +127,140 @@ MEAN_TRADE_SIZE = {
 }
 # End-of-day closing methodology: the close moves this far toward each trade.
 CLOSE_WEIGHT = 0.25
-# Standard deviation of trade yields around the close, in % points. Bonds
-# that traded over a wide range in the sample use half that range.
+# Standard deviation of trade yields around the fair yield, in % points.
+# Bonds that traded over a wide range in the sample use half that range.
 DEFAULT_YIELD_DISPERSION = 0.15
 MAX_YIELD_DISPERSION = 2.0
 MIN_YIELD = 0.1
 CORPORATE_PRICE_DISPERSION = 0.01  # relative
+MIN_PRICE = 0.01
+
+# Curve factors (% points per sqrt(day)) and their mean reversion.
+CURVE_LEVEL_VOL = 0.08
+CURVE_SLOPE_VOL = 0.06
+CURVE_CURVATURE_VOL = 0.10
+CURVE_HALF_LIFE_DAYS = 250
+# Each security's spread to the curve.
+SPREAD_VOL = 0.02
+SPREAD_HALF_LIFE_DAYS = 30
+# Half the bid-ask spread, in yield % points. GFIM Rule 17 caps benchmark
+# spreads at 50bp.
+HALF_SPREAD = {"treasury_bill": 0.05, "new_gog": 0.10, "ddep": 0.15, "old_gog": 0.25}
+
+HISTORY_YEARS = 10
+# When the issue date can't be told from the tenor label.
+DEFAULT_HISTORY_DAYS = 3 * 365
+DDEP_SETTLEMENT = date(2023, 2, 21)
+USD_DDE_ISSUE = date(2023, 9, 4)
 
 _SECONDS_PER_DAY = 24 * 3600
+_DAYS_PER_YEAR = 365.25
+GOV_SEGMENTS = ("new_gog", "ddep", "old_gog")
+
+
+def _midnight(d: date) -> datetime:
+    return datetime.combine(d, time(), tzinfo=timezone.utc)
+
+
+def _poisson(lam: float) -> int:
+    if lam <= 0:
+        return 0
+    threshold, k, p = math.exp(-lam), 0, random.random()
+    while p > threshold:
+        k += 1
+        p *= random.random()
+    return k
+
+
+def _trade_size(section: str) -> int:
+    sigma = 1.0
+    mean = MEAN_TRADE_SIZE[section]
+    return max(int(random.lognormvariate(math.log(mean) - sigma ** 2 / 2, sigma)), 1_000)
+
+
+def _years(maturity: date, t: datetime) -> float:
+    return (_midnight(maturity) - t).total_seconds() / _SECONDS_PER_DAY / _DAYS_PER_YEAR
+
+
+def _issue_date(inst: Instrument) -> Optional[date]:
+    """Best guess at a bond's issue date from its tenor label, for how
+    far back to invent history. None if the label doesn't say."""
+    tenor = (inst.tenor or "").upper()
+    if tenor.startswith("USD-DDE"):
+        return USD_DDE_ISSUE
+    if tenor.startswith("2023-"):
+        return DDEP_SETTLEMENT
+    m = re.search(r"(\d+)[- ]?(?:YEAR|YR)", tenor)
+    if m and inst.maturity_date:
+        return inst.maturity_date - timedelta(days=round(int(m.group(1)) * _DAYS_PER_YEAR))
+    return None
+
+
+# ---------------------------------------------------------------- sessions
+
+class _Sessions:
+    """When GFIM trades. Without a calendar, or with one overridden to
+    open: around the clock, a session per UTC day. Otherwise the
+    calendar's trading days and hours -- or never, if it's overridden
+    to closed or pre-open."""
+
+    def __init__(self, calendar: Optional["MarketCalendar"]):
+        self._cal = calendar
+        override = getattr(calendar, "override", None)
+        override = getattr(override, "value", override)
+        self._always = calendar is None or override == "open"
+        self._never = not self._always and override is not None
+
+    def is_trading_day(self, day: date) -> bool:
+        return self._always or self._cal.is_trading_day(day)
+
+    def bounds(self, day: date) -> tuple[datetime, datetime]:
+        """The session's (open, close) on `day`, UTC."""
+        if self._always:
+            return _midnight(day), _midnight(day + timedelta(days=1))
+        _, open_, close = self._cal.session_bounds(day)
+        return open_, close
+
+    def session_day(self, t: datetime) -> date:
+        """The session current at `t`: the latest trading day that has
+        opened by then."""
+        for n in range(60):
+            day = t.date() - timedelta(days=n)
+            if self.is_trading_day(day) and self.bounds(day)[0] <= t:
+                return day
+        return t.date()
+
+    def next_session_day(self, day: date) -> date:
+        for n in range(1, 60):
+            if self.is_trading_day(d := day + timedelta(days=n)):
+                return d
+        raise ValueError(f"no trading day within 60 days after {day}")
+
+    def is_open(self, t: datetime) -> bool:
+        if self._never:
+            return False
+        open_, close = self.bounds(t.date())
+        return self.is_trading_day(t.date()) and open_ <= t < close
+
+    def windows(self, a: datetime, b: datetime) -> list[tuple[datetime, datetime, date]]:
+        """The trading hours inside [a, b), as (start, end, session day)."""
+        if self._never or b <= a:
+            return []
+        out = []
+        day = a.date() - timedelta(days=1)
+        while True:
+            open_, close = self.bounds(day)
+            if open_ >= b:
+                return out
+            if self.is_trading_day(day):
+                start, end = max(a, open_), min(b, close)
+                if start < end:
+                    out.append((start, end, day))
+            day += timedelta(days=1)
+
+    def length(self, day: date) -> float:
+        open_, close = self.bounds(day)
+        return (close - open_).total_seconds()
 
 
 # ---------------------------------------------------------------- state
@@ -126,6 +287,42 @@ class _Day:
 
 
 @dataclass
+class _Path:
+    """A closing value (yield, or price for corporates) over time: the
+    value from each time until the next."""
+    times: list[datetime] = field(default_factory=list)
+    values: list[float] = field(default_factory=list)
+
+    def set(self, t: datetime, value: float) -> None:
+        self.times.append(t)
+        self.values.append(value)
+
+
+@dataclass
+class _Trades:
+    times: list[datetime] = field(default_factory=list)
+    sizes: list[int] = field(default_factory=list)
+
+    def add(self, t: datetime, size: int) -> None:
+        self.times.append(t)
+        self.sizes.append(size)
+
+
+@dataclass
+class _Spread:
+    """A security's spread to its curve: a mean-reverting walk, stepped
+    lazily to whenever it's read."""
+    walk: OrnsteinUhlenbeck
+    at: datetime
+
+    def value(self, t: datetime) -> float:
+        if t > self.at:
+            self.walk.step((t - self.at).total_seconds() / _SECONDS_PER_DAY)
+            self.at = t
+        return self.walk.value
+
+
+@dataclass
 class _Gov:
     inst: Instrument
     rate: float
@@ -135,6 +332,9 @@ class _Gov:
     offset: float = 0.0
     dispersion: float = DEFAULT_YIELD_DISPERSION
     day: _Day = field(default_factory=_Day)
+    spread: Optional[_Spread] = None
+    path: _Path = field(default_factory=_Path)
+    trades: _Trades = field(default_factory=_Trades)
     # Sell/buy-back trades; yield and price carry over from the last
     # session with trades, as in the report.
     sbb_yield: Optional[float] = None
@@ -144,12 +344,22 @@ class _Gov:
     sbb_yield_value: float = 0.0
     sbb_price_value: float = 0.0
 
+    def __post_init__(self):
+        self.bond = Bond(self.inst.maturity_date, self.inst.coupon_rate or 0.0)
+
     def price(self, yield_pct: float, settle: date) -> float:
         return clean_price(self.bond, settle, yield_pct) + self.offset
 
-    @property
-    def bond(self) -> Bond:
-        return Bond(self.inst.maturity_date, self.inst.coupon_rate or 0.0)
+
+@dataclass
+class _Point:
+    """A bill maturity date: bills of any tenor maturing on it share one
+    close (as in the sample) and one spread to the curve."""
+    maturity: date
+    close: float
+    prev_close: Optional[float] = None
+    spread: Optional[_Spread] = None
+    path: _Path = field(default_factory=_Path)
 
 
 @dataclass
@@ -161,13 +371,7 @@ class _Bill:
     issue_date: date
     rate: float
     day: _Day = field(default_factory=_Day)
-
-
-@dataclass
-class _CurvePoint:
-    """Bills of any tenor maturing on the same date share one close."""
-    close: float
-    prev_close: Optional[float] = None
+    trades: _Trades = field(default_factory=_Trades)
 
 
 @dataclass
@@ -178,26 +382,8 @@ class _Corp:
     close_price: Optional[float] = None
     prev_close_price: Optional[float] = None
     day: _Day = field(default_factory=_Day)
-
-
-def _poisson(lam: float) -> int:
-    if lam <= 0:
-        return 0
-    threshold, k, p = math.exp(-lam), 0, random.random()
-    while p > threshold:
-        k += 1
-        p *= random.random()
-    return k
-
-
-def _trade_size(section: str) -> int:
-    sigma = 1.0
-    mean = MEAN_TRADE_SIZE[section]
-    return max(int(random.lognormvariate(math.log(mean) - sigma ** 2 / 2, sigma)), 1_000)
-
-
-def _midnight(d: date) -> datetime:
-    return datetime.combine(d, time(), tzinfo=timezone.utc)
+    path: _Path = field(default_factory=_Path)
+    trades: _Trades = field(default_factory=_Trades)
 
 
 # ---------------------------------------------------------------- market
@@ -209,23 +395,37 @@ class MockFixedIncomeMarket:
         instruments: Optional[dict[str, Instrument]] = None,
         mock_seeds: Optional[dict[str, dict]] = None,
         clock: Optional[Callable[[], datetime]] = None,
+        calendar: Optional["MarketCalendar"] = None,
+        history: bool = True,
     ):
+        """`calendar` limits trading to its sessions; `history=False`
+        skips inventing the past (faster, for tests that don't chart)."""
         self._instruments = INSTRUMENTS if instruments is None else instruments
         self._seeds = MOCK_SEEDS if mock_seeds is None else mock_seeds
         self._clock = clock or (lambda: datetime.now(timezone.utc))
+        self._sessions = _Sessions(calendar)
+        self._with_history = history
         self._gov: list[_Gov] = []
         self._corp: list[_Corp] = []
         self._bills: dict[tuple[str, date], _Bill] = {}
-        self._curve: dict[date, _CurvePoint] = {}
+        self._points: dict[date, _Point] = {}
         self._seeded_bills: dict[tuple[str, date], Instrument] = {}
+        self._curves: dict[str, YieldCurve] = {}
+        self._curve_at: Optional[datetime] = None
         self._session: Optional[date] = None
         self._last: Optional[datetime] = None
         # symbol -> when it last traded outright / in a sell/buy-back.
-        # Trades are simulated in batches between reads, so a trade is
-        # stamped with the end of the batch it fell in.
         self._last_trade: dict[str, datetime] = {}
         self._last_repo_trade: dict[str, datetime] = {}
-        self._trade_time: Optional[datetime] = None
+        # What traded since the last drain_traded(), for the connector.
+        self._traded: set[str] = set()
+        self._repo_traded: set[str] = set()
+        # Every bill ever outstanding, so a matured one's history stays
+        # readable.
+        self._all_bills: dict[str, _Bill] = {}
+        self._daily_cache: dict[str, tuple[datetime, list[Candle]]] = {}
+        # symbol -> the security's state, for the current universe.
+        self._by_symbol: dict[str, _Gov | _Bill | _Corp] = {}
 
     @property
     def ready(self) -> bool:
@@ -235,14 +435,15 @@ class MockFixedIncomeMarket:
 
     def start(self) -> None:
         """Load the calibration as the previous session's closes, open
-        today's session and simulate it up to now."""
+        the current session, invent the history before it and simulate
+        the session up to now."""
         now = self._clock()
         for inst in self._instruments.values():
             if inst.asset_class == "equity" or inst.status != "active":
                 continue
             seed = self._seeds.get(inst.symbol, {})
             rate = max(float(seed.get("trades", 0)), BASE_TRADES_PER_DAY[inst.segment])
-            if inst.segment in ("new_gog", "ddep", "old_gog"):
+            if inst.segment in GOV_SEGMENTS:
                 self._gov.append(self._load_gov(inst, seed, rate))
             elif inst.segment == "corporate":
                 close = seed.get("closing_price")
@@ -251,14 +452,28 @@ class MockFixedIncomeMarket:
             elif inst.segment == "treasury_bill":
                 self._seeded_bills[(inst.tenor, inst.maturity_date)] = inst
                 if seed.get("closing_yield") is not None:
-                    self._curve[inst.maturity_date] = _CurvePoint(seed["closing_yield"])
+                    self._points[inst.maturity_date] = _Point(inst.maturity_date, seed["closing_yield"])
                 # Carried day ranges are applied when the bill is created.
 
         self._session = CALIBRATION_DATE
         self._roll_bills(CALIBRATION_DATE)
-        today = now.date()
-        self._start_session(max(today, CALIBRATION_DATE))
-        self._last = _midnight(self._session)
+        session = max(self._sessions.session_day(now), CALIBRATION_DATE)
+        self._start_session(session)
+        begin = min(self._sessions.bounds(session)[0], now)
+
+        self._fit_curves(begin)
+        for g in self._gov:
+            if g.quoted:
+                g.path.set(begin, g.close_yield)
+        for p in self._points.values():
+            p.path.set(begin, p.close)
+        for c in self._corp:
+            if c.quoted:
+                c.path.set(begin, c.close_price)
+        if self._with_history:
+            self._invent_history(begin)
+
+        self._last = begin
         self._advance(now)
 
     def _load_gov(self, inst: Instrument, seed: dict, rate: float) -> _Gov:
@@ -267,25 +482,84 @@ class MockFixedIncomeMarket:
         g.day = _Day(low=seed.get("day_low"), high=seed.get("day_high"))
         if g.day.low is not None and g.day.high is not None:
             g.dispersion = min(max((g.day.high - g.day.low) / 2, DEFAULT_YIELD_DISPERSION), MAX_YIELD_DISPERSION)
-        if g.quoted and seed.get("closing_price") is not None:
-            # Calibrate away the pricing-convention gap for structured bonds.
+        if g.quoted and seed.get("closing_price") is not None and not supports(inst):
+            # GFSF and USD DDE bonds don't price as plain bullets; keep the
+            # sample's price-yield gap as a fixed offset. Everything else
+            # prices exactly off its yield.
             g.offset = seed["closing_price"] - clean_price(g.bond, CALIBRATION_DATE, close_yield)
         g.sbb_yield, g.sbb_price = seed.get("sbb_yield"), seed.get("sbb_price")
         return g
 
+    def _fit_curves(self, t: datetime) -> None:
+        """Fit each currency's curve to the closes at `t`, and give every
+        quoted security its spread to it."""
+        ghs = [(_years(p.maturity, t), p.close) for p in self._points.values()]
+        ghs += [
+            (_years(g.inst.maturity_date, t), g.close_yield) for g in self._gov
+            if g.quoted and g.inst.currency == "GHS"
+            and (g.inst.segment == "new_gog" or (g.inst.tenor or "").startswith("2023-"))
+        ]
+        usd = [(_years(g.inst.maturity_date, t), g.close_yield) for g in self._gov
+               if g.quoted and g.inst.currency == "USD"]
+        vols = (CURVE_LEVEL_VOL, CURVE_SLOPE_VOL, CURVE_CURVATURE_VOL, CURVE_HALF_LIFE_DAYS)
+        self._curves = {
+            ccy: curve for ccy, curve in (
+                ("GHS", fit_curve(ghs, *vols) or fit_curve([(1.0, DEFAULT_BILL_YIELD)], *vols, flat=True)),
+                ("USD", fit_curve(usd, *vols, flat=True)),
+            ) if curve is not None
+        }
+        self._curve_at = t
+        for g in self._gov:
+            if g.quoted:
+                g.spread = self._new_spread(g.close_yield - self._curve_yield(g.inst.currency, g.inst.maturity_date, t), t)
+        for p in self._points.values():
+            p.spread = self._new_spread(p.close - self._curve_yield("GHS", p.maturity, t), t)
+
+    @staticmethod
+    def _new_spread(value: float, t: datetime) -> _Spread:
+        return _Spread(OrnsteinUhlenbeck(value, value, SPREAD_VOL, SPREAD_HALF_LIFE_DAYS), t)
+
+    # ------------------------------------------------------------ the curve
+
+    def _curve_for(self, currency: str) -> YieldCurve:
+        return self._curves.get(currency) or self._curves["GHS"]
+
+    def _evolve_curves(self, t: datetime) -> None:
+        if self._curve_at is not None and t > self._curve_at:
+            days = (t - self._curve_at).total_seconds() / _SECONDS_PER_DAY
+            for curve in self._curves.values():
+                curve.step(days)
+            self._curve_at = t
+
+    def _curve_yield(self, currency: str, maturity: date, t: datetime) -> float:
+        return self._curve_for(currency).yield_at(_years(maturity, t))
+
+    def _fair_gov(self, g: _Gov, t: datetime) -> float:
+        self._evolve_curves(t)
+        return max(self._curve_yield(g.inst.currency, g.inst.maturity_date, t) + g.spread.value(t), MIN_YIELD)
+
+    def _fair_point(self, p: _Point, t: datetime) -> float:
+        self._evolve_curves(t)
+        return max(self._curve_yield("GHS", p.maturity, t) + p.spread.value(t), MIN_YIELD)
+
     # ------------------------------------------------------------ time
 
+    def advance(self, now: Optional[datetime] = None) -> None:
+        self._advance(now or self._clock())
+
     def _advance(self, now: datetime) -> None:
-        """Simulate from the last read up to `now`, closing and opening
-        sessions at each UTC midnight in between."""
-        while now.date() > self._session:
-            end = _midnight(self._session + timedelta(days=1))
-            # Stamped just inside the session the trades belong to.
-            self._simulate((end - self._last).total_seconds(), end - timedelta(microseconds=1))
-            self._start_session(self._session + timedelta(days=1))
-            self._last = end
+        """Simulate from the last read up to `now`, starting a new session
+        at each trading day's open in between."""
+        while True:
+            next_day = self._sessions.next_session_day(self._session)
+            next_open = self._sessions.bounds(next_day)[0]
+            if next_open > now:
+                break
+            self._simulate(self._last, next_open)
+            self._start_session(next_day)
+            self._last = max(self._last, next_open)
         if now > self._last:
-            self._simulate((now - self._last).total_seconds(), now)
+            self._simulate(self._last, now)
             self._last = now
 
     def _start_session(self, session: date) -> None:
@@ -299,12 +573,15 @@ class MockFixedIncomeMarket:
             c.prev_close_price = c.close_price
             c.day.new_session()
         self._corp = [c for c in self._corp if c.inst.maturity_date > session]
-        for p in self._curve.values():
+        for p in self._points.values():
             p.prev_close = p.close
         for b in self._bills.values():
             b.day.new_session()
         self._session = session
         self._roll_bills(session)
+        self._by_symbol = {g.inst.symbol: g for g in self._gov}
+        self._by_symbol.update({b.symbol: b for b in self._bills.values()})
+        self._by_symbol.update({c.inst.symbol: c for c in self._corp})
 
     def _roll_bills(self, session: date) -> None:
         """The outstanding bills on `session`: for each tenor, one maturing
@@ -315,16 +592,24 @@ class MockFixedIncomeMarket:
             for k in range(1, days // 7 + 1):
                 maturity = week_start + timedelta(days=7 * k)
                 wanted[(tenor, maturity)] = days
-        # Price new maturities off the current curve before dropping
-        # matured points, so the curve is never empty.
+        # Price new maturities off the current closes before dropping
+        # matured points, so there is always something to interpolate.
+        opened = self._sessions.bounds(session)[0]
         for (tenor, maturity) in wanted:
-            if maturity not in self._curve:
-                self._curve[maturity] = _CurvePoint(self._interpolate(maturity, session))
+            if maturity not in self._points:
+                p = _Point(maturity, self._interpolate(maturity, session))
+                if self._curves:  # after start(): join the curve and the history
+                    t = max(opened, self._last or opened)
+                    p.spread = self._new_spread(p.close - self._curve_yield("GHS", maturity, t), t)
+                    p.path.set(t, p.close)
+                self._points[maturity] = p
         for (tenor, maturity), days in wanted.items():
             if (tenor, maturity) not in self._bills:
-                self._bills[(tenor, maturity)] = self._new_bill(tenor, days, maturity)
+                bill = self._new_bill(tenor, days, maturity)
+                self._bills[(tenor, maturity)] = bill
+                self._all_bills[bill.symbol] = bill
         self._bills = {k: v for k, v in self._bills.items() if k in wanted}
-        self._curve = {m: p for m, p in self._curve.items() if m > session}
+        self._points = {m: p for m, p in self._points.items() if m > session}
 
     def _new_bill(self, tenor: str, days: int, maturity: date) -> _Bill:
         issue_date = maturity - timedelta(days=days)
@@ -340,7 +625,7 @@ class MockFixedIncomeMarket:
                      BASE_TRADES_PER_DAY["treasury_bill"])
 
     def _interpolate(self, maturity: date, session: date) -> float:
-        points = sorted(((m - session).days, p.close) for m, p in self._curve.items())
+        points = sorted(((m - session).days, p.close) for m, p in self._points.items())
         if not points:  # no bills in the seed at all
             return DEFAULT_BILL_YIELD
         target = (maturity - session).days
@@ -353,51 +638,71 @@ class MockFixedIncomeMarket:
 
     # ------------------------------------------------------------ trading
 
-    def _simulate(self, seconds: float, end: datetime) -> None:
-        if seconds <= 0:
-            return
-        self._trade_time = end
-        frac = seconds / _SECONDS_PER_DAY
-        for g in self._gov:
-            if g.quoted:
-                for _ in range(_poisson(g.rate * frac)):
-                    self._trade_gov(g)
-        for b in self._bills.values():
-            for _ in range(_poisson(b.rate * frac)):
-                self._trade_bill(b)
-        for c in self._corp:
-            if c.quoted:
-                for _ in range(_poisson(c.rate * frac)):
-                    self._trade_corp(c)
-        eligible = [g for g in self._gov if g.quoted and g.inst.segment in ("new_gog", "ddep")]
-        if eligible:
-            per_bond = SELL_BUY_BACK_TRADES_PER_DAY / len(eligible)
+    def _simulate(self, a: datetime, b: datetime) -> None:
+        """Every trade in the trading hours between a and b, in time
+        order. Rates are per session, so a partial session gets its
+        share."""
+        events: list[tuple[datetime, int, Callable[[datetime], None]]] = []
+        n = 0
+
+        def schedule(rate: float, frac: float, start: datetime, span: float, fn) -> None:
+            nonlocal n
+            for _ in range(_poisson(rate * frac)):
+                events.append((start + timedelta(seconds=random.uniform(0, span)), n, fn))
+                n += 1
+
+        for start, end, day in self._sessions.windows(a, b):
+            span = (end - start).total_seconds()
+            frac = span / self._sessions.length(day)
+            for g in self._gov:
+                if g.quoted:
+                    schedule(g.rate, frac, start, span, lambda t, g=g: self._trade_gov(g, t))
+            for bill in self._bills.values():
+                schedule(bill.rate, frac, start, span, lambda t, bill=bill: self._trade_bill(bill, t))
+            for c in self._corp:
+                if c.quoted:
+                    schedule(c.rate, frac, start, span, lambda t, c=c: self._trade_corp(c, t))
+            eligible = [g for g in self._gov if g.quoted and g.inst.segment in ("new_gog", "ddep")]
             for g in eligible:
-                for _ in range(_poisson(per_bond * frac)):
-                    self._trade_sell_buy_back(g)
+                schedule(SELL_BUY_BACK_TRADES_PER_DAY / len(eligible), frac, start, span,
+                         lambda t, g=g: self._trade_sell_buy_back(g, t))
+        for t, _, fn in sorted(events, key=lambda e: (e[0], e[1])):
+            fn(t)
 
-    def _trade_gov(self, g: _Gov) -> None:
-        y = max(g.close_yield + random.gauss(0, g.dispersion), MIN_YIELD)
-        g.day.record(y, _trade_size(g.inst.segment))
+    def _trade_gov(self, g: _Gov, t: datetime) -> None:
+        y = max(self._fair_gov(g, t) + random.gauss(0, g.dispersion), MIN_YIELD)
+        size = _trade_size(g.inst.segment)
+        g.day.record(y, size)
         g.close_yield += CLOSE_WEIGHT * (y - g.close_yield)
-        self._last_trade[g.inst.symbol] = self._trade_time
+        g.path.set(t, g.close_yield)
+        g.trades.add(t, size)
+        self._last_trade[g.inst.symbol] = t
+        self._traded.add(g.inst.symbol)
 
-    def _trade_bill(self, b: _Bill) -> None:
-        point = self._curve[b.maturity]
-        y = max(point.close + random.gauss(0, DEFAULT_YIELD_DISPERSION), MIN_YIELD)
-        b.day.record(bill_price(self._session, b.maturity, y), _trade_size("treasury_bill"))
+    def _trade_bill(self, b: _Bill, t: datetime) -> None:
+        point = self._points[b.maturity]
+        y = max(self._fair_point(point, t) + random.gauss(0, DEFAULT_YIELD_DISPERSION), MIN_YIELD)
+        size = _trade_size("treasury_bill")
+        b.day.record(bill_price(self._session, b.maturity, y), size)
         point.close += CLOSE_WEIGHT * (y - point.close)
-        self._last_trade[b.symbol] = self._trade_time
+        point.path.set(t, point.close)
+        b.trades.add(t, size)
+        self._last_trade[b.symbol] = t
+        # Same-maturity bills of the other tenors share the new close.
+        self._traded.update(o.symbol for o in self._bills.values() if o.maturity == b.maturity)
 
-    def _trade_corp(self, c: _Corp) -> None:
+    def _trade_corp(self, c: _Corp, t: datetime) -> None:
         p = c.close_price * math.exp(random.gauss(0, CORPORATE_PRICE_DISPERSION))
-        c.day.record(p, _trade_size("corporate"))
+        size = _trade_size("corporate")
+        c.day.record(p, size)
         c.close_price += CLOSE_WEIGHT * (p - c.close_price)
-        self._last_trade[c.inst.symbol] = self._trade_time
+        c.path.set(t, c.close_price)
+        c.trades.add(t, size)
+        self._last_trade[c.inst.symbol] = t
+        self._traded.add(c.inst.symbol)
 
-    def _trade_sell_buy_back(self, g: _Gov) -> None:
-        self._last_repo_trade[g.inst.symbol] = self._trade_time
-        y = max(g.close_yield + random.gauss(0, max(g.dispersion, 0.3)), MIN_YIELD)
+    def _trade_sell_buy_back(self, g: _Gov, t: datetime) -> None:
+        y = max(self._fair_gov(g, t) + random.gauss(0, max(g.dispersion, 0.3)), MIN_YIELD)
         size = _trade_size("sell_buy_back")
         g.sbb_volume += size
         g.sbb_count += 1
@@ -405,17 +710,207 @@ class MockFixedIncomeMarket:
         g.sbb_price_value += g.price(y, self._session) * size
         g.sbb_yield = g.sbb_yield_value / g.sbb_volume
         g.sbb_price = g.sbb_price_value / g.sbb_volume
+        self._last_repo_trade[g.inst.symbol] = t
+        self._repo_traded.add(g.inst.symbol)
+
+    # ------------------------------------------------------------ history
+
+    def _invent_history(self, end: datetime) -> None:
+        """The past before `end`, run through the same trade and closing
+        process as the live market: curve factors and spreads walked back
+        a day at a time from their values at `end`, trades at each
+        security's rate in each session, and each close path nudged so it
+        lands exactly on the security's close at `end`."""
+        first_day = (end - timedelta(days=round(HISTORY_YEARS * _DAYS_PER_YEAR))).date()
+        days = [first_day + timedelta(days=n) for n in range((end.date() - first_day).days)]
+        windows = self._sessions.windows(_midnight(first_day), end)
+        factors = {ccy: _walk_back(curve.factors(), days, curve) for ccy, curve in self._curves.items()}
+
+        def fair(currency: str, maturity: date, spreads: dict[date, float], t: datetime, day: date) -> float:
+            base = yield_from_factors(factors[currency].get(day, self._curve_for(currency).factors()),
+                                      _years(maturity, t))
+            return max(base + spreads[day], MIN_YIELD)
+
+        for g in self._gov:
+            if not g.quoted:
+                continue
+            issued = _issue_date(g.inst) or end.date() - timedelta(days=DEFAULT_HISTORY_DAYS)
+            spreads = _walk_back_scalar(g.spread.walk, [d for d in days if d >= issued])
+            ccy = g.inst.currency if g.inst.currency in factors else "GHS"
+            trades = []
+            for start, stop, day in windows:
+                if day >= issued:
+                    trades += _times(g.rate, start, stop, self._sessions.length(day))
+            path, sizes = _run_closes(
+                trades, g.close_yield, CLOSE_WEIGHT, MIN_YIELD,
+                lambda t: fair(ccy, g.inst.maturity_date, spreads, t, t.date())
+                + random.gauss(0, g.dispersion),
+                lambda: _trade_size(g.inst.segment),
+            )
+            _prepend(g.path, g.trades, min(_midnight(max(issued, first_day)), end), path, sizes, g.close_yield)
+
+        for p in self._points.values():
+            bills = [b for b in self._bills.values() if b.maturity == p.maturity]
+            issued = min(b.issue_date for b in bills)
+            spreads = _walk_back_scalar(p.spread.walk, [d for d in days if d >= issued])
+            trades: list[tuple[datetime, _Bill]] = []
+            for start, stop, day in windows:
+                for b in bills:
+                    if day >= b.issue_date:
+                        trades += [(t, b) for t in _times(b.rate, start, stop, self._sessions.length(day))]
+            trades.sort(key=lambda e: e[0])
+            path, sizes = _run_closes(
+                [t for t, _ in trades], p.close, CLOSE_WEIGHT, MIN_YIELD,
+                lambda t: fair("GHS", p.maturity, spreads, t, t.date()) + random.gauss(0, DEFAULT_YIELD_DISPERSION),
+                lambda: _trade_size("treasury_bill"),
+            )
+            _prepend(p.path, _Trades(), min(_midnight(max(issued, first_day)), end), path, [], p.close)
+            # The live market hasn't run yet, so each bill's trades are all history.
+            for (t, b), size in zip(trades, sizes):
+                b.trades.add(t, size)
+
+        for c in self._corp:
+            if not c.quoted:
+                continue
+            first = max(end.date() - timedelta(days=DEFAULT_HISTORY_DAYS), first_day)
+            trades = []
+            for start, stop, day in windows:
+                if day >= first:
+                    trades += _times(c.rate, start, stop, self._sessions.length(day))
+            path, sizes = _run_closes(
+                trades, c.close_price, CLOSE_WEIGHT, MIN_PRICE,
+                None, lambda: _trade_size("corporate"), relative_dispersion=CORPORATE_PRICE_DISPERSION,
+            )
+            _prepend(c.path, c.trades, _midnight(first), path, sizes, c.close_price)
+
+    def history(self, symbol: str, interval: str, start: Optional[datetime] = None) -> list[Candle]:
+        """Candles of the security's closing price (with its closing yield
+        alongside, for bills and government bonds), from its invented
+        history and live trades up to now, oldest first. Buckets as
+        app.models.candle.bucket_start()."""
+        now = self._last
+        if interval == "1w":
+            candles = resample(self.history(symbol, "1d"), "1w")
+        elif interval == "1d":
+            cached = self._daily_cache.get(symbol)
+            if cached is None or cached[0] != now:
+                cached = (now, self._candles(symbol, "1d", None, now))
+                self._daily_cache[symbol] = cached
+            candles = cached[1]
+        else:
+            candles = self._candles(symbol, interval, start, now)
+        if start is None:
+            return list(candles)
+        first = bucket_start(start, interval)
+        return [c for c in candles if c.window_start >= first]
+
+    def _candles(self, symbol: str, interval: str, start: Optional[datetime], now: datetime) -> list[Candle]:
+        source = self._source(symbol)
+        if source is None:
+            return []
+        path, trades, to_price, since = source
+        if not path.times:
+            return []
+        step = INTERVALS[interval]
+        bar = bucket_start(max(start or path.times[0], path.times[0], since or path.times[0]), interval)
+        last_bar = bucket_start(now, interval)
+        prefix = [0]
+        for s in trades.sizes:
+            prefix.append(prefix[-1] + s)
+        prices: dict[tuple[float, date], float] = {}
+
+        def price(value: float, day: date) -> float:
+            if to_price is None:
+                return value
+            key = (value, day)
+            if key not in prices:
+                prices[key] = round(to_price(value, day), 4)
+            return prices[key]
+
+        make = Candle
+        candles = []
+        while bar <= last_bar:
+            end = bar + step
+            i = bisect.bisect_right(path.times, bar) - 1
+            j = bisect.bisect_left(path.times, end)
+            opening = path.values[max(i, 0)]
+            values = [opening] + path.values[max(i + 1, 0):j]
+            values = [round(v, 4) for v in values]
+            lo, hi = bisect.bisect_left(trades.times, bar), bisect.bisect_left(trades.times, end)
+            day = bar.date()
+            o, c, low, high = values[0], values[-1], min(values), max(values)
+            if to_price is None:  # quoted by price: no yield
+                candles.append(make(
+                    symbol=symbol, interval=interval, window_start=bar, window_end=end,
+                    open=o, high=high, low=low, close=c, volume=prefix[hi] - prefix[lo],
+                ))
+            else:  # the high price is the low yield's
+                candles.append(make(
+                    symbol=symbol, interval=interval, window_start=bar, window_end=end,
+                    open=price(o, day), high=price(low, day), low=price(high, day), close=price(c, day),
+                    volume=prefix[hi] - prefix[lo],
+                    yield_open=o, yield_high=high, yield_low=low, yield_close=c,
+                ))
+            bar = end
+        return candles
+
+    def _source(self, symbol: str):
+        """(close path, trades, yield -> price on a day, first day) for a
+        security, or None. The converter is None for price-quoted
+        corporates."""
+        sec = self._by_symbol.get(symbol) or self._all_bills.get(symbol)
+        if isinstance(sec, _Gov):
+            return sec.path, sec.trades, sec.price, None
+        if isinstance(sec, _Bill):
+            point = self._points.get(sec.maturity)
+            if point is None:  # matured
+                return None
+            m = sec.maturity
+            return (point.path, sec.trades,
+                    lambda y, d: bill_price(min(d, m - timedelta(days=1)), m, y), _midnight(sec.issue_date))
+        if isinstance(sec, _Corp):
+            return sec.path, sec.trades, None, None
+        return None
 
     # ------------------------------------------------------------ reads
+
+    def symbols(self) -> list[str]:
+        """Every security the market carries now, quoted or not."""
+        return (
+            [g.inst.symbol for g in self._gov]
+            + [b.symbol for b in sorted(self._bills.values(), key=lambda b: (b.maturity, b.tenor))]
+            + [c.inst.symbol for c in self._corp]
+        )
+
+    def asset_class(self, symbol: str) -> str:
+        return "bill" if symbol in self._all_bills else "bond"
+
+    def segment(self, symbol: str) -> str:
+        sec = self._by_symbol.get(symbol) or self._all_bills.get(symbol)
+        if isinstance(sec, _Bill):
+            return "treasury_bill"
+        if sec is None:
+            raise KeyError(symbol)
+        return sec.inst.segment
+
+    def is_open(self, t: Optional[datetime] = None) -> bool:
+        return self._sessions.is_open(t or self._clock())
+
+    def drain_traded(self) -> tuple[set[str], set[str]]:
+        """Symbols that traded outright, and in sell/buy-backs, since the
+        last call."""
+        traded, repos = self._traded, self._repo_traded
+        self._traded, self._repo_traded = set(), set()
+        return traded, repos
 
     def report(self) -> FixedIncomeReport:
         self._advance(self._clock())
         sections = {
-            "new_gog": self._gov_rows("new_gog"),
-            "ddep": self._gov_rows("ddep"),
-            "old_gog": self._gov_rows("old_gog"),
+            "new_gog": [self._gov_row(g) for g in self._gov if g.inst.segment == "new_gog"],
+            "ddep": [self._gov_row(g) for g in self._gov if g.inst.segment == "ddep"],
+            "old_gog": [self._gov_row(g) for g in self._gov if g.inst.segment == "old_gog"],
             "treasury_bill": self._bill_rows(),
-            "corporate": self._corp_rows(),
+            "corporate": [self._corp_row(c) for c in self._corp],
             "sell_buy_back": self._sell_buy_back_rows(),
         }
         summaries = [_summarize(name, sections[name]) for name in REPORT_SECTIONS]
@@ -425,129 +920,141 @@ class MockFixedIncomeMarket:
             total_volume=sum(s.volume for s in summaries),
             total_trade_count=sum(s.trade_count for s in summaries),
         )
-        return FixedIncomeReport(report_date=self._session, as_of=self._last, summary=summary, **sections)
+        return FixedIncomeReport(report_date=self._session, as_of=self._last, summary=summary,
+                                 exchange_label=REPORT_LABEL, **sections)
 
     def ticks(self) -> list[FixedIncomeTick | RepoTick]:
-        """The report as pipeline ticks: one FixedIncomeTick per bill and
-        bond, and a RepoTick per bond with sell/buy-back trades this
-        session (sell/buy-back rows only carry the last session's
-        figures over otherwise). The report has no two-way quotes, so
-        bid and ask are empty."""
-        r = self.report()
+        """Every security as a pipeline tick (with a two-way quote around
+        its fair yield where it's quoted by yield), and a RepoTick per bond
+        with sell/buy-back trades this session."""
+        self._advance(self._clock())
+        ticks: list[FixedIncomeTick | RepoTick] = [self.tick(s) for s in self.symbols()]
+        ticks += [self.repo_tick(g.inst.symbol) for g in self._gov if g.sbb_count]
+        return ticks
 
-        def common(row) -> dict:
-            return dict(
-                symbol=row.symbol, name=row.description, maturity_date=row.maturity_date,
-                volume=row.volume or 0, trade_count=row.trade_count or 0, timestamp=r.as_of,
-            )
-
-        ticks: list[FixedIncomeTick | RepoTick] = []
-        for row in r.new_gog + r.ddep + r.old_gog:
-            ticks.append(FixedIncomeTick(
-                **common(row), segment=row.segment, currency=row.currency,
+    def tick(self, symbol: str) -> FixedIncomeTick:
+        """One security's quote as of the last advance."""
+        t = self._last
+        sec = self._by_symbol[symbol]
+        if isinstance(sec, _Gov):
+            row = self._gov_row(sec)
+            quote = self._quote(sec.inst.segment, sec.quoted and self._fair_gov(sec, t),
+                                lambda y: sec.price(y, self._session))
+            return FixedIncomeTick(
+                **_common(row, t), segment=row.segment, currency=row.currency,
+                exchange_label=exchange_label(row.currency),
                 opening_yield=row.opening_yield, closing_yield=row.closing_yield,
                 day_low_yield=row.day_low_yield, day_high_yield=row.day_high_yield,
-                closing_price=row.closing_price, last_trade_at=self._last_trade.get(row.symbol),
-            ))
-        for row in r.treasury_bill:
-            ticks.append(FixedIncomeTick(
-                **common(row), segment="treasury_bill", currency="GHS",
+                closing_price=row.closing_price, last_trade_at=self._last_trade.get(symbol), **quote,
+            )
+        if isinstance(sec, _Bill):
+            row = self._bill_row(sec)
+            quote = self._quote("treasury_bill", self._fair_point(self._points[sec.maturity], t),
+                                lambda y: bill_price(self._session, sec.maturity, y))
+            return FixedIncomeTick(
+                **_common(row, t), segment="treasury_bill", currency="GHS",
+                exchange_label=exchange_label("GHS"),
                 opening_yield=row.opening_yield, closing_yield=row.closing_yield,
                 opening_price=row.opening_price, closing_price=row.closing_price,
                 day_low_price=row.day_low_price, day_high_price=row.day_high_price,
-                last_trade_at=self._last_trade.get(row.symbol),
-            ))
-        for row in r.corporate:
-            inst = self._instruments.get(row.symbol)
-            ticks.append(FixedIncomeTick(
-                **common(row), segment="corporate", currency=inst.currency if inst else "GHS",
-                opening_price=row.opening_price, closing_price=row.closing_price,
-                day_low_price=row.day_low_price, day_high_price=row.day_high_price,
-                last_trade_at=self._last_trade.get(row.symbol),
-            ))
-        currency = {g.inst.symbol: g.inst.currency for g in self._gov}
-        for row in r.sell_buy_back:
-            if row.trade_count:
-                ticks.append(RepoTick(
-                    **common(row), segment=row.segment, currency=currency[row.symbol],
-                    bond_yield=repo_bond_yield(row), bond_price=row.weighted_average_price,
-                    last_trade_at=self._last_repo_trade.get(row.symbol),
-                ))
-        return ticks
+                last_trade_at=self._last_trade.get(symbol), **quote,
+            )
+        row = self._corp_row(sec)
+        return FixedIncomeTick(
+            **_common(row, t), segment="corporate", currency=sec.inst.currency,
+            exchange_label=exchange_label(sec.inst.currency),
+            opening_price=row.opening_price, closing_price=row.closing_price,
+            day_low_price=row.day_low_price, day_high_price=row.day_high_price,
+            last_trade_at=self._last_trade.get(symbol),
+        )
+
+    def repo_tick(self, symbol: str) -> RepoTick:
+        g = self._by_symbol[symbol]
+        row = self._sell_buy_back_row(g)
+        return RepoTick(
+            **_common(row, self._last), segment=row.segment, currency=g.inst.currency,
+            bond_yield=repo_bond_yield(row), bond_price=row.weighted_average_price,
+            last_trade_at=self._last_repo_trade.get(symbol),
+        )
+
+    @staticmethod
+    def _quote(segment: str, fair, to_price: Callable[[float], float]) -> dict:
+        """Bid and ask either side of the fair yield; the bid is the
+        higher yield, so the lower price."""
+        if not fair:
+            return {}
+        half = HALF_SPREAD[segment]
+        bid_yield, ask_yield = fair + half, max(fair - half, MIN_YIELD)
+        return dict(
+            bid_yield=_r(bid_yield), ask_yield=_r(ask_yield),
+            bid_price=_r(to_price(bid_yield)), ask_price=_r(to_price(ask_yield)),
+        )
 
     def _days(self, maturity: date) -> int:
         return (maturity - self._session).days
 
-    def _gov_rows(self, segment: str) -> list[GovernmentBondQuote]:
-        rows = []
-        for g in self._gov:
-            if g.inst.segment != segment:
-                continue
-            row = dict(
-                symbol=g.inst.symbol, description=g.inst.name, segment=segment, tenor=g.inst.tenor,
-                currency=g.inst.currency, maturity_date=g.inst.maturity_date,
-                days_to_maturity=self._days(g.inst.maturity_date),
-                volume=g.day.volume or None, trade_count=g.day.trade_count or None,
+    def _gov_row(self, g: _Gov) -> GovernmentBondQuote:
+        row = dict(
+            symbol=g.inst.symbol, description=g.inst.name, segment=g.inst.segment, tenor=g.inst.tenor,
+            currency=g.inst.currency, maturity_date=g.inst.maturity_date,
+            days_to_maturity=self._days(g.inst.maturity_date),
+            volume=g.day.volume or None, trade_count=g.day.trade_count or None,
+        )
+        if g.quoted:
+            row.update(
+                opening_yield=_r(g.prev_close_yield),
+                closing_yield=_r(g.close_yield),
+                closing_price=_r(g.price(g.close_yield, self._session)),
+                day_low_yield=_r(g.day.low),
+                day_high_yield=_r(g.day.high),
             )
-            if g.quoted:
-                row.update(
-                    opening_yield=_r(g.prev_close_yield),
-                    closing_yield=_r(g.close_yield),
-                    closing_price=_r(g.price(g.close_yield, self._session)),
-                    day_low_yield=_r(g.day.low),
-                    day_high_yield=_r(g.day.high),
-                )
-            rows.append(GovernmentBondQuote(**row))
-        return rows
+        return GovernmentBondQuote(**row)
 
     def _bill_rows(self) -> list[TreasuryBillQuote]:
-        rows = []
         order = {tenor: n for n, tenor in enumerate(BILL_TENOR_DAYS)}
-        for b in sorted(self._bills.values(), key=lambda b: (order[b.tenor], b.maturity)):
-            days = self._days(b.maturity)
-            point = self._curve[b.maturity]
-            # A bill issued this session has no opening values yet.
-            opening = None if b.issue_date == self._session else point.prev_close
-            rows.append(TreasuryBillQuote(
-                symbol=b.symbol, description=b.description, tenor=b.tenor,
-                maturity_date=b.maturity, days_to_maturity=days,
-                opening_price=_r(bill_price(self._session, b.maturity, opening)) if opening is not None else None,
-                opening_yield=_r(opening),
-                closing_price=_r(bill_price(self._session, b.maturity, point.close)),
-                closing_yield=_r(point.close),
-                volume=b.day.volume or None, trade_count=b.day.trade_count or None,
-                day_low_price=_r(b.day.low), day_high_price=_r(b.day.high),
-            ))
-        return rows
+        return [self._bill_row(b) for b in sorted(self._bills.values(), key=lambda b: (order[b.tenor], b.maturity))]
 
-    def _corp_rows(self) -> list[CorporateBondQuote]:
-        rows = []
-        for c in self._corp:
-            row = dict(
-                symbol=c.inst.symbol, description=c.inst.name, issuer=c.inst.issuer,
-                maturity_date=c.inst.maturity_date, days_to_maturity=self._days(c.inst.maturity_date),
-                volume=c.day.volume or None, trade_count=c.day.trade_count or None,
+    def _bill_row(self, b: _Bill) -> TreasuryBillQuote:
+        point = self._points[b.maturity]
+        # A bill issued this session has no opening values yet.
+        opening = None if b.issue_date == self._session else point.prev_close
+        return TreasuryBillQuote(
+            symbol=b.symbol, description=b.description, tenor=b.tenor,
+            maturity_date=b.maturity, days_to_maturity=self._days(b.maturity),
+            opening_price=_r(bill_price(self._session, b.maturity, opening)) if opening is not None else None,
+            opening_yield=_r(opening),
+            closing_price=_r(bill_price(self._session, b.maturity, point.close)),
+            closing_yield=_r(point.close),
+            volume=b.day.volume or None, trade_count=b.day.trade_count or None,
+            day_low_price=_r(b.day.low), day_high_price=_r(b.day.high),
+        )
+
+    def _corp_row(self, c: _Corp) -> CorporateBondQuote:
+        row = dict(
+            symbol=c.inst.symbol, description=c.inst.name, issuer=c.inst.issuer,
+            maturity_date=c.inst.maturity_date, days_to_maturity=self._days(c.inst.maturity_date),
+            volume=c.day.volume or None, trade_count=c.day.trade_count or None,
+        )
+        if c.quoted:
+            row.update(
+                opening_price=_r(c.prev_close_price), closing_price=_r(c.close_price),
+                day_low_price=_r(c.day.low), day_high_price=_r(c.day.high),
             )
-            if c.quoted:
-                row.update(
-                    opening_price=_r(c.prev_close_price), closing_price=_r(c.close_price),
-                    day_low_price=_r(c.day.low), day_high_price=_r(c.day.high),
-                )
-            rows.append(CorporateBondQuote(**row))
-        return rows
+        return CorporateBondQuote(**row)
 
     def _sell_buy_back_rows(self) -> list[SellBuyBackQuote]:
-        return [
-            SellBuyBackQuote(
-                symbol=g.inst.symbol, description=g.inst.name, segment=g.inst.segment, tenor=g.inst.tenor,
-                maturity_date=g.inst.maturity_date, days_to_maturity=self._days(g.inst.maturity_date),
-                volume=g.sbb_volume or None, trade_count=g.sbb_count or None,
-                yield_=_r(g.sbb_yield), weighted_average_price=_r(g.sbb_price),
-            )
-            for g in self._gov
-            if g.inst.segment in ("new_gog", "ddep")
-        ]
+        return [self._sell_buy_back_row(g) for g in self._gov if g.inst.segment in ("new_gog", "ddep")]
 
+    def _sell_buy_back_row(self, g: _Gov) -> SellBuyBackQuote:
+        return SellBuyBackQuote(
+            symbol=g.inst.symbol, description=g.inst.name, segment=g.inst.segment, tenor=g.inst.tenor,
+            maturity_date=g.inst.maturity_date, days_to_maturity=self._days(g.inst.maturity_date),
+            volume=g.sbb_volume or None, trade_count=g.sbb_count or None,
+            yield_=_r(g.sbb_yield), weighted_average_price=_r(g.sbb_price),
+        )
+
+
+# ---------------------------------------------------------------- helpers
 
 def repo_bond_yield(row: SellBuyBackQuote) -> Optional[float]:
     """The report's sell/buy-back "Yield", or None where the column holds
@@ -556,6 +1063,78 @@ def repo_bond_yield(row: SellBuyBackQuote) -> Optional[float]:
     if row.yield_ is not None and row.yield_ == row.weighted_average_price:
         return None
     return row.yield_
+
+
+def _common(row, t: datetime) -> dict:
+    return dict(
+        symbol=row.symbol, name=row.description, maturity_date=row.maturity_date,
+        volume=row.volume or 0, trade_count=row.trade_count or 0, timestamp=t,
+    )
+
+
+def _walk_back(end: tuple[float, float, float], days: list[date], curve: YieldCurve) -> dict[date, tuple]:
+    """Curve factors for each of `days` (ascending), walked back a day at
+    a time from `end` on the curve's own dynamics. An Ornstein-Uhlenbeck
+    walk is time-reversible, so stepping it backwards from today is a
+    fair draw of the past."""
+    walks = [OrnsteinUhlenbeck(v, f.mean, f.daily_vol, f.half_life_days)
+             for v, f in zip(end, (curve.level, curve.slope, curve.curvature))]
+    out = {}
+    for day in reversed(days):
+        out[day] = tuple(w.step(1) for w in walks)
+    return out
+
+
+def _walk_back_scalar(walk: OrnsteinUhlenbeck, days: list[date]) -> dict[date, float]:
+    w = OrnsteinUhlenbeck(walk.value, walk.mean, walk.daily_vol, walk.half_life_days)
+    return {day: w.step(1) for day in reversed(days)}
+
+
+def _times(rate: float, start: datetime, stop: datetime, session_seconds: float) -> list[datetime]:
+    span = (stop - start).total_seconds()
+    n = _poisson(rate * span / session_seconds)
+    return sorted(start + timedelta(seconds=random.uniform(0, span)) for _ in range(n))
+
+
+def _run_closes(
+    trades: list[datetime],
+    end_value: float,
+    weight: float,
+    floor: float,
+    trade_value: Optional[Callable[[datetime], float]],
+    trade_size: Callable[[], int],
+    relative_dispersion: float = 0.0,
+) -> tuple[list[tuple[datetime, float]], list[int]]:
+    """Run the end-of-day closing process over `trades` (each moves the
+    close `weight` of the way to its price or yield), then shift the
+    path so it finishes exactly at `end_value`: the k-th of n closes by
+    k/n of the gap, so no flat stretch tilts. Without `trade_value`
+    (price-quoted) trades print around the current close."""
+    if not trades:
+        return [], []
+    value = trade_value(trades[0]) if trade_value else end_value
+    closes, sizes = [], []
+    for t in trades:
+        traded = trade_value(t) if trade_value else value * math.exp(random.gauss(0, relative_dispersion))
+        value += weight * (max(traded, floor) - value)
+        closes.append((t, value))
+        sizes.append(trade_size())
+    gap, n = closes[-1][1] - end_value, len(closes)
+    return [(t, max(v - gap * (k + 1) / n, floor)) for k, (t, v) in enumerate(closes)], sizes
+
+
+def _prepend(path: _Path, trades: _Trades, begin: datetime, closes, sizes, end_value: float) -> None:
+    """Put the invented past in front of a path that starts at the live
+    start. Before its first trade a security sits at its first close
+    (or, if it never traded, at today's)."""
+    first_value = closes[0][1] if closes else end_value
+    past_times = [begin] + [t for t, _ in closes]
+    past_values = [first_value] + [v for _, v in closes]
+    path.times[:0] = past_times
+    path.values[:0] = past_values
+    if sizes:
+        trades.times[:0] = [t for t, _ in closes]
+        trades.sizes[:0] = sizes
 
 
 def _r(value: Optional[float]) -> Optional[float]:

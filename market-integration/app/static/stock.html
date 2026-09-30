@@ -1167,8 +1167,11 @@
       const msg = JSON.parse(evt.data);
       if (msg.type === "welcome") {
         if (msg.status) setMarket(msg.status);
-        wantSnapshotOnly = msg.symbols.filter(function (s) { return s !== SYMBOL; });
-        send("subscribe", msg.symbols);
+        // The feed also carries bills and bonds; the switcher is equities.
+        const classes = msg.asset_classes || {};
+        const symbols = msg.symbols.filter(function (s) { return (classes[s] || "equity") === "equity"; });
+        wantSnapshotOnly = symbols.filter(function (s) { return s !== SYMBOL; });
+        send("subscribe", symbols);
       } else if (msg.type === "snapshot") {
         Object.values(msg.data).forEach(function (d) { ingest(d, true); });
         send("unsubscribe", wantSnapshotOnly);

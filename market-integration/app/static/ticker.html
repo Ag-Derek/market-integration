@@ -828,6 +828,12 @@
   // The server's welcome message lists the symbols the feed carries (no
   // prices). The first time, open the first few; after a reconnect, keep
   // what was open, re-subscribe and re-fetch candles missed while offline.
+  // The feed also carries bills and bonds; this page shows equities.
+  function equitiesOf(welcome) {
+    const classes = welcome.asset_classes || {};
+    return welcome.symbols.filter(function (s) { return (classes[s] || "equity") === "equity"; });
+  }
+
   function onWelcome(symbols) {
     knownSymbols.length = 0;
     Array.prototype.push.apply(knownSymbols, symbols);
@@ -855,7 +861,7 @@
       const msg = JSON.parse(evt.data);
       if (msg.type === "welcome") {
         if (msg.status) { market = msg.status; marketAt = Date.now(); }
-        onWelcome(msg.symbols);
+        onWelcome(equitiesOf(msg));
       } else if (msg.type === "status") {
         setMarket(msg);
       } else if (msg.type === "snapshot") {

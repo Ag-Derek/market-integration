@@ -92,10 +92,15 @@ class _Period:
 def _period(bond: Bond, settle: date) -> _Period:
     if settle >= bond.maturity:
         raise ValueError(f"settlement {settle} must be before maturity {bond.maturity}")
+    # k = coupons left: the fewest whole periods back from maturity that
+    # reach settlement. Start from the month count, then correct.
     step = 12 // bond.frequency
-    k = 1
+    months = (bond.maturity.year - settle.year) * 12 + bond.maturity.month - settle.month
+    k = max(months // step, 1)
     while add_months(bond.maturity, -step * k) > settle:
         k += 1
+    while k > 1 and add_months(bond.maturity, -step * (k - 1)) <= settle:
+        k -= 1
     previous = add_months(bond.maturity, -step * k)
     next_ = add_months(bond.maturity, -step * (k - 1))
 
@@ -157,7 +162,10 @@ def dirty_price(bond: Bond, settle: date, yield_pct: float) -> float:
 
 
 def clean_price(bond: Bond, settle: date, yield_pct: float) -> float:
-    return dirty_price(bond, settle, yield_pct) - accrued_interest(bond, settle)
+    r = _check_yield(bond, yield_pct)
+    p = _period(bond, settle)
+    dirty = sum(cf / (1 + r) ** n for n, cf in _cash_flows(bond, p))
+    return dirty - bond.coupon / bond.frequency * p.accrued_fraction
 
 
 def bond_yield(bond: Bond, settle: date, clean: float) -> float:

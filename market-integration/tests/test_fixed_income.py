@@ -3,6 +3,7 @@ from datetime import date, datetime, timezone
 
 import pytest
 
+from app.bond_math import Bond, clean_price
 from app.connectors.fixed_income_mock import MockFixedIncomeMarket
 from app.models.fixed_income import REPORT_SECTIONS, GovernmentBondQuote
 
@@ -43,9 +44,15 @@ def test_on_the_sample_date_before_any_trades_the_report_has_the_samples_shape()
     }
     assert Counter(b.tenor for b in r.treasury_bill) == {"91-DAY BILL": 13, "182-DAY BILL": 26, "364-DAY BILL": 52}
 
-    # Closing values are the sample's.
+    # Closing yields are the sample's; prices are derived from them with the
+    # bond math, so they agree exactly (#35) -- the sample's own 90.1021 is
+    # ~5bp of yield off (docs/fixed-income-sources-and-conventions.md).
     gc3 = _row(r.ddep, tenor="2023-GC-3")
-    assert (gc3.closing_yield, gc3.closing_price) == (13.63, 90.1021)
+    assert gc3.closing_yield == 13.63
+    assert gc3.closing_price == round(clean_price(Bond(date(2029, 2, 13), 8.65), date(2026, 9, 28), 13.63), 4)
+    # GFSF and USD DDE bonds don't price as bullets: they keep the sample's price.
+    assert _row(r.ddep, tenor="GFSF-2-6YR").closing_price == 83.8288
+    assert _row(r.ddep, tenor="USD-DDE-FEA-28").closing_price == 95.0565
     assert (gc3.day_low_yield, gc3.day_high_yield) == (12.87, 12.9203)  # carried over
     bill = _row(r.treasury_bill, symbol="GHGGOGI01883")
     assert (bill.days_to_maturity, bill.closing_yield, bill.closing_price) == (266, 8.5651, 94.1096)

@@ -113,6 +113,9 @@ class FixedIncomeReport(BaseModel):
     session closes."""
     report_date: date
     as_of: datetime
+    # Where the report came from, for display; the mock's says it is
+    # simulated, as MarketData.exchange_label does for equities.
+    exchange_label: Optional[str] = None
     summary: FixedIncomeSummary
     new_gog: list[GovernmentBondQuote]
     ddep: list[GovernmentBondQuote]
@@ -147,6 +150,9 @@ class FixedIncomeTick(BaseModel):
     segment: FixedIncomeSegment
     currency: str                # GHS, except the four USD DDE bonds
     maturity_date: date
+    # Source and currency for display, as MarketData.exchange_label; the
+    # mock's says "Simulated".
+    exchange_label: Optional[str] = None
 
     # Two-way quote. Not in the end-of-day report; expected from the API.
     bid_price: Optional[float] = None

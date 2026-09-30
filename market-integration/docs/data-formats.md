@@ -100,11 +100,16 @@ Served by `GET /fixed-income/report` (everything), `GET /fixed-income/summary`
 and `GET /fixed-income/{section}` (`new_gog`, `ddep`, `old_gog`,
 `treasury_bill`, `corporate`, `sell_buy_back`).
 
-How the mock (`MockFixedIncomeMarket`) reproduces the report:
+How the mock (`MockFixedIncomeMarket`, streamed by `MockFixedIncomeConnector`) reproduces the report:
 
 - Every active bill and bond in the instrument master starts from its closing
   values in the sample (the `mock` block of its seed entry). At the sample date,
-  before any trades, the report matches the sample's rows and closing values.
+  before any trades, the report matches the sample's rows and closing yields
+  (prices: see below).
+- A yield curve per currency (Nelson-Siegel, fitted to the sample's bill, New
+  GoG and 2023 DDEP closes; flat for the USD bonds) drifts over time, and each
+  security sits at a drifting spread to it. Trades print around that fair
+  yield, and two-way quotes sit either side of it.
 - Securities trade at about their sample rate, so most rows on a given day have
   no volume. The 13 securities with no prices in the sample (five GFSF bonds,
   eight corporates) stay blank and never trade.
@@ -118,9 +123,16 @@ How the mock (`MockFixedIncomeMarket`) reproduces the report:
   first day. Bills issued after the sample aren't in the instrument master, so
   they get synthetic ISINs (`GHMK…`) and descriptions (`GOG-BL-…-MOCK-0`).
   Bills of different tenors maturing on the same date share one price.
-- Bill prices are 100 / (1 + yield × days / 364), which reproduces the sample
-  exactly. Bond prices use semi-annual clean pricing, with a per-bond offset
-  calibrated from the sample for bonds (GFSF, USD DDE) whose convention differs.
+- Every price is derived from its yield with `app.bond_math`, so the two always
+  agree. For bills that reproduces the sample exactly. For bonds it differs
+  from the sample's own prices by up to ~5bp of yield (more for stale Old GoG
+  rows). The GFSF and USD DDE bonds, which don't price as plain bullets, keep a
+  fixed offset calibrated from the sample.
+- With the GFIM calendar it trades only in session (09:00–16:00 GMT, trading
+  days), and a new session starts at each open.
+- It invents up to 10 years of history per security (back to its issue where
+  the tenor says), from the same curve and trading process, ending exactly at
+  the live closes. The charts get it through the aggregator's backfill.
 - It does **not** reproduce the report's data-entry errors: shifted dates,
   reversed or junk ranges, prices in the yield column, stale typed-in numbers.
   Those are for the real connector to handle (see quirks).

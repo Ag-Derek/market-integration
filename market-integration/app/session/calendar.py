@@ -88,6 +88,15 @@ class MarketCalendar:
         self.hours_source = hours_source
         self.override = override
 
+    def with_hours(self, *, open: time, close: time, exchange: str, hours_source: str = "") -> "MarketCalendar":
+        """The same trading days and holidays with other session hours --
+        e.g. GFIM's 09:00-16:00 beside the GSE equity session. No pre-open."""
+        return MarketCalendar(
+            tz=self.tz, timezone_name=self.timezone_name, trading_days=set(self.trading_days),
+            pre_open=open, open=open, close=close, holidays=self.holidays,
+            exchange=exchange, hours_source=hours_source, override=self.override,
+        )
+
     # ------------------------------------------------------------ days
 
     def local_date(self, moment: datetime) -> date:

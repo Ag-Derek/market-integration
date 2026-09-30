@@ -4,9 +4,10 @@ Real-time delivery layer: per-client subscriptions over /ws/market.
 Protocol (JSON text frames):
 
   server -> client, on connect
-    {"type": "welcome", "symbols": [...], "status": {...}}
-                                                 what can be subscribed to, and the
-                                                 market status; no prices
+    {"type": "welcome", "symbols": [...], "asset_classes": {symbol: "equity" | "bill" | "bond"},
+     "status": {...}}
+                                                 what can be subscribed to, what each
+                                                 is, and the market status; no prices
   client -> server
     {"action": "subscribe",   "symbols": [...]}
     {"action": "unsubscribe", "symbols": [...]}
@@ -93,16 +94,20 @@ class WebSocketGateway:
 
     def __init__(
         self,
-        symbols: Iterable[str],
+        symbols: Iterable[str] | Callable[[], Iterable[str]],
         snapshot: Callable[[list[str]], Mapping[str, Tick]],
         status: Optional[Callable[[], dict]] = None,
+        asset_class: Optional[Callable[[str], str]] = None,
     ):
         """`symbols` is what clients may subscribe to (the feed's
-        universe); `snapshot` returns the latest quote for each of the
-        given symbols that has one; `status`, if given, the current
-        market status for the welcome message."""
-        self._symbols = list(symbols)
-        self._known = set(self._symbols)
+        universe), or a function returning it, for a universe that grows
+        (T-bills are issued weekly); `snapshot` returns the latest quote
+        for each of the given symbols that has one; `status`, if given,
+        the current market status for the welcome message; `asset_class`,
+        if given, what each symbol is, so a page can pick the ones it
+        shows."""
+        self._universe = symbols if callable(symbols) else (lambda fixed=list(symbols): fixed)
+        self._asset_class = asset_class
         self._snapshot = snapshot
         self._status = status
         self._clients: dict[WebSocket, _Client] = {}
@@ -135,7 +140,10 @@ class WebSocketGateway:
         client = _Client(websocket)
         self._clients[websocket] = client
         client.sender = asyncio.create_task(self._send_loop(client))
-        welcome = {"type": "welcome", "symbols": self._symbols}
+        symbols = list(self._universe())
+        welcome = {"type": "welcome", "symbols": symbols}
+        if self._asset_class is not None:
+            welcome["asset_classes"] = {s: self._asset_class(s) for s in symbols}
         if self._status is not None:
             welcome["status"] = self._status()
         client.send_control(welcome)
@@ -188,8 +196,9 @@ class WebSocketGateway:
             return
 
         requested = list(dict.fromkeys(s.strip().upper() for s in symbols))
-        unknown = [s for s in requested if s not in self._known]
-        valid = [s for s in requested if s in self._known]
+        known = set(self._universe())
+        unknown = [s for s in requested if s not in known]
+        valid = [s for s in requested if s in known]
         if unknown:
             client.send_control(_error(
                 "unknown_symbols", "Not available on this feed: " + ", ".join(unknown), symbols=unknown,

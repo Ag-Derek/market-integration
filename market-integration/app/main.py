@@ -3,7 +3,7 @@ import csv
 import io
 import logging
 import sqlite3
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -13,6 +13,8 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Stre
 from app import config
 from app.aggregation.market_aggregator import MarketAggregator
 from app.aggregation.ranges import RANGES
+from app.connectors.composite_connector import CompositeConnector
+from app.connectors.fixed_income_connector import MockFixedIncomeConnector
 from app.connectors.fixed_income_mock import MockFixedIncomeMarket
 from app.connectors.market_connector import MockMarketConnector
 from app.gateways.websocket_gateway import WebSocketGateway
@@ -36,11 +38,38 @@ STATIC_DIR = Path(__file__).parent / "static"
 # this says the market is open.
 calendar = load_calendar(config.MARKET_CALENDAR_PATH, override=config.MARKET_SESSION_OVERRIDE)
 
-connector = MockMarketConnector(
+# GFIM trades longer hours than the equity market, on the same days.
+fixed_income_calendar = calendar.with_hours(
+    open=time.fromisoformat(config.FI_SESSION_OPEN),
+    close=time.fromisoformat(config.FI_SESSION_CLOSE),
+    exchange="GFIM",
+    hours_source="GFIM Rules 2022, Rule 12: trading 09:00-16:00 GMT",
+)
+
+equities = MockMarketConnector(
     symbols=config.SYMBOLS,
     interval_seconds=config.MOCK_INTERVAL_SECONDS,
     calendar=calendar,
 )
+
+# Fixed income (GFIM): the mock market behind both the tick stream and
+# the GFIM-style daily report endpoints.
+fixed_income = MockFixedIncomeMarket(calendar=fixed_income_calendar)
+fixed_income_connector = MockFixedIncomeConnector(
+    fixed_income,
+    interval_seconds=config.FI_MOCK_INTERVAL_SECONDS,
+    quote_intervals=config.FI_QUOTE_INTERVALS,
+    burst_rate=config.FI_BURST_RATE,
+)
+
+# One feed for the pipeline: equities and fixed income ticks together.
+connector = CompositeConnector([equities, fixed_income_connector])
+
+
+def asset_class(symbol: str) -> str:
+    if symbol in equities.symbols:
+        return "equity"
+    return fixed_income.asset_class(symbol)
 
 
 def current_status() -> dict:
@@ -58,20 +87,17 @@ processor = MarketProcessor()
 # Clients subscribe to symbols from the feed's universe; a new
 # subscription gets a snapshot of the processor's latest quotes.
 gateway = WebSocketGateway(
-    symbols=connector.symbols,
+    symbols=lambda: connector.symbols,
     snapshot=lambda symbols: {
         s: q for s in symbols if (q := processor.get_latest(s)) is not None
     },
     status=current_status,
+    asset_class=asset_class,
 )
 
 # Queryable copy of the instrument master; re-seeded from
 # data/instruments.json on every startup.
 instrument_store = InstrumentStore(config.DB_PATH)
-
-# Fixed income (GFIM): end-of-day report data, not a tick stream, so it
-# sits beside the equity pipeline rather than in it.
-fixed_income = MockFixedIncomeMarket()
 
 # The buffer decouples ingestion (connector) from its downstream
 # consumers, each getting an independent bounded queue with drop-oldest
@@ -282,7 +308,7 @@ async def ticker_page():
 
 @app.get("/stock")
 async def stock_page_default():
-    return RedirectResponse(url=f"/stock/{connector.symbols[0]}")
+    return RedirectResponse(url=f"/stock/{equities.symbols[0]}")
 
 
 @app.get("/stock/{symbol}", response_class=HTMLResponse)
@@ -290,7 +316,7 @@ async def stock_page(symbol: str):
     """Single-stock detail page: live quote over /ws/market plus a
     range-selectable chart from /candles. The page reads the symbol from
     its own URL."""
-    if symbol.upper() not in connector.symbols:
+    if symbol.upper() not in equities.symbols:  # bills and bonds get their own page (#39)
         raise HTTPException(status_code=404, detail=f"Unknown symbol '{symbol.upper()}'")
     return (STATIC_DIR / "stock.html").read_text(encoding="utf-8")
 
@@ -335,7 +361,6 @@ async def status_loop() -> None:
 async def startup():
     global consumer_task, status_task
     await asyncio.to_thread(instrument_store.seed, INSTRUMENTS.values())
-    fixed_income.start()
     await connector.connect()
     # Before any live ticks flow, so history is in place (and open
     # windows seeded) by the time the aggregator starts recording.
