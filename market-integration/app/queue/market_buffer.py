@@ -51,35 +51,36 @@ import asyncio
 import logging
 from typing import AsyncIterator, Optional
 
-from app.models.market_data import MarketData
+from app.models.tick import Tick
 
 logger = logging.getLogger(__name__)
 
 
 class _ConflatedSubscriber:
     """Per-subscriber state for subscribe_latest(): at most one unread
-    tick per symbol, plus an event to wake the consumer when something
-    new has landed."""
+    tick per symbol and tick type (so a bond's repo tick never replaces
+    its quote), plus an event to wake the consumer when something new
+    has landed."""
 
     __slots__ = ("latest", "pending", "event")
 
     def __init__(self):
-        self.latest: dict[str, MarketData] = {}
-        self.pending: set[str] = set()
+        self.latest: dict[tuple[str, str], Tick] = {}
+        self.pending: set[tuple[str, str]] = set()
         self.event = asyncio.Event()
 
 
 class MarketDataBuffer:
-    def __init__(self, source: AsyncIterator[MarketData], maxsize: int = 200):
+    def __init__(self, source: AsyncIterator[Tick], maxsize: int = 200):
         self._source = source
         self._maxsize = maxsize
-        self._subscribers: dict[str, "asyncio.Queue[MarketData]"] = {}
+        self._subscribers: dict[str, "asyncio.Queue[Tick]"] = {}
         self._conflated: dict[str, _ConflatedSubscriber] = {}
         self._dropped_counts: dict[str, int] = {}
         self._pump_task: Optional[asyncio.Task] = None
         self._running = False
 
-    def subscribe(self, name: str) -> AsyncIterator[MarketData]:
+    def subscribe(self, name: str) -> AsyncIterator[Tick]:
         """Register a consumer that wants every tick, in order.
 
         `name` just needs to be unique across BOTH subscribe() and
@@ -88,12 +89,12 @@ class MarketDataBuffer:
         """
         self._check_name_free(name)
 
-        queue: "asyncio.Queue[MarketData]" = asyncio.Queue(maxsize=self._maxsize)
+        queue: "asyncio.Queue[Tick]" = asyncio.Queue(maxsize=self._maxsize)
         self._subscribers[name] = queue
         self._dropped_counts[name] = 0
         return self._consume(name, queue)
 
-    def subscribe_latest(self, name: str) -> AsyncIterator[MarketData]:
+    def subscribe_latest(self, name: str) -> AsyncIterator[Tick]:
         """Register a consumer that only wants the current price per
         symbol (conflated). Never falls behind, never misses a symbol,
         but intermediate ticks between reads are lost by design.
@@ -153,7 +154,7 @@ class MarketDataBuffer:
             logger.exception("Market data buffer pump crashed")
             raise
 
-    def _offer(self, name: str, queue: "asyncio.Queue[MarketData]", tick: MarketData) -> None:
+    def _offer(self, name: str, queue: "asyncio.Queue[Tick]", tick: Tick) -> None:
         try:
             queue.put_nowait(tick)
             return
@@ -173,7 +174,7 @@ class MarketDataBuffer:
             # Another producer beat us to the freed slot; skip this tick.
             pass
 
-    async def _consume(self, name: str, queue: "asyncio.Queue[MarketData]") -> AsyncIterator[MarketData]:
+    async def _consume(self, name: str, queue: "asyncio.Queue[Tick]") -> AsyncIterator[Tick]:
         try:
             while True:
                 tick = await queue.get()
@@ -181,24 +182,25 @@ class MarketDataBuffer:
         finally:
             self.unsubscribe(name)
 
-    def _offer_latest(self, sub: _ConflatedSubscriber, tick: MarketData) -> None:
+    def _offer_latest(self, sub: _ConflatedSubscriber, tick: Tick) -> None:
         # Overwrite (not queue behind) any unread tick for this symbol --
         # this is what makes conflation immune to backpressure: storage
         # per subscriber is bounded by symbol count, never by feed rate.
-        sub.latest[tick.symbol] = tick
-        sub.pending.add(tick.symbol)
+        key = (tick.tick_type, tick.symbol)
+        sub.latest[key] = tick
+        sub.pending.add(key)
         sub.event.set()
 
-    async def _consume_latest(self, name: str, sub: _ConflatedSubscriber) -> AsyncIterator[MarketData]:
+    async def _consume_latest(self, name: str, sub: _ConflatedSubscriber) -> AsyncIterator[Tick]:
         try:
             while True:
                 await sub.event.wait()
                 # Snapshot + clear before yielding so ticks that land
                 # while we're yielding aren't lost.
-                symbols = list(sub.pending)
+                keys = list(sub.pending)
                 sub.pending.clear()
                 sub.event.clear()
-                for symbol in symbols:
-                    yield sub.latest[symbol]
+                for key in keys:
+                    yield sub.latest[key]
         finally:
             self.unsubscribe(name)

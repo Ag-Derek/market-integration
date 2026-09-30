@@ -8,7 +8,7 @@ import re
 from datetime import date
 from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 AssetClass = Literal["equity", "bill", "bond"]
 InstrumentStatus = Literal["active", "suspended", "delisted"]
@@ -19,6 +19,9 @@ EquityKind = Literal["ordinary", "preference", "depositary", "etf"]
 # is listed under (sell/buy-back trades are a trade type across the GoG
 # segments, not a segment of their own). See docs/data-formats.md.
 FixedIncomeSegment = Literal["new_gog", "ddep", "old_gog", "corporate", "treasury_bill"]
+# Day-count bases in use on the GFIM; see
+# docs/fixed-income-sources-and-conventions.md.
+DayCount = Literal["ACT/364", "ACT/365", "ACT/ACT"]
 
 _ISIN_FORMAT = re.compile(r"[A-Z]{2}[A-Z0-9]{9}[0-9]")
 
@@ -53,6 +56,22 @@ class Instrument(BaseModel):
     tenor: Optional[str] = None           # as the report labels it, e.g. "7-YEAR BOND", "2023-GC-3"
     maturity_date: Optional[date] = None
     coupon_rate: Optional[float] = None   # % a year; 0 for bills, None if the description has none
+    # The terms bond math needs. None means not known yet, not "none":
+    # corporates, GFSF and USD DDE bonds need term sheets first
+    # (docs/fixed-income-sources-and-conventions.md), and the report
+    # gives issue dates for bills only (maturity minus tenor).
+    issue_date: Optional[date] = None
+    frequency: Optional[int] = Field(default=None, ge=0)  # coupons a year; 0 = zero coupon (bills)
+    day_count: Optional[DayCount] = None
+    face_value: Optional[float] = Field(default=None, gt=0)  # what prices are quoted per: 100
+
+    @model_validator(mode="after")
+    def _issued_before_maturity(self) -> "Instrument":
+        if self.issue_date and self.maturity_date and self.issue_date >= self.maturity_date:
+            raise ValueError(
+                f"issue_date ({self.issue_date}) must be before maturity_date ({self.maturity_date})"
+            )
+        return self
 
     @field_validator("symbol")
     @classmethod

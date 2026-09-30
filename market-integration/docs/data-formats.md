@@ -140,6 +140,44 @@ Seeded once into `data/instruments.json` from the sample (161 securities).
 | (sheet) | `segment` | `new_gog`, `ddep`, `old_gog`, `corporate`, `treasury_bill`. |
 | (tenor prefix `USD-`) | `currency` | The four `USD-DDE-*` DDEP bonds are USD-denominated; the rest are GHS. |
 | — | `asset_class` | `bill` for T-bills, `bond` for everything else (notes included). |
+| — | `issue_date` | Bills only: maturity minus the tenor's days, always a Monday. The report has no bond issue dates. |
+| — | `frequency` | Coupons a year: 0 for bills, 2 for New GoG, 2023 DDEP and Old GoG bonds. |
+| — | `day_count` | `ACT/364` for bills, `ACT/ACT` for those bonds. |
+| — | `face_value` | 100, the face amount prices are quoted per. |
+
+`frequency` and `day_count` are left empty for GFSF, USD DDE and corporate bonds
+until we have term sheets
+(see [fixed-income-sources-and-conventions.md](fixed-income-sources-and-conventions.md)).
+
+### Fixed income ticks
+
+The pipeline carries bills and bonds as `FixedIncomeTick`, beside the equity
+`MarketData`, in one discriminated union on `tick_type` (`app/models/tick.py`).
+A tick holds the same daily fields as the report rows (opening, closing and
+day-range yields and prices, `volume`, `trade_count`), plus `segment`,
+`currency` and `maturity_date`, a two-way quote (`bid_price`, `ask_price`,
+`bid_yield`, `ask_yield`; not in the report) and `last_trade_at`. Every price
+and yield is optional, because corporates have prices only.
+
+Sell/buy-back trades are repos, so they are a separate `RepoTick`. Its
+`bond_yield` and `bond_price` come from the report's "Yield" and "Weighted
+average closing prices" columns. They describe the bond that changed hands, not
+the financing. `repo_rate` is the financing rate; the report doesn't have it,
+so it stays empty until a source does. Where the report's yield column holds
+the price (quirk 12), `bond_yield` is left empty, and the validator rejects a
+repo tick whose yield equals its price. The aggregator
+writes them to a `repo_trades` table, one row per bond per session, and never
+to candles. The processor keeps them apart from the bond's quote.
+
+Validation (`validate_tick`) rejects any price ≤ 0, any yield outside
+`FI_YIELD_MIN`–`FI_YIELD_MAX` (default 0–100; the sample has a real 58.59%),
+a security that has matured, and a bid yield below the ask yield. There are no
+day-range checks (quirks 7 and 9).
+
+Candles for bills and bonds are built on the clean closing price. Each candle
+also stores the same window in closing yield (`yield_open` … `yield_close`;
+`yield` in `GET /candles`), so a chart can switch between price and yield.
+Corporates have no yield.
 
 ### Government notes and bonds: New GoG, DDEP, Old GoG sheets
 

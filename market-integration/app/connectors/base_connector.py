@@ -32,6 +32,7 @@ from typing import AsyncIterator, Optional
 
 from app.models.candle import Candle
 from app.models.market_data import MarketData
+from app.models.tick import Tick
 
 
 class BaseMarketConnector(ABC):
@@ -52,9 +53,11 @@ class BaseMarketConnector(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def stream(self) -> AsyncIterator[MarketData]:
+    def stream(self) -> AsyncIterator[Tick]:
         """
-        Async generator yielding normalized MarketData as it arrives.
+        Async generator yielding normalized ticks (MarketData for
+        equities; FixedIncomeTick / RepoTick for bills and bonds) as they
+        arrive.
         Must only yield data after connect() has succeeded.
         """
         raise NotImplementedError

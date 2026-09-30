@@ -183,7 +183,9 @@ async def get_candles(
     """OHLCV candles as JSON for charting. `range` is one of the chart
     selector ranges (1D, 5D, 1M, 6M, YTD, 1Y, 5Y, Max) and picks both the
     lookback and a suitable candle interval; `interval` overrides the
-    latter. The newest candle is the live, still-open one.
+    latter. The newest candle is the live, still-open one. For bills and
+    bonds OHLC is clean price and `yield` the same window in yield (null
+    for equities and price-only corporates), so a chart can toggle.
     """
     symbol = symbol.upper()
     if symbol not in connector.symbols:
@@ -217,6 +219,12 @@ async def get_candles(
                 "low": c.low,
                 "close": c.close,
                 "volume": c.volume,
+                "yield": None if c.yield_close is None else {
+                    "open": c.yield_open,
+                    "high": c.yield_high,
+                    "low": c.yield_low,
+                    "close": c.yield_close,
+                },
             }
             for c in candles
         ],
@@ -234,7 +242,8 @@ async def export_candles(symbol: Optional[str] = None, interval: str = "15m"):
         try:
             query = (
                 "SELECT symbol, interval, window_start, window_end, "
-                "open, high, low, close, volume, tick_count "
+                "open, high, low, close, volume, tick_count, "
+                "yield_open, yield_high, yield_low, yield_close "
                 "FROM market_candles WHERE interval = ?"
             )
             params: list = [interval]
@@ -253,6 +262,7 @@ async def export_candles(symbol: Optional[str] = None, interval: str = "15m"):
     writer.writerow([
         "symbol", "interval", "window_start", "window_end",
         "open", "high", "low", "close", "volume", "tick_count",
+        "yield_open", "yield_high", "yield_low", "yield_close",
     ])
     writer.writerows(rows)
 

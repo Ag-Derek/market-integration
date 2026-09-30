@@ -25,6 +25,14 @@ the first tick of the next isn't lost.
 History: backfill() pulls historical candles from the connector on
 startup and replaces whatever is stored for that span, so charts have
 data older than "since the service started".
+
+Fixed income: a bill or bond tick is charted on its clean closing price
+(the GFIM "so far" close), and each candle also carries the same window
+in closing yield, so a chart can toggle between the two. A tick with no
+price (an unquoted security) makes no candle. Repo (sell/buy-back)
+ticks never touch candles: they are financing, not outright trades, so
+they go to a repo_trades table of their own, one row per bond per
+session.
 """
 
 import asyncio
@@ -37,7 +45,9 @@ from typing import TYPE_CHECKING, AsyncIterator, Iterable, Optional
 
 from app.aggregation.ranges import HISTORY_DEPTH
 from app.models.candle import INTERVALS, Candle, bucket_end, bucket_start
+from app.models.fixed_income import RepoTick
 from app.models.market_data import MarketData
+from app.models.tick import Tick
 from app.validation.market_validator import validate_candle, validate_tick
 
 if TYPE_CHECKING:
@@ -52,6 +62,20 @@ DEFAULT_DB_PATH = Path("market_data.db")
 DEFAULT_FLUSH_INTERVAL_SECONDS = 60
 
 
+_CANDLE_COLUMNS = (
+    "symbol", "interval", "window_start", "window_end",
+    "open", "high", "low", "close", "volume", "tick_count",
+    "yield_open", "yield_high", "yield_low", "yield_close",
+    "created_at",
+)
+_INSERT_CANDLES = (
+    f"INSERT OR REPLACE INTO market_candles ({', '.join(_CANDLE_COLUMNS)}) "
+    f"VALUES ({', '.join('?' * len(_CANDLE_COLUMNS))})"
+)
+# Added after the table first shipped; _init_db adds them to older databases.
+_YIELD_COLUMNS = ("yield_open", "yield_high", "yield_low", "yield_close")
+
+
 @dataclass
 class _WindowAggregate:
     window_start: datetime
@@ -61,13 +85,24 @@ class _WindowAggregate:
     close: float
     volume: int
     tick_count: int = 1
+    yield_open: Optional[float] = None
+    yield_high: Optional[float] = None
+    yield_low: Optional[float] = None
+    yield_close: Optional[float] = None
 
-    def update(self, price: float, volume_delta: int) -> None:
+    def update(self, price: float, yield_: Optional[float], volume_delta: int) -> None:
         self.high = max(self.high, price)
         self.low = min(self.low, price)
         self.close = price
         self.volume += volume_delta
         self.tick_count += 1
+        if yield_ is not None:
+            if self.yield_close is None:
+                self.yield_open = self.yield_high = self.yield_low = yield_
+            else:
+                self.yield_high = max(self.yield_high, yield_)
+                self.yield_low = min(self.yield_low, yield_)
+            self.yield_close = yield_
 
     def to_candle(self, symbol: str, interval: str) -> Candle:
         return Candle(
@@ -81,7 +116,20 @@ class _WindowAggregate:
             close=self.close,
             volume=self.volume,
             tick_count=self.tick_count,
+            yield_open=self.yield_open,
+            yield_high=self.yield_high,
+            yield_low=self.yield_low,
+            yield_close=self.yield_close,
         )
+
+
+def _mark(tick: Tick) -> tuple[Optional[float], Optional[float]]:
+    """The (price, yield) a tick is charted at. Fixed income charts the
+    clean closing price and closing yield: the GFIM close so far, which
+    is what the report and the chart's history are made of."""
+    if isinstance(tick, MarketData):
+        return tick.price, None
+    return tick.closing_price, tick.closing_yield
 
 
 def _valid_candles(candles: list[Candle]) -> list[Candle]:
@@ -112,14 +160,41 @@ def _to_row(c: Candle, created_at: str) -> tuple:
         c.close,
         c.volume,
         c.tick_count,
+        c.yield_open,
+        c.yield_high,
+        c.yield_low,
+        c.yield_close,
         created_at,
+    )
+
+
+_REPO_COLUMNS = (
+    "symbol", "session_date", "bond_yield", "bond_price", "repo_rate",
+    "volume", "trade_count", "last_trade_at",
+)
+
+
+def _session_date(t: RepoTick) -> str:
+    return t.timestamp.astimezone(timezone.utc).date().isoformat()
+
+
+def _repo_row(t: RepoTick) -> tuple:
+    return (
+        t.symbol,
+        _session_date(t),
+        t.bond_yield,
+        t.bond_price,
+        t.repo_rate,
+        t.volume,
+        t.trade_count,
+        t.last_trade_at.isoformat() if t.last_trade_at else None,
     )
 
 
 class MarketAggregator:
     def __init__(
         self,
-        feed: AsyncIterator[MarketData],
+        feed: AsyncIterator[Tick],
         db_path: "Path | str" = DEFAULT_DB_PATH,
         flush_interval_seconds: float = DEFAULT_FLUSH_INTERVAL_SECONDS,
         intervals: Iterable[str] = tuple(INTERVALS),
@@ -134,6 +209,9 @@ class MarketAggregator:
         self._pending: list[Candle] = []
         # symbol -> cumulative volume on its last recorded tick.
         self._last_volume: dict[str, int] = {}
+        # (symbol, session date) -> latest repo tick not yet written. Its
+        # values are cumulative for the session, so the latest one wins.
+        self._repos: dict[tuple[str, str], RepoTick] = {}
         self._consume_task: Optional[asyncio.Task] = None
         self._flush_task: Optional[asyncio.Task] = None
         self._running = False
@@ -156,8 +234,32 @@ class MarketAggregator:
                     close REAL NOT NULL,
                     volume INTEGER NOT NULL,
                     tick_count INTEGER NOT NULL,
+                    yield_open REAL,
+                    yield_high REAL,
+                    yield_low REAL,
+                    yield_close REAL,
                     created_at TEXT NOT NULL,
                     UNIQUE (symbol, interval, window_start)
+                )
+                """
+            )
+            existing = {row[1] for row in conn.execute("PRAGMA table_info(market_candles)")}
+            for column in _YIELD_COLUMNS:
+                if column not in existing:
+                    conn.execute(f"ALTER TABLE market_candles ADD COLUMN {column} REAL")
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS repo_trades (
+                    symbol TEXT NOT NULL,
+                    session_date TEXT NOT NULL,
+                    bond_yield REAL,
+                    bond_price REAL,
+                    repo_rate REAL,
+                    volume INTEGER NOT NULL,
+                    trade_count INTEGER NOT NULL,
+                    last_trade_at TEXT,
+                    updated_at TEXT NOT NULL,
+                    UNIQUE (symbol, session_date)
                 )
                 """
             )
@@ -242,6 +344,10 @@ class MarketAggregator:
                         close=last.close,
                         volume=last.volume,
                         tick_count=last.tick_count,
+                        yield_open=last.yield_open,
+                        yield_high=last.yield_high,
+                        yield_low=last.yield_low,
+                        yield_close=last.yield_close,
                     )
         logger.info("Backfilled %d historical candle(s) into %s", total, self._db_path)
         return total
@@ -256,15 +362,7 @@ class MarketAggregator:
                     "WHERE symbol = ? AND interval = ? AND window_start >= ?",
                     (symbol, interval, candles[0].window_start.isoformat()),
                 )
-                conn.executemany(
-                    """
-                    INSERT OR REPLACE INTO market_candles
-                        (symbol, interval, window_start, window_end,
-                         open, high, low, close, volume, tick_count, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    [_to_row(c, created_at) for c in candles],
-                )
+                conn.executemany(_INSERT_CANDLES, [_to_row(c, created_at) for c in candles])
         finally:
             conn.close()
 
@@ -296,6 +394,10 @@ class MarketAggregator:
                 close=r[5],
                 volume=r[6],
                 tick_count=r[7],
+                yield_open=r[8],
+                yield_high=r[9],
+                yield_low=r[10],
+                yield_close=r[11],
             )
             for r in rows
         }
@@ -311,7 +413,8 @@ class MarketAggregator:
 
     def _read_rows(self, symbol: str, interval: str, first: Optional[datetime]) -> list[tuple]:
         query = (
-            "SELECT window_start, window_end, open, high, low, close, volume, tick_count "
+            "SELECT window_start, window_end, open, high, low, close, volume, tick_count, "
+            "yield_open, yield_high, yield_low, yield_close "
             "FROM market_candles WHERE symbol = ? AND interval = ?"
         )
         params: list = [symbol, interval]
@@ -325,6 +428,28 @@ class MarketAggregator:
         finally:
             conn.close()
 
+    async def get_repo_trades(self, symbol: str) -> list[dict]:
+        """A bond's sell/buy-back (repo) activity, one row per session,
+        oldest first, including sessions not yet flushed."""
+        rows = await asyncio.to_thread(self._read_repo_rows, symbol)
+        by_session = {r["session_date"]: r for r in rows}
+        for (s, session), t in self._repos.items():
+            if s == symbol:
+                by_session[session] = dict(zip(_REPO_COLUMNS, _repo_row(t)))
+        return [by_session[k] for k in sorted(by_session)]
+
+    def _read_repo_rows(self, symbol: str) -> list[dict]:
+        conn = sqlite3.connect(self._db_path)
+        try:
+            rows = conn.execute(
+                f"SELECT {', '.join(_REPO_COLUMNS)} FROM repo_trades "
+                "WHERE symbol = ? ORDER BY session_date",
+                (symbol,),
+            ).fetchall()
+        finally:
+            conn.close()
+        return [dict(zip(_REPO_COLUMNS, r)) for r in rows]
+
     # ------------------------------------------------------------------
     # Live aggregation
 
@@ -334,18 +459,24 @@ class MarketAggregator:
                 result = validate_tick(tick)
                 if not result:
                     logger.warning(
-                        "[aggregator] dropped tick for %s: %s",
-                        tick.symbol, "; ".join(result.errors),
+                        "[aggregator] dropped %s tick for %s: %s",
+                        tick.tick_type, tick.symbol, "; ".join(result.errors),
                     )
                     continue
-                self._record(tick)
+                if isinstance(tick, RepoTick):
+                    self._record_repo(tick)
+                else:
+                    self._record(tick)
         except asyncio.CancelledError:
             raise
         except Exception:
             logger.exception("Market aggregator consume loop crashed")
             raise
 
-    def _record(self, tick: MarketData) -> None:
+    def _record_repo(self, tick: RepoTick) -> None:
+        self._repos[(tick.symbol, _session_date(tick))] = tick
+
+    def _record(self, tick: Tick) -> None:
         previous = self._last_volume.get(tick.symbol)
         if previous is None:
             delta = 0  # no baseline yet
@@ -354,6 +485,10 @@ class MarketAggregator:
         else:
             delta = tick.volume  # cumulative counter reset (new session)
         self._last_volume[tick.symbol] = tick.volume
+
+        price, yield_ = _mark(tick)
+        if price is None:
+            return  # an unquoted bill or bond: nothing to chart
 
         for interval in self._intervals:
             key = (tick.symbol, interval)
@@ -369,14 +504,18 @@ class MarketAggregator:
             if window is None:
                 self._windows[key] = _WindowAggregate(
                     window_start=start,
-                    open=tick.price,
-                    high=tick.price,
-                    low=tick.price,
-                    close=tick.price,
+                    open=price,
+                    high=price,
+                    low=price,
+                    close=price,
                     volume=delta,
+                    yield_open=yield_,
+                    yield_high=yield_,
+                    yield_low=yield_,
+                    yield_close=yield_,
                 )
             else:
-                window.update(tick.price, delta)
+                window.update(price, yield_, delta)
 
     async def _flush_loop(self) -> None:
         try:
@@ -395,28 +534,35 @@ class MarketAggregator:
         # removed afterwards, since more can be appended during the write.
         closed = list(self._pending)
         still_open = [w.to_candle(s, i) for (s, i), w in self._windows.items()]
-        if not closed and not still_open:
+        repos = dict(self._repos)
+        if not closed and not still_open and not repos:
             return
         created_at = datetime.now(timezone.utc).isoformat()
         rows = [_to_row(c, created_at) for c in _valid_candles(closed + still_open)]
-        await asyncio.to_thread(self._write_rows, rows)
+        repo_rows = [_repo_row(t) + (created_at,) for t in repos.values()]
+        await asyncio.to_thread(self._write_rows, rows, repo_rows)
         del self._pending[:len(closed)]
-        logger.info("Flushed %d candle(s) to %s", len(rows), self._db_path)
+        # Only drop what was written; a newer tick for the same key that
+        # arrived during the write stays for the next flush.
+        for key, tick in repos.items():
+            if self._repos.get(key) is tick:
+                del self._repos[key]
+        logger.info(
+            "Flushed %d candle(s) and %d repo row(s) to %s", len(rows), len(repo_rows), self._db_path
+        )
 
-    def _write_rows(self, rows: list[tuple]) -> None:
+    def _write_rows(self, rows: list[tuple], repo_rows: list[tuple] = ()) -> None:
         conn = sqlite3.connect(self._db_path)
         try:
             # INSERT OR REPLACE + the UNIQUE(symbol, interval, window_start)
             # constraint makes a flush idempotent: re-flushing the same
-            # window overwrites rather than duplicating.
+            # window overwrites rather than duplicating. Likewise per
+            # bond and session for repos.
+            conn.executemany(_INSERT_CANDLES, rows)
             conn.executemany(
-                """
-                INSERT OR REPLACE INTO market_candles
-                    (symbol, interval, window_start, window_end,
-                     open, high, low, close, volume, tick_count, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                rows,
+                f"INSERT OR REPLACE INTO repo_trades ({', '.join(_REPO_COLUMNS)}, updated_at) "
+                f"VALUES ({', '.join('?' * (len(_REPO_COLUMNS) + 1))})",
+                repo_rows,
             )
             conn.commit()
         finally:
