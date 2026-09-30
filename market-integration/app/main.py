@@ -8,7 +8,13 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Query, WebSocket
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    RedirectResponse,
+    StreamingResponse,
+)
 
 from app import config
 from app.aggregation.market_aggregator import MarketAggregator
@@ -398,6 +404,12 @@ async def bond_page(symbol: str):
 async def ticker_page():
     """Live-updating quote card UI, driven by the same /ws/market feed."""
     return (STATIC_DIR / "ticker.html").read_text(encoding="utf-8")
+
+
+@app.get("/static/search.js")
+async def search_script():
+    """The header search bar shared by /ticker and /stock/{symbol}."""
+    return FileResponse(STATIC_DIR / "search.js", media_type="text/javascript")
 
 
 @app.get("/stock")

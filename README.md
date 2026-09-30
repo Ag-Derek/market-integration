@@ -267,7 +267,7 @@ Uvicorn running on http://127.0.0.1:8000
 | `http://127.0.0.1:8000/market/status` | Market session and feed status: `status` is `open`, `pre_open` or `closed` (with a `reason`: `weekend`, `holiday`, `before_hours`, `after_hours`), plus `next_open`, `next_close`, `last_close`, the feed's heartbeat, and `badge` (`live`, `delayed`, `closed` or `disconnected`) |
 | `http://127.0.0.1:8000/market/{symbol}` | Latest snapshot for a tracked symbol (e.g. `/market/MTNGH`); 404 if unknown |
 | `ws://127.0.0.1:8000/ws/market`   | WebSocket — live quotes for the symbols a client subscribes to (protocol below) |
-| `http://127.0.0.1:8000/ticker`    | Live quote card UI (`app/static/ticker.html`), driven by the WebSocket feed above |
+| `http://127.0.0.1:8000/ticker`    | Live quote card UI (`app/static/ticker.html`), driven by the WebSocket feed above. The equities list is a collapsible sidebar; the open views are the watchlist, kept in the browser. The header search (press `/`; ↑/↓, Enter to open, Shift+Enter to pin, Esc to close) is also on `/stock/{symbol}` |
 | `http://127.0.0.1:8000/candles/export` | Historical OHLCV candles as a CSV download (opens in Excel). Optional `?symbol=MTNGH` and `?interval=15m` query params |
 
 `127.0.0.1` means "this machine only" — the service isn't reachable from
@@ -392,6 +392,7 @@ market-integration/
 │   │   └── status.py              # session + feed heartbeat -> /market/status, badge
 │   │
 │   └── static/
+│       ├── search.js              # header search bar (autocomplete over /search) on /ticker and /stock
 │       └── ticker.html            # live quote card UI, served at /ticker
 │
 ├── data/
