@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bill / Bond</title>
+<style>
+  :root {
+    --bg: #0E1613; --panel: #16211B; --panel-strong: #1C2921; --ink: #EAE7DA; --ink-soft: #AEB6A9;
+    --ink-faint: #6F766D; --line: #26362F; --teal: #3E9C82; --gold: #D9A44C; --gold-bg: #2A2313;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .page { max-width: 900px; margin: 0 auto; padding: 28px 20px 60px; }
+  .back { font-size: 13px; color: var(--ink-soft); text-decoration: none; }
+  .back:hover { color: var(--ink); }
+  h1 { font-family: ui-monospace, monospace; font-size: 20px; margin: 18px 0 4px; }
+  .sub { color: var(--ink-faint); font-size: 13px; margin-bottom: 18px; }
+  .sim-badge {
+    display: inline-block; font-size: 11px; font-family: ui-monospace, monospace; color: var(--gold);
+    background: var(--gold-bg); border: 1px solid rgba(217, 164, 76, 0.35); border-radius: 999px; padding: 4px 10px;
+  }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-top: 16px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px 18px; }
+  .label { font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 3px; }
+  .value { font-family: ui-monospace, monospace; font-variant-numeric: tabular-nums; font-size: 14px; }
+  .note { font-size: 12.5px; color: var(--ink-faint); margin-top: 16px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="page">
+  <a class="back" href="/fixed-income">&larr; Fixed Income</a>
+  <h1 id="title">&hellip;</h1>
+  <div class="sub" id="sub"></div>
+  <span class="sim-badge" id="label">Simulated data</span>
+  <div class="card"><div class="grid" id="fields"></div></div>
+  <p class="note">The full bond detail page (price, yield, risk and invoice, #39) is coming. Values update live.</p>
+</div>
+<script>
+(function () {
+  "use strict";
+  const SYMBOL = decodeURIComponent(location.pathname.split("/").pop()).toUpperCase();
+  const $ = function (id) { return document.getElementById(id); };
+  const FIELDS = [
+    ["Bid yield", "bid_yield", 2], ["Ask yield", "ask_yield", 2],
+    ["Open yield", "opening_yield", 2], ["Close yield", "closing_yield", 2],
+    ["Bid price", "bid_price", 4], ["Ask price", "ask_price", 4],
+    ["Open price", "opening_price", 4], ["Close price", "closing_price", 4],
+    ["Volume", "volume", 0], ["Trades", "trade_count", 0],
+    ["Maturity", "maturity_date"], ["Last trade", "last_trade_at"],
+  ];
+
+  function render(t) {
+    $("title").textContent = t.name;
+    $("sub").textContent = SYMBOL + " · " + t.segment.replace("_", " ") + " · " + t.currency;
+    if (t.exchange_label) $("label").textContent = t.exchange_label;
+    const host = $("fields");
+    host.innerHTML = "";
+    FIELDS.forEach(function (f) {
+      const v = t[f[1]];
+      if (v == null || (f[1] === "volume" && !v)) return;
+      let text = v;
+      if (f[1] === "last_trade_at") text = new Date(v).toLocaleString();
+      else if (typeof f[2] === "number") text = f[2] ? Number(v).toFixed(f[2]) : Number(v).toLocaleString();
+      const cell = document.createElement("div");
+      cell.innerHTML = '<div class="label"></div><div class="value"></div>';
+      cell.firstChild.textContent = f[0];
+      cell.lastChild.textContent = text;
+      host.appendChild(cell);
+    });
+  }
+
+  fetch("/market/" + encodeURIComponent(SYMBOL)).then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (t) { if (t) render(t); });
+
+  function connect() {
+    const proto = location.protocol === "https:" ? "wss" : "ws";
+    const ws = new WebSocket(proto + "://" + location.host + "/ws/market");
+    ws.onopen = function () { ws.send(JSON.stringify({ action: "subscribe", symbols: [SYMBOL] })); };
+    ws.onmessage = function (evt) {
+      const msg = JSON.parse(evt.data);
+      if (msg.type === "snapshot" && msg.data[SYMBOL]) render(msg.data[SYMBOL]);
+      else if (msg.type === "tick" && msg.data.symbol === SYMBOL && msg.data.tick_type === "fixed_income") render(msg.data);
+    };
+    ws.onclose = function () { setTimeout(connect, 2000); };
+  }
+  connect();
+})();
+</script>
+</body>
+</html>

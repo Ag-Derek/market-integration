@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fixed Income</title>
+<style>
+  :root {
+    --bg: #0E1613;
+    --panel: #16211B;
+    --panel-strong: #1C2921;
+    --ink: #EAE7DA;
+    --ink-soft: #AEB6A9;
+    --ink-faint: #6F766D;
+    --line: #26362F;
+    --teal: #3E9C82;
+    --gold: #D9A44C;
+    --gold-bg: #2A2313;
+    --green: #34C57F;
+    --red: #E5675A;
+    --status-live: #5AA9E6;
+    --status-live-halo: rgba(90, 169, 230, 0.18);
+    --status-delayed: var(--gold);
+    --status-closed: var(--ink-faint);
+    /* Yield curve series: validated as a set on --panel (dataviz
+       validate_palette.js, dark, all pairs). Old GoG is deliberately not a
+       fourth hue: it is drawn as hollow muted rings. */
+    --series-bills: #3987e5;
+    --series-new: #d95926;
+    --series-ddep: #199e70;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .num {
+    font-family: ui-monospace, "SFMono-Regular", "Cascadia Mono", Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .page { max-width: 1360px; margin: 0 auto; padding: 28px 20px 60px; }
+
+  /* Top bar and tabs */
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+  }
+  .brand { font-size: 13px; font-weight: 600; color: var(--ink-soft); letter-spacing: 0.02em; }
+  .tabs { display: flex; gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 3px; }
+  .tab {
+    font-size: 13px; font-weight: 600; color: var(--ink-soft); text-decoration: none;
+    padding: 6px 14px; border-radius: 6px;
+  }
+  .tab:hover { color: var(--ink); }
+  .tab.active { color: var(--bg); background: var(--teal); }
+  .topbar .spacer { flex: 1; }
+  .sim-badge {
+    font-size: 11px; font-family: ui-monospace, monospace; color: var(--gold);
+    background: var(--gold-bg); border: 1px solid rgba(217, 164, 76, 0.35);
+    border-radius: 999px; padding: 4px 10px; white-space: nowrap;
+  }
+
+  .status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-soft); }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--status-closed); }
+  [data-badge="live"] .status-dot { background: var(--status-live); box-shadow: 0 0 0 3px var(--status-live-halo); }
+  [data-badge="delayed"] .status-dot { background: var(--status-delayed); }
+  [data-badge="delayed"] .status-text { color: var(--status-delayed); }
+  [data-badge="disconnected"] .status-dot { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ink-faint); }
+
+  /* Sub-tabs and toolbar */
+
+  .subbar {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    border-bottom: 1px solid var(--line); margin-bottom: 16px;
+  }
+  .subtab {
+    font-size: 13px; font-weight: 600; color: var(--ink-faint); text-decoration: none;
+    padding: 9px 2px; border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .subtab:hover { color: var(--ink-soft); }
+  .subtab.active { color: var(--ink); border-bottom-color: var(--teal); }
+  .subbar .asof { margin-left: auto; font-size: 11.5px; color: var(--ink-faint); }
+
+  .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .jump {
+    font-size: 12px; color: var(--ink-soft); background: var(--panel); border: 1px solid var(--line);
+    border-radius: 7px; padding: 6px 11px; text-decoration: none;
+  }
+  .jump:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .filter {
+    margin-left: auto; width: 260px; max-width: 100%;
+    font: inherit; font-size: 13px; color: var(--ink); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 7px; padding: 7px 11px;
+  }
+  .filter::placeholder { color: var(--ink-faint); }
+  .filter:focus { outline: none; border-color: var(--teal); }
+
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* Section tables */
+
+  .section {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    margin-bottom: 16px; overflow: hidden; scroll-margin-top: 12px;
+  }
+  .section-head {
+    display: flex; align-items: baseline; gap: 12px; padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .section-head h2 { font-size: 14px; margin: 0; }
+  .section-head .meta { font-size: 11.5px; color: var(--ink-faint); }
+  .section-head .totals { margin-left: auto; font-size: 11.5px; color: var(--ink-soft); }
+  .table-wrap { overflow-x: auto; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--ink-faint); text-align: right; padding: 8px 12px; white-space: nowrap;
+    background: var(--panel-strong);
+  }
+  th:first-child, td:first-child { text-align: left; }
+  td { padding: 6px 12px; text-align: right; white-space: nowrap; border-top: 1px solid var(--line); }
+  tr.group td {
+    text-align: left; font-size: 11px; font-weight: 700; color: var(--gold);
+    letter-spacing: 0.03em; background: rgba(28, 41, 33, 0.6); padding: 6px 12px;
+  }
+  tr.row { cursor: pointer; }
+  tr.row:hover td, tr.row:focus td { background: var(--panel-strong); }
+  tr.row:focus { outline: none; }
+  tr.row:focus td:first-child { box-shadow: inset 2px 0 0 var(--teal); }
+  td.desc { font-family: ui-monospace, monospace; font-size: 12px; color: var(--ink); }
+  td.desc .isin { color: var(--ink-faint); margin-left: 8px; font-size: 11px; }
+  td.muted, .muted { color: var(--ink-faint); }
+  .up { color: var(--green); }
+  .down { color: var(--red); }
+  tr.hidden { display: none; }
+
+  /* Live update highlight: the close cells flash in the direction the
+     price moved (a falling yield is a rising price). */
+  @keyframes flash-up { from { background: rgba(52, 197, 127, 0.28); } to { background: transparent; } }
+  @keyframes flash-down { from { background: rgba(229, 103, 90, 0.28); } to { background: transparent; } }
+  @keyframes flash-neutral { from { background: rgba(174, 182, 169, 0.18); } to { background: transparent; } }
+  td.flash-up { animation: flash-up 1.2s ease-out; }
+  td.flash-down { animation: flash-down 1.2s ease-out; }
+  td.flash-neutral { animation: flash-neutral 1.2s ease-out; }
+  @media (prefers-reduced-motion: reduce) {
+    td.flash-up, td.flash-down, td.flash-neutral { animation-duration: 0.01s; }
+  }
+
+  .empty { padding: 30px 16px; color: var(--ink-faint); font-size: 13px; text-align: center; }
+
+  /* Yield curve */
+
+  .curve-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  .curve-head { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
+  .curve-head h2 { font-size: 14px; margin: 0; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--ink-soft); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend svg { overflow: visible; }
+  .toggle { margin-left: auto; font-size: 12px; color: var(--ink-soft); display: inline-flex; gap: 6px; align-items: center; }
+  .curve-wrap { position: relative; }
+  #curveSvg { display: block; width: 100%; height: 420px; }
+  #curveSvg .grid line { stroke: var(--line); stroke-width: 1; }
+  #curveSvg .axis text { fill: var(--ink-faint); font-size: 11px; font-family: ui-monospace, monospace; }
+  #curveSvg .axis-title { fill: var(--ink-faint); font-size: 11px; }
+  #curveSvg .curve-line { fill: none; stroke: var(--ink-soft); stroke-width: 2; stroke-opacity: 0.55; stroke-linejoin: round; }
+  #curveSvg .pt { stroke: var(--panel); stroke-width: 2; }
+  #curveSvg .pt.old { fill: none; stroke: var(--ink-faint); stroke-width: 1.5; }
+  #curveSvg .pt.active { stroke: var(--ink); stroke-width: 2; }
+  .tooltip {
+    position: absolute; pointer-events: none; display: none; z-index: 2;
+    background: var(--panel-strong); border: 1px solid var(--line); border-radius: 8px;
+    padding: 8px 10px; font-size: 12px; color: var(--ink); min-width: 190px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  }
+  .tooltip .t-desc { font-family: ui-monospace, monospace; font-size: 11.5px; margin-bottom: 4px; }
+  .tooltip .t-row { display: flex; justify-content: space-between; gap: 14px; color: var(--ink-soft); }
+  .tooltip .t-row b { color: var(--ink); font-weight: 600; }
+  .curve-note { font-size: 12px; color: var(--ink-faint); margin: 10px 0 0; line-height: 1.5; }
+
+  footer { margin-top: 26px; font-size: 12px; color: var(--ink-faint); line-height: 1.6; }
+  footer code {
+    font-family: ui-monospace, monospace; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px;
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <div class="topbar">
+    <span class="brand">Market Integration</span>
+    <nav class="tabs" aria-label="Markets">
+      <a class="tab" href="/ticker">Equities</a>
+      <a class="tab active" href="/fixed-income" aria-current="page">Fixed Income</a>
+    </nav>
+    <span class="spacer"></span>
+    <span class="status" id="status" data-badge="disconnected">
+      <span class="status-dot"></span><span class="status-text" id="statusText">Connecting</span>
+    </span>
+    <span class="sim-badge" id="simBadge">Simulated data, not a live GFIM feed</span>
+  </div>
+
+  <div class="subbar" role="tablist">
+    <a class="subtab" href="#monitor" data-view="monitor" role="tab">Bills &amp; Bonds</a>
+    <a class="subtab" href="#curve" data-view="curve" role="tab">Yield Curve</a>
+    <a class="subtab" href="#sell-buy-back" data-view="sell-buy-back" role="tab">Sell/Buy Back</a>
+    <span class="asof" id="asOf"></span>
+  </div>
+
+  <section class="view" id="view-monitor">
+    <div class="toolbar">
+      <a class="jump" href="#sec-treasury_bill">Treasury Bills</a>
+      <a class="jump" href="#sec-new_gog">New GoG</a>
+      <a class="jump" href="#sec-ddep">DDEP</a>
+      <a class="jump" href="#sec-old_gog">Old GoG</a>
+      <a class="jump" href="#sec-corporate">Corporate</a>
+      <input class="filter" id="filter" type="search" placeholder="Filter by description, ISIN or issuer"
+             aria-label="Filter bills and bonds">
+    </div>
+    <div id="sections"><div class="empty">Loading the GFIM market&hellip;</div></div>
+  </section>
+
+  <section class="view" id="view-curve">
+    <div class="curve-panel">
+      <div class="curve-head">
+        <h2>Government of Ghana yield curve (GHS)</h2>
+        <div class="legend" id="legend"></div>
+        <label class="toggle"><input type="checkbox" id="showOld"> Show Old GoG</label>
+      </div>
+      <div class="curve-wrap" id="curveWrap">
+        <svg id="curveSvg" role="img" aria-label="Closing yield against time to maturity"></svg>
+        <div class="tooltip" id="tooltip"></div>
+      </div>
+      <p class="curve-note">
+        Closing yields against time to maturity (log scale), live. The line joins the bills; New GoG and 2023
+        DDEP bonds are points. Old GoG bonds trade rarely and their closes are often stale, so they are off by default; GFSF bonds
+        (structured) and USD DDE bonds (a different currency) are left out. Every point is listed in
+        <a href="#monitor" style="color: var(--teal)">Bills &amp; Bonds</a>.
+      </p>
+    </div>
+  </section>
+
+  <section class="view" id="view-sell-buy-back">
+    <div id="sbb"><div class="empty">Loading&hellip;</div></div>
+  </section>
+
+  <footer>
+    Live over <code>/ws/market</code>; the day's report is <code>/fixed-income/report</code>. Government securities
+    are quoted by yield with the clean price derived from it; corporates by price only. Closing yields follow the GFIM
+    end-of-day methodology, so they can sit outside the day's traded range. Change is the close against the open, in
+    basis points of yield (price points for corporates). A row flashes green when its price rises (its yield falls)
+    and red when it falls. Sell/buy-backs are repos on GoG bonds, shown apart from outright trades.
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ------------------------------------------------------------ layout
+
+  const SECTIONS = [
+    { key: "treasury_bill", title: "Treasury Bills", kind: "bill" },
+    { key: "new_gog", title: "New GoG Notes & Bonds", kind: "gov" },
+    { key: "ddep", title: "DDEP Bonds", kind: "gov" },
+    { key: "old_gog", title: "Old GoG Notes & Bonds", kind: "gov" },
+    { key: "corporate", title: "Corporate Bonds", kind: "corp" },
+  ];
+  const BILL_ORDER = ["91-DAY BILL", "182-DAY BILL", "364-DAY BILL"];
+  const COLUMNS = {
+    gov: ["Security", "Maturity", "Open yld", "Close yld", "Chg (bp)", "Day range (yld)", "Close price", "Volume", "Trades"],
+    bill: ["Security", "Maturity", "Open yld", "Close yld", "Chg (bp)", "Day range (price)", "Close price", "Volume", "Trades"],
+    corp: ["Security", "Maturity", "Open price", "Close price", "Chg", "Day range (price)", "Volume", "Trades"],
+  };
+
+  // The group a row sits under within its section, as the GFIM report
+  // groups them.
+  function groupOf(section, row) {
+    if (section === "treasury_bill") return row.tenor;
+    if (section === "corporate") return row.issuer;
+    if (section === "ddep") {
+      if (row.tenor.indexOf("GFSF") === 0) return "GFSF BONDS";
+      if (row.tenor.indexOf("USD-") === 0) return "USD DDE BONDS";
+      return "2023 DDEP BONDS";
+    }
+    return row.tenor;
+  }
+
+  // ------------------------------------------------------------ state
+
+  const rows = {};          // symbol -> {section, kind, group, data, cells, el}
+  const sbbRows = {};       // symbol -> {data, cells}
+  let report = null;
+  let refetching = false;
+
+  const $ = function (id) { return document.getElementById(id); };
+
+  // ------------------------------------------------------------ format
+
+  function yld(v) { return v == null ? "—" : Number(v).toFixed(2); }
+  function px(v) { return v == null ? "—" : Number(v).toFixed(4); }
+  function compact(n) {
+    if (!n) return "—";
+    const abs = Math.abs(n);
+    if (abs >= 1e9) return (n / 1e9).toFixed(2) + "B";
+    if (abs >= 1e6) return (n / 1e6).toFixed(1) + "M";
+    if (abs >= 1e3) return (n / 1e3).toFixed(0) + "K";
+    return String(n);
+  }
+  function count(n) { return n ? String(n) : "—"; }
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  // As the GFIM report writes them: 05-Oct-26.
+  function maturity(iso) {
+    const p = iso.split("-");
+    return p[2] + "-" + MONTHS[Number(p[1]) - 1] + "-" + p[0].slice(2);
+  }
+  function range(lo, hi, fmt) {
+    if (lo == null || hi == null) return "—";
+    const a = Math.min(lo, hi), b = Math.max(lo, hi);  // GFIM price ranges can come reversed
+    return a === b ? fmt(a) : fmt(a) + " – " + fmt(b);
+  }
+  function signed(v, digits) {
+    if (v == null) return { text: "—", cls: "muted" };
+    const r = Number(v.toFixed(digits));
+    return { text: (r > 0 ? "+" : "") + r.toFixed(digits), cls: r > 0 ? "up" : r < 0 ? "down" : "muted" };
+  }
+
+  // A row's display values, from a report row or a live tick (same field
+  // names; volume is null in one and 0 in the other when nothing traded).
+  function cellsFor(kind, d) {
+    if (kind === "corp") {
+      const chg = d.opening_price != null && d.closing_price != null ? signed(d.closing_price - d.opening_price, 4) : signed(null);
+      return [px(d.opening_price), px(d.closing_price), chg, range(d.day_low_price, d.day_high_price, px),
+              compact(d.volume), count(d.trade_count)];
+    }
+    // Yield change in bp; a rising yield is shown red (the price fell).
+    let chg = signed(null);
+    if (d.opening_yield != null && d.closing_yield != null) {
+      const bp = (d.closing_yield - d.opening_yield) * 100;
+      chg = signed(bp, 1);
+      chg.cls = chg.cls === "up" ? "down" : chg.cls === "down" ? "up" : chg.cls;
+    }
+    const dayRange = kind === "bill"
+      ? range(d.day_low_price, d.day_high_price, px)
+      : range(d.day_low_yield, d.day_high_yield, yld);
+    return [yld(d.opening_yield), yld(d.closing_yield), chg, dayRange, px(d.closing_price),
+            compact(d.volume), count(d.trade_count)];
+  }
+
+  // ------------------------------------------------------------ tables
+
+  function buildSections() {
+    const host = $("sections");
+    host.innerHTML = "";
+    Object.keys(rows).forEach(function (k) { delete rows[k]; });
+
+    SECTIONS.forEach(function (sec) {
+      const data = report[sec.key] || [];
+      let list = data.slice();
+      if (sec.key === "treasury_bill") {
+        list.sort(function (a, b) {
+          return BILL_ORDER.indexOf(a.tenor) - BILL_ORDER.indexOf(b.tenor) || a.maturity_date.localeCompare(b.maturity_date);
+        });
+      }
+
+      const box = document.createElement("div");
+      box.className = "section";
+      box.id = "sec-" + sec.key;
+      box.innerHTML =
+        '<div class="section-head"><h2></h2><span class="meta"></span><span class="totals num"></span></div>' +
+        '<div class="table-wrap"><table><thead><tr></tr></thead><tbody></tbody></table></div>';
+      box.querySelector("h2").textContent = sec.title;
+      box.querySelector(".meta").textContent = list.length + " securities";
+      const head = box.querySelector("thead tr");
+      COLUMNS[sec.kind].forEach(function (c) {
+        const th = document.createElement("th");
+        th.textContent = c;
+        head.appendChild(th);
+      });
+      const body = box.querySelector("tbody");
+
+      let group = null;
+      list.forEach(function (r) {
+        const g = groupOf(sec.key, r);
+        if (g !== group) {
+          group = g;
+          const tr = document.createElement("tr");
+          tr.className = "group";
+          const td = document.createElement("td");
+          td.colSpan = COLUMNS[sec.kind].length;
+          td.textContent = g;
+          tr.appendChild(td);
+          body.appendChild(tr);
+        }
+        body.appendChild(buildRow(sec, g, r));
+      });
+      host.appendChild(box);
+      updateTotals(sec.key);
+    });
+    applyFilter();
+  }
+
+  function buildRow(sec, group, r) {
+    const tr = document.createElement("tr");
+    tr.className = "row";
+    tr.tabIndex = 0;
+    tr.dataset.symbol = r.symbol;
+    tr.title = "Open " + r.description;
+
+    const desc = document.createElement("td");
+    desc.className = "desc";
+    desc.textContent = r.description;
+    const isin = document.createElement("span");
+    isin.className = "isin";
+    isin.textContent = r.symbol;
+    desc.appendChild(isin);
+    tr.appendChild(desc);
+
+    const mat = document.createElement("td");
+    mat.className = "num muted";
+    mat.textContent = maturity(r.maturity_date);
+    tr.appendChild(mat);
+
+    const cells = [];
+    const values = cellsFor(sec.kind, r);
+    values.forEach(function () {
+      const td = document.createElement("td");
+      td.className = "num";
+      tr.appendChild(td);
+      cells.push(td);
+    });
+
+    const open = function () { location.href = "/bond/" + encodeURIComponent(r.symbol); };
+    tr.addEventListener("click", open);
+    tr.addEventListener("keydown", function (e) { if (e.key === "Enter") open(); });
+
+    rows[r.symbol] = {
+      section: sec.key, kind: sec.kind, group: group, data: Object.assign({}, r),
+      cells: cells, el: tr,
+      text: (r.description + " " + r.symbol + " " + (r.issuer || "") + " " + group).toLowerCase(),
+    };
+    paint(rows[r.symbol], values);
+    return tr;
+  }
+
+  function paint(row, values) {
+    values.forEach(function (v, i) {
+      const td = row.cells[i];
+      if (typeof v === "object") {
+        td.textContent = v.text;
+        td.className = "num " + v.cls;
+      } else {
+        td.textContent = v;
+      }
+    });
+  }
+
+  // Index of the cells that flash when the close moves.
+  function closeCells(kind) { return kind === "corp" ? [1, 2] : [1, 2, 4]; }
+
+  function flash(td, dir) {
+    td.classList.remove("flash-up", "flash-down", "flash-neutral");
+    void td.offsetWidth;  // restart the animation
+    td.classList.add("flash-" + dir);
+  }
+
+  function applyTick(t) {
+    const row = rows[t.symbol];
+    if (!row) { refetchReport(); return; }  // a bill issued since the page loaded
+    const prev = row.data;
+    const key = row.kind === "corp" ? "closing_price" : "closing_yield";
+    const before = prev[key], after = t[key];
+    const tradedMore = (t.trade_count || 0) > (prev.trade_count || 0);
+
+    row.data = Object.assign({}, prev, t);
+    paint(row, cellsFor(row.kind, row.data));
+
+    if (before != null && after != null && before !== after) {
+      // Price direction: a lower yield is a higher price.
+      const priceUp = row.kind === "corp" ? after > before : after < before;
+      closeCells(row.kind).forEach(function (i) { flash(row.cells[i], priceUp ? "up" : "down"); });
+    }
+    if (tradedMore) {
+      const n = row.cells.length;
+      flash(row.cells[n - 2], "neutral");
+      flash(row.cells[n - 1], "neutral");
+    }
+    updateTotals(row.section);
+    scheduleCurve();
+  }
+
+  function updateTotals(section) {
+    const box = $("sec-" + section);
+    if (!box) return;
+    let volume = 0, trades = 0;
+    Object.keys(rows).forEach(function (s) {
+      const r = rows[s];
+      if (r.section === section) { volume += r.data.volume || 0; trades += r.data.trade_count || 0; }
+    });
+    box.querySelector(".totals").textContent = "Volume " + compact(volume) + " · " + (trades || 0) + " trades";
+  }
+
+  function applyFilter() {
+    const q = $("filter").value.trim().toLowerCase();
+    SECTIONS.forEach(function (sec) {
+      const box = $("sec-" + sec.key);
+      if (!box) return;
+      let shown = 0;
+      const bodyRows = box.querySelectorAll("tbody tr");
+      let groupRow = null, groupShown = 0;
+      bodyRows.forEach(function (tr) {
+        if (tr.classList.contains("group")) {
+          if (groupRow) groupRow.classList.toggle("hidden", groupShown === 0);
+          groupRow = tr;
+          groupShown = 0;
+          return;
+        }
+        const match = !q || rows[tr.dataset.symbol].text.indexOf(q) !== -1;
+        tr.classList.toggle("hidden", !match);
+        if (match) { shown++; groupShown++; }
+      });
+      if (groupRow) groupRow.classList.toggle("hidden", groupShown === 0);
+      box.style.display = shown ? "" : "none";
+    });
+  }
+
+  // ------------------------------------------------------------ sell/buy back
+
+  function buildSellBuyBack() {
+    const host = $("sbb");
+    host.innerHTML = "";
+    const list = report.sell_buy_back || [];
+    const box = document.createElement("div");
+    box.className = "section";
+    box.innerHTML =
+      '<div class="section-head"><h2>Sell/Buy Back Trades – GoG Notes &amp; Bonds</h2>' +
+      '<span class="meta">Repos: financing against the bond, not outright trades. Yield and price are the bond\'s ' +
+      'in the sell leg, carried over from the last session with trades.</span><span class="totals num"></span></div>' +
+      '<div class="table-wrap"><table><thead><tr><th>Security</th><th>Maturity</th><th>Yield</th>' +
+      '<th>Wtd avg price</th><th>Volume</th><th>Trades</th></tr></thead><tbody></tbody></table></div>';
+    const body = box.querySelector("tbody");
+    let group = null;
+    list.forEach(function (r) {
+      const g = r.segment === "new_gog" ? "NEW BONDS" : groupOf("ddep", r);
+      if (g !== group) {
+        group = g;
+        const tr = document.createElement("tr");
+        tr.className = "group";
+        tr.innerHTML = '<td colspan="6"></td>';
+        tr.firstChild.textContent = g;
+        body.appendChild(tr);
+      }
+      const tr = document.createElement("tr");
+      tr.className = "row";
+      tr.tabIndex = 0;
+      tr.innerHTML = '<td class="desc"></td><td class="num muted"></td><td class="num"></td><td class="num"></td>' +
+                     '<td class="num"></td><td class="num"></td>';
+      tr.children[0].textContent = r.description;
+      tr.children[1].textContent = maturity(r.maturity_date);
+      const open = function () { location.href = "/bond/" + encodeURIComponent(r.symbol); };
+      tr.addEventListener("click", open);
+      tr.addEventListener("keydown", function (e) { if (e.key === "Enter") open(); });
+      body.appendChild(tr);
+      sbbRows[r.symbol] = { cells: Array.prototype.slice.call(tr.children, 2), data: r };
+      paintSbb(r.symbol, r.yield, r.weighted_average_price, r.volume, r.trade_count);
+    });
+    host.appendChild(box);
+    sbbTotals(box);
+  }
+
+  function paintSbb(symbol, y, price, volume, trades) {
+    const c = sbbRows[symbol].cells;
+    c[0].textContent = yld(y);
+    c[1].textContent = px(price);
+    c[2].textContent = compact(volume);
+    c[3].textContent = count(trades);
+  }
+
+  function sbbTotals(box) {
+    box = box || $("sbb").querySelector(".section");
+    let volume = 0, trades = 0;
+    Object.keys(sbbRows).forEach(function (s) {
+      volume += sbbRows[s].data.volume || 0;
+      trades += sbbRows[s].data.trade_count || 0;
+    });
+    box.querySelector(".totals").textContent = "Volume " + compact(volume) + " · " + trades + " trades";
+  }
+
+  function applyRepo(t) {
+    const row = sbbRows[t.symbol];
+    if (!row) return;
+    // The USD DDE rows have no yield (the report puts a price there).
+    row.data = Object.assign({}, row.data, {
+      yield: t.bond_yield, weighted_average_price: t.bond_price, volume: t.volume, trade_count: t.trade_count,
+    });
+    paintSbb(t.symbol, t.bond_yield, t.bond_price, t.volume, t.trade_count);
+    row.cells.forEach(function (td) { flash(td, "neutral"); });
+    sbbTotals();
+  }
+
+  // ------------------------------------------------------------ yield curve
+
+  const SERIES = [
+    { key: "bills", label: "Treasury bills", color: "var(--series-bills)", shape: "circle" },
+    { key: "new", label: "New GoG", color: "var(--series-new)", shape: "square" },
+    { key: "ddep", label: "2023 DDEP", color: "var(--series-ddep)", shape: "diamond" },
+  ];
+  const X_TICKS = [[7, "1W"], [30, "1M"], [91, "3M"], [182, "6M"], [364, "1Y"], [730, "2Y"], [1826, "5Y"], [3652, "10Y"], [5479, "15Y"]];
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  let curvePoints = [];
+  let curveTimer = null;
+
+  function seriesOf(r) {
+    if (r.section === "treasury_bill") return "bills";
+    if (r.section === "new_gog") return "new";
+    if (r.section === "ddep" && r.group === "2023 DDEP BONDS") return "ddep";
+    if (r.section === "old_gog") return "old";
+    return null;
+  }
+
+  function marker(shape, x, y, r) {
+    let el;
+    if (shape === "square") {
+      el = document.createElementNS(SVG_NS, "rect");
+      el.setAttribute("x", x - r); el.setAttribute("y", y - r);
+      el.setAttribute("width", 2 * r); el.setAttribute("height", 2 * r); el.setAttribute("rx", 1.5);
+    } else if (shape === "diamond") {
+      el = document.createElementNS(SVG_NS, "path");
+      const d = r * 1.3;
+      el.setAttribute("d", "M" + x + " " + (y - d) + "L" + (x + d) + " " + y + "L" + x + " " + (y + d) + "L" + (x - d) + " " + y + "Z");
+    } else {
+      el = document.createElementNS(SVG_NS, "circle");
+      el.setAttribute("cx", x); el.setAttribute("cy", y); el.setAttribute("r", r);
+    }
+    return el;
+  }
+
+  function buildLegend() {
+    const host = $("legend");
+    host.innerHTML = "";
+    SERIES.concat([{ key: "old", label: "Old GoG", shape: "ring" }]).forEach(function (s) {
+      const item = document.createElement("span");
+      const svg = document.createElementNS(SVG_NS, "svg");
+      svg.setAttribute("width", 10); svg.setAttribute("height", 10);
+      const m = marker(s.shape === "ring" ? "circle" : s.shape, 5, 5, 4);
+      if (s.shape === "ring") {
+        m.setAttribute("fill", "none"); m.setAttribute("stroke", "var(--ink-faint)"); m.setAttribute("stroke-width", 1.5);
+      } else {
+        m.setAttribute("fill", s.color);
+      }
+      svg.appendChild(m);
+      item.appendChild(svg);
+      item.appendChild(document.createTextNode(s.label));
+      host.appendChild(item);
+    });
+  }
+
+  function scheduleCurve() {
+    if (currentView() !== "curve" || curveTimer) return;
+    curveTimer = setTimeout(function () { curveTimer = null; drawCurve(); }, 1000);
+  }
+
+  function drawCurve() {
+    const svg = $("curveSvg");
+    const showOld = $("showOld").checked;
+    const W = svg.clientWidth || 900, H = svg.clientHeight || 420;
+    const m = { top: 16, right: 20, bottom: 40, left: 52 };
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.innerHTML = "";
+
+    const today = report ? Date.parse(report.report_date + "T00:00:00Z") : Date.now();
+    const pts = [];
+    Object.keys(rows).forEach(function (sym) {
+      const r = rows[sym];
+      const s = seriesOf(r);
+      if (!s || (s === "old" && !showOld) || r.data.closing_yield == null) return;
+      const days = (Date.parse(r.data.maturity_date + "T00:00:00Z") - today) / 864e5;
+      if (days <= 0) return;
+      pts.push({ symbol: sym, series: s, days: days, y: r.data.closing_yield, row: r });
+    });
+    if (!pts.length) return;
+
+    const xMin = Math.log(7), xMax = Math.log(Math.max(5479, Math.max.apply(null, pts.map(function (p) { return p.days; }))));
+    const ys = pts.map(function (p) { return p.y; });
+    let yLo = Math.floor(Math.min.apply(null, ys) - 1), yHi = Math.ceil(Math.max.apply(null, ys) + 1);
+    if (yLo < 0) yLo = 0;
+    const X = function (days) { return m.left + (Math.log(Math.max(days, 7)) - xMin) / (xMax - xMin) * (W - m.left - m.right); };
+    const Y = function (y) { return H - m.bottom - (y - yLo) / (yHi - yLo) * (H - m.top - m.bottom); };
+
+    // Grid and axes: recessive.
+    const grid = document.createElementNS(SVG_NS, "g");
+    grid.setAttribute("class", "grid");
+    const axis = document.createElementNS(SVG_NS, "g");
+    axis.setAttribute("class", "axis");
+    const step = yHi - yLo > 20 ? 5 : yHi - yLo > 8 ? 2 : 1;
+    for (let y = Math.ceil(yLo / step) * step; y <= yHi; y += step) {
+      const line = document.createElementNS(SVG_NS, "line");
+      line.setAttribute("x1", m.left); line.setAttribute("x2", W - m.right);
+      line.setAttribute("y1", Y(y)); line.setAttribute("y2", Y(y));
+      grid.appendChild(line);
+      const t = document.createElementNS(SVG_NS, "text");
+      t.setAttribute("x", m.left - 8); t.setAttribute("y", Y(y) + 4); t.setAttribute("text-anchor", "end");
+      t.textContent = y + "%";
+      axis.appendChild(t);
+    }
+    X_TICKS.forEach(function (tk) {
+      if (Math.log(tk[0]) > xMax) return;
+      const t = document.createElementNS(SVG_NS, "text");
+      t.setAttribute("x", X(tk[0])); t.setAttribute("y", H - m.bottom + 18); t.setAttribute("text-anchor", "middle");
+      t.textContent = tk[1];
+      axis.appendChild(t);
+    });
+    const title = document.createElementNS(SVG_NS, "text");
+    title.setAttribute("class", "axis-title");
+    title.setAttribute("x", W - m.right); title.setAttribute("y", H - 6); title.setAttribute("text-anchor", "end");
+    title.textContent = "Time to maturity";
+    svg.appendChild(grid);
+    svg.appendChild(axis);
+    svg.appendChild(title);
+
+    // The line runs through the bills only, one point per maturity (bills
+    // of different tenors maturing the same day share a close). Bonds are
+    // points: each trades at its own spread, so joining them to bills of
+    // a similar maturity would zig-zag.
+    const byDay = {};
+    pts.forEach(function (p) {
+      if (p.series === "bills") byDay[Math.round(p.days)] = p;
+    });
+    const line = Object.keys(byDay).map(Number).sort(function (a, b) { return a - b; }).map(function (d) { return byDay[d]; });
+    if (line.length > 1) {
+      const path = document.createElementNS(SVG_NS, "path");
+      path.setAttribute("class", "curve-line");
+      path.setAttribute("d", line.map(function (p, i) { return (i ? "L" : "M") + X(p.days).toFixed(1) + " " + Y(p.y).toFixed(1); }).join(""));
+      svg.appendChild(path);
+    }
+
+    // Old GoG underneath, then the benchmark series.
+    const order = { old: 0, bills: 1, new: 2, ddep: 3 };
+    pts.sort(function (a, b) { return order[a.series] - order[b.series]; });
+    pts.forEach(function (p) {
+      p.px = X(p.days);
+      p.py = Y(p.y);
+      const s = SERIES.find(function (x) { return x.key === p.series; });
+      const el = marker(s ? s.shape : "circle", p.px, p.py, 4.5);
+      el.setAttribute("class", "pt" + (p.series === "old" ? " old" : ""));
+      if (s) el.setAttribute("fill", s.color);
+      p.el = el;
+      svg.appendChild(el);
+    });
+    curvePoints = pts;
+  }
+
+  // Nearest point within 24px of the pointer, so small markers are easy to hit.
+  let activePoint = null;
+  function onCurveMove(e) {
+    const svg = $("curveSvg");
+    const box = svg.getBoundingClientRect();
+    const scale = (svg.viewBox.baseVal && svg.viewBox.baseVal.width) ? svg.viewBox.baseVal.width / box.width : 1;
+    const x = (e.clientX - box.left) * scale, y = (e.clientY - box.top) * scale;
+    let best = null, bestD = 24 * scale;
+    curvePoints.forEach(function (p) {
+      const d = Math.hypot(p.px - x, p.py - y);
+      if (d < bestD) { best = p; bestD = d; }
+    });
+    showTooltip(best, e.clientX - box.left, e.clientY - box.top);
+  }
+
+  function showTooltip(p, x, y) {
+    const tip = $("tooltip");
+    if (activePoint && activePoint.el) activePoint.el.classList.remove("active");
+    activePoint = p;
+    if (!p) { tip.style.display = "none"; $("curveSvg").style.cursor = ""; return; }
+    p.el.classList.add("active");
+    const d = p.row.data;
+    tip.innerHTML = "";
+    const desc = document.createElement("div");
+    desc.className = "t-desc";
+    desc.textContent = d.description;
+    tip.appendChild(desc);
+    [["Close yield", yld(d.closing_yield) + "%"], ["Close price", px(d.closing_price)],
+     ["Maturity", maturity(d.maturity_date)], ["Segment", p.row.group]].forEach(function (kv) {
+      const row = document.createElement("div");
+      row.className = "t-row";
+      row.innerHTML = "<span></span><b class='num'></b>";
+      row.firstChild.textContent = kv[0];
+      row.lastChild.textContent = kv[1];
+      tip.appendChild(row);
+    });
+    tip.style.display = "block";
+    const wrap = $("curveWrap").getBoundingClientRect();
+    const left = Math.min(x + 14, wrap.width - tip.offsetWidth - 4);
+    tip.style.left = Math.max(left, 4) + "px";
+    tip.style.top = Math.max(y - tip.offsetHeight - 10, 4) + "px";
+    $("curveSvg").style.cursor = "pointer";
+  }
+
+  $("curveSvg").addEventListener("pointermove", onCurveMove);
+  $("curveSvg").addEventListener("pointerleave", function () { showTooltip(null); });
+  $("curveSvg").addEventListener("click", function () {
+    if (activePoint) location.href = "/bond/" + encodeURIComponent(activePoint.symbol);
+  });
+  $("showOld").addEventListener("change", drawCurve);
+  window.addEventListener("resize", function () { if (currentView() === "curve") drawCurve(); });
+
+  // ------------------------------------------------------------ views
+
+  const VIEWS = ["monitor", "curve", "sell-buy-back"];
+  function currentView() {
+    const h = location.hash.replace("#", "");
+    return VIEWS.indexOf(h) !== -1 ? h : "monitor";  // incl. the section jump links
+  }
+  function showView() {
+    const v = currentView();
+    VIEWS.forEach(function (name) {
+      $("view-" + name).classList.toggle("active", name === v);
+    });
+    document.querySelectorAll(".subtab").forEach(function (a) {
+      const on = a.dataset.view === v;
+      a.classList.toggle("active", on);
+      a.setAttribute("aria-selected", on ? "true" : "false");
+    });
+    if (v === "curve" && report) drawCurve();
+  }
+  window.addEventListener("hashchange", showView);
+  $("filter").addEventListener("input", applyFilter);
+
+  // ------------------------------------------------------------ status
+
+  const BADGE_TEXT = { live: "Live", delayed: "Delayed", closed: "Market closed", disconnected: "Disconnected" };
+  const STATUS_TIMEOUT_MS = 20000;
+  let market = null, marketAt = 0, socketOpen = false;
+
+  function renderStatus() {
+    let badge = "disconnected";
+    if (socketOpen && market && Date.now() - marketAt <= STATUS_TIMEOUT_MS) badge = market.badge;
+    $("status").dataset.badge = badge;
+    $("statusText").textContent = "GFIM · " + BADGE_TEXT[badge];
+  }
+  function setMarket(status) {
+    // The Fixed Income tab follows GFIM's session, not the equity market's.
+    market = status.fixed_income || status;
+    marketAt = Date.now();
+    renderStatus();
+  }
+  setInterval(renderStatus, 5000);
+
+  // ------------------------------------------------------------ data
+
+  function renderAsOf() {
+    if (!report) return;
+    const d = new Date(report.report_date + "T00:00:00Z");
+    $("asOf").textContent = "Session " + d.toLocaleDateString(undefined, {
+      weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC",
+    });
+  }
+
+  function loadReport() {
+    return fetch("/fixed-income/report").then(function (r) { return r.json(); }).then(function (body) {
+      report = body;
+      if (body.exchange_label) $("simBadge").textContent = body.exchange_label + " · not a live GFIM feed";
+      buildSections();
+      buildSellBuyBack();
+      renderAsOf();
+      showView();
+    });
+  }
+
+  function refetchReport() {
+    if (refetching) return;
+    refetching = true;
+    setTimeout(function () {
+      loadReport().then(function () { refetching = false; subscribeAll(); }, function () { refetching = false; });
+    }, 500);
+  }
+
+  // ------------------------------------------------------------ feed
+
+  let socket = null;
+  let hadWelcome = false;
+  let fixedIncomeSymbols = [];
+
+  function send(action, symbols) {
+    if (socket && socket.readyState === WebSocket.OPEN && symbols.length) {
+      socket.send(JSON.stringify({ action: action, symbols: symbols }));
+    }
+  }
+  function subscribeAll() { send("subscribe", fixedIncomeSymbols); }
+
+  function ingest(t) {
+    if (t.tick_type === "repo") applyRepo(t);
+    else if (t.tick_type === "fixed_income") applyTick(t);
+  }
+
+  function connect() {
+    const proto = location.protocol === "https:" ? "wss" : "ws";
+    const ws = socket = new WebSocket(proto + "://" + location.host + "/ws/market");
+    ws.onopen = function () { socketOpen = true; renderStatus(); };
+    ws.onmessage = function (evt) {
+      const msg = JSON.parse(evt.data);
+      if (msg.type === "welcome") {
+        if (msg.status) setMarket(msg.status);
+        const classes = msg.asset_classes || {};
+        fixedIncomeSymbols = msg.symbols.filter(function (s) { return classes[s] === "bill" || classes[s] === "bond"; });
+        // After a reconnect, reload so the session so far is complete.
+        (hadWelcome ? loadReport() : Promise.resolve()).then(subscribeAll);
+        hadWelcome = true;
+      } else if (msg.type === "status") {
+        setMarket(msg);
+      } else if (msg.type === "snapshot") {
+        Object.values(msg.data).forEach(ingest);
+      } else if (msg.type === "tick") {
+        ingest(msg.data);
+      } else if (msg.type === "error") {
+        console.warn("market feed:", msg.message);
+      }
+    };
+    ws.onclose = function () {
+      socketOpen = false;
+      renderStatus();
+      setTimeout(connect, 2000);
+    };
+    ws.onerror = function () { ws.close(); };
+  }
+
+  // ------------------------------------------------------------ boot
+
+  buildLegend();
+  showView();
+  loadReport().then(connect, function () {
+    $("sections").innerHTML = '<div class="empty">Could not load the GFIM report.</div>';
+    connect();
+  });
+})();
+</script>
+</body>
+</html>

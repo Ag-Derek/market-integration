@@ -346,3 +346,35 @@ def test_the_app_streams_fixed_income_labelled_as_simulated(client):
     assert len(candles) > 200  # backfilled history
     assert all(c["yield"] is not None for c in candles)
     assert client.get(f"/stock/{GC3}").status_code == 404  # bonds get their own page (#39)
+
+
+# ---------------------------------------------------------------- the Fixed Income tab (#37)
+
+def test_the_fixed_income_tab_and_bond_pages_are_served(client):
+    page = client.get("/fixed-income")
+    assert page.status_code == 200 and "Fixed Income" in page.text
+    assert 'href="/fixed-income"' in client.get("/ticker").text  # the Equities | Fixed Income tabs
+    assert client.get(f"/bond/{GC3}").status_code == 200
+    assert client.get("/bond/MTNGH").status_code == 404  # equities have /stock
+    assert client.get("/bond/NOPE").status_code == 404
+
+
+def test_the_status_carries_the_gfim_session_for_the_fixed_income_badge(client):
+    status = client.get("/market/status").json()
+    assert status["exchange"] == "GSE"
+    gfim = status["fixed_income"]
+    assert gfim["exchange"] == "GFIM"
+    assert gfim["session"]["open"] == "09:00" and gfim["session"]["close"] == "16:00"
+    assert gfim["badge"] in ("live", "delayed", "closed", "disconnected")
+
+
+def test_every_security_has_a_quote_after_the_opening_snapshot_burst(client):
+    # Equities and fixed income each send a snapshot of every security at
+    # startup, together more than a subscriber queue holds; none may be
+    # dropped (the first equity's used to be).
+    import time as _time
+    from app.main import connector, processor
+    deadline = _time.time() + 10
+    while _time.time() < deadline and any(processor.get_latest(s) is None for s in connector.symbols):
+        _time.sleep(0.1)
+    assert [s for s in connector.symbols if processor.get_latest(s) is None] == []

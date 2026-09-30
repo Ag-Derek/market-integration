@@ -93,6 +93,11 @@ class CompositeConnector(BaseMarketConnector):
                     raise item.error
                 else:
                     yield item
+                    # Let consumers run between ticks. A child can hand over
+                    # a burst (every security's snapshot at startup, ~200
+                    # ticks) that would otherwise pass through the buffer
+                    # before anyone reads, overflowing its drop-oldest queues.
+                    await asyncio.sleep(0)
         finally:
             for task in tasks:
                 task.cancel()
