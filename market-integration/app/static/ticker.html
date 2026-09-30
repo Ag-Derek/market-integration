@@ -6,6 +6,7 @@
 <title>Live Ticker</title>
 <style>
   :root {
+    color-scheme: dark;
     --bg: #0E1613;
     --panel: #16211B;
     --panel-strong: #1C2921;
@@ -83,36 +84,86 @@
     white-space: nowrap;
   }
 
-  /* Symbol picker */
+  /* Layout: collapsible equities sidebar + views */
 
-  .picker-row {
+  .layout {
+    display: grid;
+    grid-template-columns: 124px minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+  }
+  .layout.collapsed { grid-template-columns: 38px minmax(0, 1fr); }
+
+  .sidebar {
+    position: sticky;
+    top: 16px;
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 8px;
+  }
+  /* Thin, theme-coloured scrollbar: Windows otherwise draws a wide light one. */
+  .sidebar { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+  .sidebar::-webkit-scrollbar { width: 6px; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+  .sidebar:hover { scrollbar-color: var(--ink-faint) transparent; }
+  .sidebar:hover::-webkit-scrollbar-thumb { background: var(--ink-faint); }
+
+  .sidebar-head {
     display: flex;
     align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-bottom: 8px;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 2px 2px 8px 6px;
   }
-
-  .picker-label {
-    font-size: 12px;
+  .sidebar-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
     color: var(--ink-faint);
-    margin-right: 2px;
   }
+  .sidebar-toggle {
+    flex: none;
+    width: 22px; height: 22px;
+    background: var(--panel-strong);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--ink-soft);
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .sidebar-toggle:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sidebar-note { font-size: 11px; color: var(--ink-faint); margin: 0 6px 8px; line-height: 1.4; }
+  .picker-list { display: flex; flex-direction: column; gap: 2px; }
+  .picker-count { font-size: 11px; color: var(--ink-faint); margin: 8px 6px 2px; }
+
+  .layout.collapsed .sidebar { padding: 7px 7px; overflow: hidden; }
+  .layout.collapsed .sidebar-head { padding: 0; justify-content: center; }
+  .layout.collapsed .sidebar-title,
+  .layout.collapsed .sidebar-note,
+  .layout.collapsed .picker-list,
+  .layout.collapsed .picker-count { display: none; }
 
   .picker-chip {
     font-family: ui-monospace, monospace;
-    font-size: 13px;
+    font-size: 12.5px;
     font-weight: 500;
     color: var(--ink-soft);
-    background: var(--panel);
-    border: 1px solid var(--line);
+    background: transparent;
+    border: 1px solid transparent;
     border-radius: 7px;
-    padding: 7px 13px;
+    padding: 6px 8px;
     cursor: pointer;
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
+    text-align: left;
   }
+  .picker-chip:hover { color: var(--ink); background: var(--panel-strong); }
 
   .picker-chip .dot {
     width: 6px; height: 6px;
@@ -127,10 +178,12 @@
   }
   .picker-chip.open .dot { background: var(--bg); }
 
-  .picker-count {
-    font-size: 12px;
-    color: var(--ink-faint);
-    margin-left: auto;
+  @media (max-width: 760px) {
+    .layout, .layout.collapsed { grid-template-columns: minmax(0, 1fr); }
+    .sidebar { position: static; max-height: none; }
+    .picker-list { flex-direction: row; flex-wrap: wrap; }
+    .layout.collapsed .sidebar-head { justify-content: space-between; padding: 0 0 0 6px; }
+    .layout.collapsed .sidebar-title { display: inline; }
   }
 
   .cap-note {
@@ -346,18 +399,28 @@
       <a class="tab" href="/fixed-income">Fixed Income</a>
       <a class="tab" href="/yield-curve">Yield Curve</a>
     </nav>
+    <div id="search"></div>
     <span class="spacer"></span>
     <span class="sim-badge">Simulated data, not a live GSE feed</span>
   </div>
 
-  <div class="picker-row" id="pickerRow">
-    <span class="picker-label">Click a symbol to open or close its view:</span>
-    <span class="picker-count" id="pickerCount"></span>
-  </div>
-  <div class="cap-note" id="capNote">Max 6 views at once, close one to open another.</div>
+  <div class="layout" id="layout">
+    <aside class="sidebar" aria-label="Equities">
+      <div class="sidebar-head">
+        <span class="sidebar-title">Equities</span>
+        <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-controls="pickerList" aria-expanded="true" title="Collapse the list">&lsaquo;</button>
+      </div>
+      <p class="sidebar-note">Click to open or close a view.</p>
+      <div class="picker-list" id="pickerList"></div>
+      <div class="picker-count" id="pickerCount"></div>
+    </aside>
 
-  <div class="grid" id="grid">
-    <div class="empty-state">Nothing open. Click a symbol above to add it.</div>
+    <main>
+      <div class="cap-note" id="capNote">Max 6 views at once, close one to open another.</div>
+      <div class="grid" id="grid">
+        <div class="empty-state">Nothing open. Pick a symbol on the left, or search and pin one.</div>
+      </div>
+    </main>
   </div>
 
   <footer>
@@ -370,6 +433,7 @@
 
 </div>
 
+<script src="/static/search.js"></script>
 <script>
 (function () {
   "use strict";
@@ -388,7 +452,9 @@
   const paneEls = {};     // symbol -> cached DOM refs for its pane
 
   const el = {
-    pickerRow: document.getElementById("pickerRow"),
+    layout: document.getElementById("layout"),
+    sidebarToggle: document.getElementById("sidebarToggle"),
+    pickerList: document.getElementById("pickerList"),
     pickerCount: document.getElementById("pickerCount"),
     capNote: document.getElementById("capNote"),
     grid: document.getElementById("grid"),
@@ -475,6 +541,12 @@
     showCapNote._t = setTimeout(function () { el.capNote.classList.remove("show"); }, 2500);
   }
 
+  // The open views are the watchlist: kept in localStorage (shared with
+  // the search bar's "+ Pin" on every page) so they survive a reload.
+  function saveWatchlist() {
+    MarketSearch.writeWatchlist(knownSymbols.filter(function (s) { return openSymbols.has(s); }));
+  }
+
   // The feed only sends quotes for subscribed symbols, so each open pane
   // is a subscription: opening one subscribes, closing it unsubscribes.
   function togglePane(sym) {
@@ -484,27 +556,52 @@
       buildGrid();
     } else if (openSymbols.size >= MAX_PANES) {
       showCapNote();
+      return;
     } else {
       openSymbols.add(sym);
       send("subscribe", [sym]);
       loadHistory(sym);
       buildGrid();
     }
+    saveWatchlist();
+  }
+
+  // "+ Pin" in the search bar: open the view here and now.
+  function pinFromSearch(sym) {
+    if (openSymbols.has(sym)) return "Already pinned";
+    if (knownSymbols.indexOf(sym) === -1) return "Not in the feed";
+    if (openSymbols.size >= MAX_PANES) {
+      showCapNote();
+      return "Watchlist full";
+    }
+    togglePane(sym);
+    return "Pinned";
   }
 
   function buildPicker() {
-    el.pickerRow.querySelectorAll(".picker-chip").forEach(function (c) { c.remove(); });
+    el.pickerList.innerHTML = "";
     knownSymbols.forEach(function (sym) {
       const chip = document.createElement("button");
+      chip.type = "button";
       chip.className = "picker-chip" + (openSymbols.has(sym) ? " open" : "");
+      chip.setAttribute("aria-pressed", openSymbols.has(sym) ? "true" : "false");
       const dot = document.createElement("span");
       dot.className = "dot";
       chip.appendChild(dot);
       chip.appendChild(document.createTextNode(sym));
       chip.addEventListener("click", function () { togglePane(sym); });
-      el.pickerRow.insertBefore(chip, el.pickerCount);
+      el.pickerList.appendChild(chip);
     });
     el.pickerCount.textContent = openSymbols.size + " / " + MAX_PANES + " open";
+  }
+
+  function setSidebarCollapsed(collapsed) {
+    el.layout.classList.toggle("collapsed", collapsed);
+    el.sidebarToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+    el.sidebarToggle.innerHTML = collapsed ? "&rsaquo;" : "&lsaquo;";
+    el.sidebarToggle.title = collapsed ? "Show the equities list" : "Collapse the list";
+    // Charts are sized from their canvas, which just changed width.
+    requestAnimationFrame(function () { openSymbols.forEach(drawChart); });
   }
 
   function statEl(label) {
@@ -629,7 +726,7 @@
     if (openSymbols.size === 0) {
       const empty = document.createElement("div");
       empty.className = "empty-state";
-      empty.textContent = "Nothing open. Click a symbol above to add it.";
+      empty.textContent = "Nothing open. Pick a symbol on the left, or search and pin one.";
       el.grid.appendChild(empty);
     } else {
       el.grid.style.gridTemplateColumns = "repeat(" + (GRID_COLS[openSymbols.size] || 3) + ", 1fr)";
@@ -841,8 +938,9 @@
   }
 
   // The server's welcome message lists the symbols the feed carries (no
-  // prices). The first time, open the first few; after a reconnect, keep
-  // what was open, re-subscribe and re-fetch candles missed while offline.
+  // prices). The first time, open the saved watchlist (or, on a first
+  // visit, the first few); after a reconnect, keep what was open,
+  // re-subscribe and re-fetch candles missed while offline.
   // The feed also carries bills and bonds; this page shows equities.
   function equitiesOf(welcome) {
     const classes = welcome.asset_classes || {};
@@ -856,7 +954,10 @@
       if (symbols.indexOf(sym) === -1) openSymbols.delete(sym);
     });
     if (!hadConnection) {
-      symbols.slice(0, MAX_PANES).forEach(function (sym) { openSymbols.add(sym); });
+      const saved = MarketSearch.readWatchlist();
+      const initial = saved === null ? symbols : saved.filter(function (s) { return symbols.indexOf(s) !== -1; });
+      initial.slice(0, MAX_PANES).forEach(function (sym) { openSymbols.add(sym); });
+      saveWatchlist();
     }
     hadConnection = true;
     openSymbols.forEach(loadHistory);
@@ -910,6 +1011,17 @@
   // Keeps relative times current, and turns the badge to Disconnected if
   // status messages stop arriving.
   setInterval(function () { openSymbols.forEach(renderStatus); }, 1000);
+
+  MarketSearch.mount(document.getElementById("search"), { onPin: pinFromSearch });
+
+  let sidebarCollapsed = false;
+  try { sidebarCollapsed = localStorage.getItem("sidebar.collapsed") === "1"; } catch (e) { /* storage unavailable */ }
+  setSidebarCollapsed(sidebarCollapsed);
+  el.sidebarToggle.addEventListener("click", function () {
+    sidebarCollapsed = !sidebarCollapsed;
+    setSidebarCollapsed(sidebarCollapsed);
+    try { localStorage.setItem("sidebar.collapsed", sidebarCollapsed ? "1" : "0"); } catch (e) { /* storage unavailable */ }
+  });
 
   connect();
 })();

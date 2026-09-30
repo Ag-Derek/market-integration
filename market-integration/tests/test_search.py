@@ -145,3 +145,12 @@ def test_search_endpoint_filters_and_validates(client):
     assert client.get("/search", params={"q": "gc", "limit": 0}).status_code == 422
     assert client.get("/search", params={"q": "gc", "limit": 51}).status_code == 422
     assert client.get("/search", params={"q": "gc", "asset_class": "crypto"}).status_code == 422
+
+
+def test_search_bar_script_is_served_to_the_ticker_and_stock_pages(client):
+    script = client.get("/static/search.js")
+    assert script.status_code == 200
+    assert script.headers["content-type"].startswith("text/javascript")
+    assert "/search?q=" in script.text
+    for page in ("/ticker", "/stock/GCB"):
+        assert '<script src="/static/search.js"></script>' in client.get(page).text

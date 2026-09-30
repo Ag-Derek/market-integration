@@ -6,6 +6,7 @@
 <title>Stock Detail</title>
 <style>
   :root {
+    color-scheme: dark;
     --bg: #0E1613;
     --panel: #16211B;
     --panel-strong: #1C2921;
@@ -43,7 +44,7 @@
   }
 
   .page {
-    max-width: 1180px;
+    max-width: 1380px;
     margin: 0 auto;
     padding: 28px 20px 60px;
   }
@@ -54,6 +55,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-wrap: wrap;
     gap: 12px;
     margin-bottom: 20px;
   }
@@ -78,14 +80,69 @@
     white-space: nowrap;
   }
 
-  /* Symbol switcher */
+  /* Layout: collapsible equities sidebar (the symbol switcher) + detail */
+
+  .layout {
+    display: grid;
+    grid-template-columns: 158px minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+  }
+  .layout.collapsed { grid-template-columns: 38px minmax(0, 1fr); }
+
+  .sidebar {
+    position: sticky;
+    top: 16px;
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 8px;
+  }
+  /* Thin, theme-coloured scrollbar: Windows otherwise draws a wide light one. */
+  .sidebar { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+  .sidebar::-webkit-scrollbar { width: 6px; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+  .sidebar:hover { scrollbar-color: var(--ink-faint) transparent; }
+  .sidebar:hover::-webkit-scrollbar-thumb { background: var(--ink-faint); }
+
+  .sidebar-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 2px 2px 8px 6px;
+  }
+  .sidebar-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .sidebar-toggle {
+    flex: none;
+    width: 22px; height: 22px;
+    background: var(--panel-strong);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--ink-soft);
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .sidebar-toggle:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+  .layout.collapsed .sidebar { padding: 7px; overflow: hidden; }
+  .layout.collapsed .sidebar-head { padding: 0; justify-content: center; }
+  .layout.collapsed .sidebar-title,
+  .layout.collapsed .switcher { display: none; }
 
   .switcher {
     display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-bottom: 18px;
+    flex-direction: column;
+    gap: 2px;
   }
 
   .switch-chip {
@@ -93,16 +150,25 @@
     font-size: 12.5px;
     font-weight: 500;
     color: var(--ink-soft);
-    background: var(--panel);
-    border: 1px solid var(--line);
+    background: transparent;
+    border: 1px solid transparent;
     border-radius: 7px;
-    padding: 6px 11px;
+    padding: 6px 8px;
     text-decoration: none;
-    display: inline-flex;
+    display: flex;
+    justify-content: space-between;
     align-items: baseline;
     gap: 7px;
   }
-  .switch-chip:hover { border-color: var(--ink-faint); color: var(--ink); }
+  .switch-chip:hover { background: var(--panel-strong); color: var(--ink); }
+
+  @media (max-width: 760px) {
+    .layout, .layout.collapsed { grid-template-columns: minmax(0, 1fr); }
+    .sidebar { position: static; max-height: none; }
+    .switcher { flex-direction: row; flex-wrap: wrap; }
+    .layout.collapsed .sidebar-head { justify-content: space-between; padding: 0 0 0 6px; }
+    .layout.collapsed .sidebar-title { display: inline; }
+  }
   .switch-chip .chg { font-size: 11px; }
   .switch-chip .chg.up { color: var(--green); }
   .switch-chip .chg.down { color: var(--red); }
@@ -379,11 +445,20 @@
 
   <div class="topbar">
     <a class="brand" href="/ticker">&larr; Market Integration &middot; Live Ticker</a>
+    <div id="search"></div>
     <span class="sim-badge">Simulated data, not a live GSE feed</span>
   </div>
 
-  <nav class="switcher" id="switcher" aria-label="Other tracked symbols"></nav>
+  <div class="layout" id="layout">
+  <aside class="sidebar" aria-label="Equities">
+    <div class="sidebar-head">
+      <span class="sidebar-title">Equities</span>
+      <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-controls="switcher" aria-expanded="true" title="Collapse the list">&lsaquo;</button>
+    </div>
+    <nav class="switcher" id="switcher" aria-label="Other tracked symbols"></nav>
+  </aside>
 
+  <main>
   <section class="card">
     <div class="exchange-row">
       <span id="exchange">Connecting…</span>
@@ -438,6 +513,8 @@
       </div>
     </section>
   </div>
+  </main>
+  </div>
 
   <footer>
     Quote over <code>/ws/market</code>; chart from <code>/candles?symbol=…&amp;range=…</code>. History is backfilled
@@ -450,6 +527,7 @@
 
 </div>
 
+<script src="/static/search.js"></script>
 <script>
 (function () {
   "use strict";
@@ -1213,6 +1291,26 @@
   });
 
   setInterval(renderAsOf, 1000);
+
+  MarketSearch.mount($("search"));
+
+  function setSidebarCollapsed(collapsed) {
+    $("layout").classList.toggle("collapsed", collapsed);
+    const toggle = $("sidebarToggle");
+    toggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+    toggle.innerHTML = collapsed ? "&rsaquo;" : "&lsaquo;";
+    toggle.title = collapsed ? "Show the equities list" : "Collapse the list";
+    // The charts are sized from their canvases, which just changed width.
+    requestAnimationFrame(function () { drawChart(); drawSpark(); });
+  }
+  let sidebarCollapsed = false;
+  try { sidebarCollapsed = localStorage.getItem("sidebar.collapsed") === "1"; } catch (e) { /* storage unavailable */ }
+  setSidebarCollapsed(sidebarCollapsed);
+  $("sidebarToggle").addEventListener("click", function () {
+    sidebarCollapsed = !sidebarCollapsed;
+    setSidebarCollapsed(sidebarCollapsed);
+    try { localStorage.setItem("sidebar.collapsed", sidebarCollapsed ? "1" : "0"); } catch (e) { /* storage unavailable */ }
+  });
 
   let initialRange = "1D";
   try {
