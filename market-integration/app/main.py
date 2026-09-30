@@ -34,7 +34,9 @@ from app.models.fixed_income import (
     GovernmentYieldCurve, ReportSection,
 )
 from app.models.instrument import AssetClass, Instrument
+from app.models.market_data import MarketData
 from app.processors.market_processor import MarketProcessor
+from app.processors.movers import MoverType, change_percent, rank_movers
 from app.queue.market_buffer import MarketDataBuffer
 from app.session.calendar import load_calendar
 from app.session.status import market_status
@@ -202,13 +204,16 @@ async def search(
     q: str = "",
     limit: int = Query(10, ge=1, le=50),
     asset_class: Optional[AssetClass] = None,
+    sector: Optional[str] = None,
 ):
     """Typeahead over the instrument master: symbol, name, ISIN, tenor,
     issuer and maturity date, case- and punctuation-insensitive. Ranked
     exact symbol, symbol prefix, name word prefix, then substring; see
-    app/instruments/search.py. An empty query returns no results."""
+    app/instruments/search.py. Optionally filtered by asset class and/or
+    sector (case-insensitive). An empty query returns no results, unless
+    a sector is given: then it lists that sector."""
     results = []
-    for i in instrument_search.search(q, limit=limit, asset_class=asset_class):
+    for i in instrument_search.search(q, limit=limit, asset_class=asset_class, sector=sector):
         price, change = _last_price(i.symbol)
         results.append({
             "symbol": i.symbol,
@@ -218,6 +223,46 @@ async def search(
             "change": change,
         })
     return results
+
+
+@app.get("/sectors")
+async def sectors():
+    """Every sector in the instrument master with its number of
+    instruments, for the search bar's Sector filter."""
+    return [{"sector": name, "count": n} for name, n in instrument_search.sectors()]
+
+
+@app.get("/movers")
+async def movers(
+    type: MoverType,
+    limit: int = Query(10, ge=1, le=50),
+    sector: Optional[str] = None,
+    q: str = "",
+):
+    """Today's top gainers, top losers or most active equities, from the
+    live quotes; see app/processors/movers.py. Optionally only one sector
+    (case-insensitive), and/or only instruments matching the search
+    query `q`."""
+    if q.strip() or sector:
+        candidates = instrument_search.search(q, limit=None, asset_class="equity", sector=sector)
+    else:
+        candidates = [i for i in INSTRUMENTS.values() if i.asset_class == "equity"]
+    quotes = [
+        quote for i in candidates
+        if isinstance(quote := processor.get_latest(i.symbol), MarketData)
+    ]
+    return [
+        {
+            "symbol": quote.symbol,
+            "name": quote.name,
+            "asset_class": "equity",
+            "price": quote.vwap,
+            "change": quote.change,
+            "change_percent": change_percent(quote),
+            "volume": quote.volume,
+        }
+        for quote in rank_movers(quotes, type, limit)
+    ]
 
 
 @app.get("/fixed-income/report", response_model=FixedIncomeReport)
