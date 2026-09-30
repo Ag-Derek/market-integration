@@ -196,8 +196,8 @@ weekend, set:
 MARKET_SESSION_OVERRIDE=open
 ```
 
-The session hours in the calendar are still to be confirmed with the GSE,
-and the holiday list is kept by hand: add each year's gazetted dates
+The session hours come from the GSE Trading Rules (pre-open 09:30–10:00,
+continuous auction 10:00–15:00 GMT). The holiday list is kept by hand: add each year's gazetted dates
 (including the two Eids, announced shortly before) as they are published.
 `FEED_STALE_SECONDS` (default 15) is how long the feed may go without a
 heartbeat before the badge shows "Delayed", and `STATUS_INTERVAL_SECONDS`

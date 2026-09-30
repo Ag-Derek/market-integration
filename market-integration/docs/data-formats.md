@@ -293,8 +293,6 @@ Things the real connector must handle. Each one is visible in the samples.
 
 ## Open questions for the GSE
 
-- What are the current session hours (pre-open, open, close)? We assume a 09:30
-  pre-open and 10:00–15:00 GMT trading (`data/market_calendar.json`).
 - What do the `**` markers mean (quirk 2)? We currently treat them as suspended.
 - Does the full equities report list every listed security (quirk 1)?
 - Are "Year High/Low" for the calendar year to date or a trailing 52 weeks?
