@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yield Curve</title>
+<style>
+  :root {
+    --bg: #0E1613;
+    --panel: #16211B;
+    --panel-strong: #1C2921;
+    --ink: #EAE7DA;
+    --ink-soft: #AEB6A9;
+    --ink-faint: #6F766D;
+    --line: #26362F;
+    --teal: #3E9C82;
+    --gold: #D9A44C;
+    --gold-bg: #2A2313;
+    --green: #34C57F;
+    --red: #E5675A;
+    --status-live: #5AA9E6;
+    --status-live-halo: rgba(90, 169, 230, 0.18);
+    --status-delayed: var(--gold);
+    --status-closed: var(--ink-faint);
+    /* Series: validated as a set on --panel (dataviz validate_palette.js,
+       dark, all pairs). Old GoG is deliberately not a fourth hue: it is
+       drawn as hollow muted rings. The comparison curve is neutral ink,
+       dashed, so it never reads as another series. */
+    --series-bills: #3987e5;
+    --series-new: #d95926;
+    --series-ddep: #199e70;
+    --overlay: #AEB6A9;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .num {
+    font-family: ui-monospace, "SFMono-Regular", "Cascadia Mono", Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .page { max-width: 1360px; margin: 0 auto; padding: 28px 20px 60px; }
+
+  /* Top bar and tabs */
+
+  .topbar { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
+  .brand { font-size: 13px; font-weight: 600; color: var(--ink-soft); letter-spacing: 0.02em; }
+  .tabs { display: flex; gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 3px; }
+  .tab {
+    font-size: 13px; font-weight: 600; color: var(--ink-soft); text-decoration: none;
+    padding: 6px 14px; border-radius: 6px;
+  }
+  .tab:hover { color: var(--ink); }
+  .tab.active { color: var(--bg); background: var(--teal); }
+  .topbar .spacer { flex: 1; }
+  .sim-badge {
+    font-size: 11px; font-family: ui-monospace, monospace; color: var(--gold);
+    background: var(--gold-bg); border: 1px solid rgba(217, 164, 76, 0.35);
+    border-radius: 999px; padding: 4px 10px; white-space: nowrap;
+  }
+
+  .status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-soft); }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--status-closed); }
+  [data-badge="live"] .status-dot { background: var(--status-live); box-shadow: 0 0 0 3px var(--status-live-halo); }
+  [data-badge="delayed"] .status-dot { background: var(--status-delayed); }
+  [data-badge="delayed"] .status-text { color: var(--status-delayed); }
+  [data-badge="disconnected"] .status-dot { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ink-faint); }
+
+  /* Controls: one row above the chart */
+
+  .controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .controls .label { font-size: 12px; color: var(--ink-faint); }
+  .date-input {
+    font: inherit; font-size: 13px; color: var(--ink); background: var(--panel); color-scheme: dark;
+    border: 1px solid var(--line); border-radius: 7px; padding: 5px 9px;
+  }
+  .date-input:focus { outline: none; border-color: var(--teal); }
+  .seg { display: inline-flex; gap: 2px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 2px; }
+  .seg button {
+    font: inherit; font-size: 12px; color: var(--ink-soft); background: none; border: 0;
+    border-radius: 6px; padding: 5px 10px; cursor: pointer;
+  }
+  .seg button:hover { color: var(--ink); }
+  .seg button.active { color: var(--bg); background: var(--teal); }
+  .link-btn {
+    font: inherit; font-size: 12px; color: var(--teal); background: none; border: 0; cursor: pointer; padding: 0;
+  }
+  .link-btn[hidden] { display: none; }
+  .controls .spacer { flex: 1; }
+  .toggle { font-size: 12px; color: var(--ink-soft); display: inline-flex; gap: 6px; align-items: center; }
+
+  /* Chart */
+
+  .curve-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  .curve-head { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
+  .curve-head h2 { font-size: 14px; margin: 0; }
+  .curve-head .sub { font-size: 12px; color: var(--ink-faint); }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--ink-soft); margin-left: auto; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend svg { overflow: visible; }
+  .curve-wrap { position: relative; }
+  #curveSvg { display: block; width: 100%; height: 440px; touch-action: none; }
+  #curveSvg .grid line { stroke: var(--line); stroke-width: 1; }
+  #curveSvg .axis text { fill: var(--ink-faint); font-size: 11px; font-family: ui-monospace, monospace; }
+  #curveSvg .axis-title { fill: var(--ink-faint); font-size: 11px; }
+  #curveSvg .curve-line { fill: none; stroke: var(--ink-soft); stroke-width: 2; stroke-opacity: 0.55; stroke-linejoin: round; }
+  #curveSvg .overlay-line { fill: none; stroke: var(--overlay); stroke-width: 1.5; stroke-dasharray: 5 4; stroke-opacity: 0.6; stroke-linejoin: round; }
+  #curveSvg .pt { stroke: var(--panel); stroke-width: 2; }
+  #curveSvg .pt.old { fill: none; stroke: var(--ink-faint); stroke-width: 1.5; }
+  #curveSvg .pt.prev { fill: none; stroke: var(--overlay); stroke-width: 1.25; stroke-opacity: 0.6; }
+  #curveSvg .pt.active { stroke: var(--ink); stroke-width: 2; stroke-opacity: 1; }
+  .empty-msg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--ink-faint); font-size: 13px; pointer-events: none; }
+  .tooltip {
+    position: absolute; pointer-events: none; display: none; z-index: 2;
+    background: var(--panel-strong); border: 1px solid var(--line); border-radius: 8px;
+    padding: 8px 10px; font-size: 12px; color: var(--ink); min-width: 220px; max-width: 340px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  }
+  .tooltip .t-head { font-size: 11px; color: var(--ink-faint); margin-bottom: 4px; }
+  .tooltip .t-inst { font-family: ui-monospace, monospace; font-size: 11.5px; margin-bottom: 2px; }
+  .tooltip .t-inst .isin { color: var(--ink-faint); margin-left: 6px; }
+  .tooltip .t-rows { margin-top: 6px; }
+  .tooltip .t-row { display: flex; justify-content: space-between; gap: 14px; color: var(--ink-soft); }
+  .tooltip .t-row b { color: var(--ink); font-weight: 600; }
+  .up { color: var(--green); }
+  .down { color: var(--red); }
+  .curve-note { font-size: 12px; color: var(--ink-faint); margin: 10px 0 0; line-height: 1.5; }
+
+  /* Table view */
+
+  details.table-view { margin-top: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+  details.table-view summary { cursor: pointer; padding: 12px 16px; font-size: 13px; font-weight: 600; color: var(--ink-soft); }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--ink-faint); text-align: right; padding: 8px 12px; white-space: nowrap; background: var(--panel-strong);
+  }
+  th:first-child, td:first-child { text-align: left; }
+  td { padding: 6px 12px; text-align: right; white-space: nowrap; border-top: 1px solid var(--line); }
+  td.desc { font-family: ui-monospace, monospace; font-size: 12px; }
+  .muted { color: var(--ink-faint); }
+
+  footer { margin-top: 26px; font-size: 12px; color: var(--ink-faint); line-height: 1.6; }
+  footer code {
+    font-family: ui-monospace, monospace; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px;
+  }
+
+  @media (max-width: 640px) {
+    .page { padding: 20px 16px 48px; }
+    #curveSvg { height: 340px; }
+    .legend { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <div class="topbar">
+    <span class="brand">Market Integration</span>
+    <nav class="tabs" aria-label="Markets">
+      <a class="tab" href="/ticker">Equities</a>
+      <a class="tab" href="/fixed-income">Fixed Income</a>
+      <a class="tab active" href="/yield-curve" aria-current="page">Yield Curve</a>
+    </nav>
+    <span class="spacer"></span>
+    <span class="status" id="status" data-badge="disconnected">
+      <span class="status-dot"></span><span class="status-text" id="statusText">Connecting</span>
+    </span>
+    <span class="sim-badge" id="simBadge">Simulated data, not a live GFIM feed</span>
+  </div>
+
+  <div class="controls">
+    <span class="label">Session</span>
+    <input class="date-input" id="date" type="date" aria-label="Session date">
+    <button class="link-btn" id="today" type="button" hidden>Back to today</button>
+    <span class="label" style="margin-left: 10px">Compare with</span>
+    <div class="seg" role="group" aria-label="Compare with" id="compare">
+      <button type="button" data-compare="none">None</button>
+      <button type="button" data-compare="day">Previous day</button>
+      <button type="button" data-compare="week">Week</button>
+      <button type="button" data-compare="month">Month</button>
+    </div>
+    <span class="spacer"></span>
+    <label class="toggle"><input type="checkbox" id="showOld"> Show Old GoG</label>
+  </div>
+
+  <div class="curve-panel">
+    <div class="curve-head">
+      <h2>Government of Ghana yield curve (GHS)</h2>
+      <span class="sub" id="sub"></span>
+      <div class="legend" id="legend"></div>
+    </div>
+    <div class="curve-wrap" id="curveWrap">
+      <svg id="curveSvg" role="img" aria-label="Closing yield against tenor"></svg>
+      <div class="empty-msg" id="emptyMsg">Loading the curve&hellip;</div>
+      <div class="tooltip" id="tooltip"></div>
+    </div>
+    <p class="curve-note">
+      Closing yields against tenor (years to maturity, log scale). The line joins the bills; bonds are points, since
+      each trades at its own spread. The dashed line and hollow markers are the comparison session. Old GoG bonds trade
+      rarely and their closes are often stale, so they are off by default; GFSF bonds (structured) and USD DDE bonds
+      (a different currency) are left out. Hover a point for the bills or bond behind it; click to open it.
+    </p>
+  </div>
+
+  <details class="table-view" id="tableView">
+    <summary>Show the points as a table</summary>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Instrument</th><th>Segment</th><th>Maturity</th><th>Tenor (yrs)</th><th>Yield</th>
+          <th id="prevHead">Compare</th><th>Chg (bp)</th></tr></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </details>
+
+  <footer>
+    From <code>/curve?date=YYYY-MM-DD</code>, live over <code>/ws/market</code> for the current session. A date
+    without a session (a weekend or holiday) shows the session before it. Change is in basis points of yield against
+    the comparison session; a falling yield (a rising price) is green. Bills are matched by maturity date and bonds by
+    ISIN, so a bill issued since the comparison session has no change.
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  const $ = function (id) { return document.getElementById(id); };
+  const SVG_NS = "http://www.w3.org/2000/svg";
+
+  const SERIES = [
+    { key: "treasury_bill", label: "Treasury bills", color: "var(--series-bills)", shape: "circle" },
+    { key: "new_gog", label: "New GoG", color: "var(--series-new)", shape: "square" },
+    { key: "ddep", label: "2023 DDEP", color: "var(--series-ddep)", shape: "diamond" },
+  ];
+  const SEGMENT_LABEL = { treasury_bill: "Treasury bill", new_gog: "New GoG", ddep: "2023 DDEP", old_gog: "Old GoG" };
+  const X_TICKS = [[7, "1W"], [30, "1M"], [91, "3M"], [182, "6M"], [364, "1Y"], [730, "2Y"], [1826, "5Y"], [3652, "10Y"], [5479, "15Y"]];
+  const COMPARE_LABEL = { day: "previous session", week: "a week earlier", month: "a month earlier" };
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  // ------------------------------------------------------------ state
+
+  const params = new URLSearchParams(location.search);
+  let wantDate = params.get("date") || null;          // null: the current session, live
+  let compare = params.get("compare") || "day";
+  if (!COMPARE_LABEL[compare] && compare !== "none") compare = "day";
+  let curve = null, prev = null, today = null;         // today: the current session's date
+  let points = [];                                     // drawn, for hit-testing
+  let activePoint = null;
+
+  try { $("showOld").checked = localStorage.getItem("curve.showOld") === "1"; } catch (e) { /* storage blocked */ }
+
+  // ------------------------------------------------------------ format
+
+  function yld(v) { return v == null ? "—" : Number(v).toFixed(2); }
+  function px(v) { return v == null ? "—" : Number(v).toFixed(4); }
+  function shortDate(iso) {
+    const p = iso.split("-");
+    const d = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2]));
+    return d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+  }
+  // As the GFIM report writes them: 05-Oct-26.
+  function maturity(iso) {
+    const p = iso.split("-");
+    return p[2] + "-" + MONTHS[Number(p[1]) - 1] + "-" + p[0].slice(2);
+  }
+  function tenorText(years) {
+    if (years < 1) return Math.round(years * 365.25) + "d";
+    return years.toFixed(2) + "y";
+  }
+  // Change in bp; a rising yield is red (the price fell).
+  function bp(now, then) {
+    if (now == null || then == null) return { text: "—", cls: "muted" };
+    const v = Math.round((now - then) * 1000) / 10;
+    return { text: (v > 0 ? "+" : "") + v.toFixed(1), cls: v > 0 ? "down" : v < 0 ? "up" : "muted" };
+  }
+
+  function isoShift(iso, kind) {
+    const p = iso.split("-").map(Number);
+    const d = new Date(Date.UTC(p[0], p[1] - 1, p[2]));
+    if (kind === "day") d.setUTCDate(d.getUTCDate() - 1);
+    else if (kind === "week") d.setUTCDate(d.getUTCDate() - 7);
+    else {
+      // A month back, clamped to the month's end (31 Mar -> 28/29 Feb).
+      const day = d.getUTCDate();
+      d.setUTCDate(1);
+      d.setUTCMonth(d.getUTCMonth() - 1);
+      const last = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+      d.setUTCDate(Math.min(day, last));
+    }
+    return d.toISOString().slice(0, 10);
+  }
+
+  // Bills of every tenor maturing on a day share a close, so a bill point
+  // is matched by maturity; a bond by its ISIN.
+  function keyOf(p) {
+    return p.segment === "treasury_bill" ? "bill:" + p.maturity_date : p.instruments[0].symbol;
+  }
+
+  // ------------------------------------------------------------ data
+
+  function fetchCurve(iso) {
+    return fetch("/curve" + (iso ? "?date=" + iso : "")).then(function (r) {
+      if (!r.ok) return r.json().then(function (b) { throw new Error(b.detail || r.statusText); });
+      return r.json();
+    });
+  }
+
+  let loadSeq = 0;
+  function load() {
+    const seq = ++loadSeq;
+    return fetchCurve(wantDate).then(function (c) {
+      if (seq !== loadSeq) return;
+      curve = c;
+      if (!wantDate) today = c.date;
+      if (c.exchange_label) $("simBadge").textContent = c.exchange_label + " · not a live GFIM feed";
+      const want = compare === "none" ? null : isoShift(c.date, compare);
+      return (want ? fetchCurve(want) : Promise.resolve(null)).then(function (p) {
+        if (seq !== loadSeq) return;
+        prev = p;
+        render();
+      });
+    }).catch(function (e) {
+      if (seq !== loadSeq) return;
+      curve = prev = null;
+      render(e.message);
+    });
+  }
+
+  // Live: while showing the current session, a bill or bond tick means the
+  // curve moved; refetch at most every few seconds.
+  let refreshTimer = null;
+  function scheduleRefresh() {
+    if (wantDate || refreshTimer) return;
+    refreshTimer = setTimeout(function () { refreshTimer = null; load(); }, 3000);
+  }
+
+  function syncUrl() {
+    const q = new URLSearchParams();
+    if (wantDate) q.set("date", wantDate);
+    if (compare !== "day") q.set("compare", compare);
+    const s = q.toString();
+    history.replaceState(null, "", location.pathname + (s ? "?" + s : ""));
+  }
+
+  // ------------------------------------------------------------ controls
+
+  function renderControls() {
+    if (today) $("date").max = today;
+    $("date").value = curve ? curve.date : (wantDate || "");
+    $("today").hidden = !wantDate;
+    document.querySelectorAll("#compare button").forEach(function (b) {
+      const on = b.dataset.compare === compare;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+  }
+
+  $("date").addEventListener("change", function () {
+    const v = $("date").value;
+    wantDate = v && v !== today ? v : null;
+    syncUrl();
+    load();
+  });
+  $("today").addEventListener("click", function () {
+    wantDate = null;
+    syncUrl();
+    load();
+  });
+  document.querySelectorAll("#compare button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      compare = b.dataset.compare;
+      syncUrl();
+      load();
+    });
+  });
+  $("showOld").addEventListener("change", function () {
+    try { localStorage.setItem("curve.showOld", $("showOld").checked ? "1" : "0"); } catch (e) { /* storage blocked */ }
+    render();
+  });
+
+  // ------------------------------------------------------------ chart
+
+  function marker(shape, x, y, r) {
+    let el;
+    if (shape === "square") {
+      el = document.createElementNS(SVG_NS, "rect");
+      el.setAttribute("x", x - r); el.setAttribute("y", y - r);
+      el.setAttribute("width", 2 * r); el.setAttribute("height", 2 * r); el.setAttribute("rx", 1.5);
+    } else if (shape === "diamond") {
+      el = document.createElementNS(SVG_NS, "path");
+      const d = r * 1.3;
+      el.setAttribute("d", "M" + x + " " + (y - d) + "L" + (x + d) + " " + y + "L" + x + " " + (y + d) + "L" + (x - d) + " " + y + "Z");
+    } else {
+      el = document.createElementNS(SVG_NS, "circle");
+      el.setAttribute("cx", x); el.setAttribute("cy", y); el.setAttribute("r", r);
+    }
+    return el;
+  }
+  function shapeOf(segment) {
+    const s = SERIES.find(function (x) { return x.key === segment; });
+    return s ? s.shape : "circle";
+  }
+
+  function buildLegend() {
+    const host = $("legend");
+    host.innerHTML = "";
+    const items = SERIES.slice();
+    if ($("showOld").checked) items.push({ key: "old_gog", label: "Old GoG", shape: "ring" });
+    if (prev) items.push({ key: "prev", label: shortDate(prev.date), shape: "dash" });
+    items.forEach(function (s) {
+      const item = document.createElement("span");
+      const svg = document.createElementNS(SVG_NS, "svg");
+      svg.setAttribute("width", s.shape === "dash" ? 18 : 10); svg.setAttribute("height", 10);
+      let m;
+      if (s.shape === "dash") {
+        m = document.createElementNS(SVG_NS, "line");
+        m.setAttribute("x1", 0); m.setAttribute("x2", 18); m.setAttribute("y1", 5); m.setAttribute("y2", 5);
+        m.setAttribute("stroke", "var(--overlay)"); m.setAttribute("stroke-width", 1.5); m.setAttribute("stroke-dasharray", "5 3");
+      } else {
+        m = marker(s.shape === "ring" ? "circle" : s.shape, 5, 5, 4);
+        if (s.shape === "ring") {
+          m.setAttribute("fill", "none"); m.setAttribute("stroke", "var(--ink-faint)"); m.setAttribute("stroke-width", 1.5);
+        } else {
+          m.setAttribute("fill", s.color);
+        }
+      }
+      svg.appendChild(m);
+      item.appendChild(svg);
+      item.appendChild(document.createTextNode(s.label));
+      host.appendChild(item);
+    });
+  }
+
+  function visible(c) {
+    if (!c) return [];
+    const showOld = $("showOld").checked;
+    return c.points.filter(function (p) { return p.days_to_maturity > 0 && (showOld || p.segment !== "old_gog"); });
+  }
+
+  function render(error) {
+    renderControls();
+    buildLegend();
+    showTooltip(null);
+
+    const now = visible(curve), then = visible(prev);
+    const prevByKey = {};
+    then.forEach(function (p) { prevByKey[keyOf(p)] = p; });
+    now.forEach(function (p) { p.prev = prevByKey[keyOf(p)] || null; });
+
+    if (curve) {
+      let sub = (curve.date === today ? "Session " + shortDate(curve.date) + ", so far" : "Close of " + shortDate(curve.date));
+      if (prev) sub += " · vs " + shortDate(prev.date) + " (" + COMPARE_LABEL[compare] + ")";
+      $("sub").textContent = sub;
+    } else {
+      $("sub").textContent = "";
+    }
+
+    drawChart(now, then, error);
+    renderTable(now);
+  }
+
+  function drawChart(now, then, error) {
+    const svg = $("curveSvg");
+    const W = svg.clientWidth || 900, H = svg.clientHeight || 440;
+    const m = { top: 16, right: 20, bottom: 40, left: 52 };
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.innerHTML = "";
+    points = [];
+
+    const msg = $("emptyMsg");
+    if (!now.length) {
+      msg.textContent = error ? "Could not load the curve: " + error : curve ? "No quoted bills or bonds on " + shortDate(curve.date) + "." : "Loading the curve…";
+      msg.style.display = "flex";
+      return;
+    }
+    msg.style.display = "none";
+
+    const all = now.concat(then);
+    const maxDays = Math.max.apply(null, all.map(function (p) { return p.days_to_maturity; }));
+    const xMin = Math.log(7), xMax = Math.log(Math.max(5479, maxDays));
+    const ys = all.map(function (p) { return p.yield; });
+    let yLo = Math.floor(Math.min.apply(null, ys) - 1), yHi = Math.ceil(Math.max.apply(null, ys) + 1);
+    if (yLo < 0) yLo = 0;
+    const X = function (days) { return m.left + (Math.log(Math.max(days, 7)) - xMin) / (xMax - xMin) * (W - m.left - m.right); };
+    const Y = function (y) { return H - m.bottom - (y - yLo) / (yHi - yLo) * (H - m.top - m.bottom); };
+
+    // Grid and axes: recessive.
+    const grid = document.createElementNS(SVG_NS, "g");
+    grid.setAttribute("class", "grid");
+    const axis = document.createElementNS(SVG_NS, "g");
+    axis.setAttribute("class", "axis");
+    const step = yHi - yLo > 20 ? 5 : yHi - yLo > 8 ? 2 : 1;
+    for (let y = Math.ceil(yLo / step) * step; y <= yHi; y += step) {
+      const line = document.createElementNS(SVG_NS, "line");
+      line.setAttribute("x1", m.left); line.setAttribute("x2", W - m.right);
+      line.setAttribute("y1", Y(y)); line.setAttribute("y2", Y(y));
+      grid.appendChild(line);
+      const t = document.createElementNS(SVG_NS, "text");
+      t.setAttribute("x", m.left - 8); t.setAttribute("y", Y(y) + 4); t.setAttribute("text-anchor", "end");
+      t.textContent = y + "%";
+      axis.appendChild(t);
+    }
+    X_TICKS.forEach(function (tk) {
+      if (Math.log(tk[0]) > xMax) return;
+      const t = document.createElementNS(SVG_NS, "text");
+      t.setAttribute("x", X(tk[0])); t.setAttribute("y", H - m.bottom + 18); t.setAttribute("text-anchor", "middle");
+      t.textContent = tk[1];
+      axis.appendChild(t);
+    });
+    const title = document.createElementNS(SVG_NS, "text");
+    title.setAttribute("class", "axis-title");
+    title.setAttribute("x", W - m.right); title.setAttribute("y", H - 6); title.setAttribute("text-anchor", "end");
+    title.textContent = "Tenor (years to maturity)";
+    svg.appendChild(grid);
+    svg.appendChild(axis);
+    svg.appendChild(title);
+
+    // The line runs through the bills only; bonds are points, since each
+    // trades at its own spread and joining them would zig-zag.
+    function billLine(pts, cls) {
+      const bills = pts.filter(function (p) { return p.segment === "treasury_bill"; })
+        .sort(function (a, b) { return a.days_to_maturity - b.days_to_maturity; });
+      if (bills.length < 2) return;
+      const path = document.createElementNS(SVG_NS, "path");
+      path.setAttribute("class", cls);
+      path.setAttribute("d", bills.map(function (p, i) {
+        return (i ? "L" : "M") + X(p.days_to_maturity).toFixed(1) + " " + Y(p.yield).toFixed(1);
+      }).join(""));
+      svg.appendChild(path);
+    }
+
+    // Comparison first, underneath: a dashed line and small hollow markers.
+    billLine(then, "overlay-line");
+    then.forEach(function (p) {
+      if (p.segment === "treasury_bill") return;  // the dashed line carries the bills
+      const el = marker(shapeOf(p.segment), X(p.days_to_maturity), Y(p.yield), 3.5);
+      el.setAttribute("class", "pt prev");
+      svg.appendChild(el);
+      points.push({ p: p, prevCurve: true, px: X(p.days_to_maturity), py: Y(p.yield), el: el });
+    });
+
+    billLine(now, "curve-line");
+    const order = { old_gog: 0, treasury_bill: 1, new_gog: 2, ddep: 3 };
+    now.slice().sort(function (a, b) { return order[a.segment] - order[b.segment]; }).forEach(function (p) {
+      const s = SERIES.find(function (x) { return x.key === p.segment; });
+      const x = X(p.days_to_maturity), y = Y(p.yield);
+      const el = marker(s ? s.shape : "circle", x, y, 4.5);
+      el.setAttribute("class", "pt" + (p.segment === "old_gog" ? " old" : ""));
+      if (s) el.setAttribute("fill", s.color);
+      svg.appendChild(el);
+      points.push({ p: p, prevCurve: false, px: x, py: y, el: el });
+    });
+  }
+
+  // ------------------------------------------------------------ tooltip
+
+  // Nearest point within 24px of the pointer, so small markers are easy to
+  // hit; the current session wins a tie with the comparison.
+  function onMove(e) {
+    const svg = $("curveSvg");
+    const box = svg.getBoundingClientRect();
+    const scale = (svg.viewBox.baseVal && svg.viewBox.baseVal.width) ? svg.viewBox.baseVal.width / box.width : 1;
+    const x = (e.clientX - box.left) * scale, y = (e.clientY - box.top) * scale;
+    let best = null, bestD = 24 * scale;
+    points.forEach(function (h) {
+      const d = Math.hypot(h.px - x, h.py - y) + (h.prevCurve ? 2 : 0);
+      if (d < bestD) { best = h; bestD = d; }
+    });
+    showTooltip(best, e.clientX - box.left, e.clientY - box.top);
+  }
+
+  function row(tip, k, v, cls) {
+    const r = document.createElement("div");
+    r.className = "t-row";
+    const a = document.createElement("span");
+    a.textContent = k;
+    const b = document.createElement("b");
+    b.className = "num" + (cls ? " " + cls : "");
+    b.textContent = v;
+    r.appendChild(a); r.appendChild(b);
+    tip.appendChild(r);
+  }
+
+  function showTooltip(h, x, y) {
+    const tip = $("tooltip");
+    if (activePoint) activePoint.el.classList.remove("active");
+    activePoint = h;
+    if (!h) { tip.style.display = "none"; $("curveSvg").style.cursor = ""; return; }
+    h.el.classList.add("active");
+    const p = h.p;
+    const session = h.prevCurve ? prev : curve;
+    tip.innerHTML = "";
+    const head = document.createElement("div");
+    head.className = "t-head";
+    head.textContent = SEGMENT_LABEL[p.segment] + " · " + (h.prevCurve ? "comparison, " : "") + shortDate(session.date);
+    tip.appendChild(head);
+    p.instruments.forEach(function (inst) {
+      const d = document.createElement("div");
+      d.className = "t-inst";
+      d.textContent = inst.description;
+      const isin = document.createElement("span");
+      isin.className = "isin";
+      isin.textContent = inst.symbol + (p.segment === "treasury_bill" ? " · " + inst.tenor.replace(" BILL", "") : "");
+      d.appendChild(isin);
+      tip.appendChild(d);
+    });
+    const rows = document.createElement("div");
+    rows.className = "t-rows";
+    tip.appendChild(rows);
+    row(rows, "Yield", yld(p.yield) + "%");
+    row(rows, "Close price", px(p.closing_price));
+    row(rows, "Tenor", tenorText(p.tenor_years));
+    row(rows, "Maturity", maturity(p.maturity_date));
+    if (!h.prevCurve && prev) {
+      row(rows, "Yield " + shortDate(prev.date), p.prev ? yld(p.prev.yield) + "%" : "—");
+      const c = bp(p.yield, p.prev && p.prev.yield);
+      row(rows, "Change (bp)", c.text, c.cls);
+    }
+
+    tip.style.display = "block";
+    const wrap = $("curveWrap").getBoundingClientRect();
+    const left = Math.min(x + 14, wrap.width - tip.offsetWidth - 4);
+    tip.style.left = Math.max(left, 4) + "px";
+    tip.style.top = Math.max(y - tip.offsetHeight - 10, 4) + "px";
+    $("curveSvg").style.cursor = "pointer";
+  }
+
+  $("curveSvg").addEventListener("pointermove", onMove);
+  $("curveSvg").addEventListener("pointerdown", onMove);
+  $("curveSvg").addEventListener("pointerleave", function () { showTooltip(null); });
+  $("curveSvg").addEventListener("click", function () {
+    if (activePoint) location.href = "/bond/" + encodeURIComponent(activePoint.p.instruments[0].symbol);
+  });
+  let resizeTimer = null;
+  window.addEventListener("resize", function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(render, 100);
+  });
+
+  // ------------------------------------------------------------ table
+
+  function renderTable(now) {
+    $("prevHead").textContent = prev ? "Yield " + shortDate(prev.date) : "Compare";
+    const body = $("tableBody");
+    body.innerHTML = "";
+    now.slice().sort(function (a, b) { return a.days_to_maturity - b.days_to_maturity; }).forEach(function (p) {
+      const tr = document.createElement("tr");
+      const c = bp(p.yield, p.prev && p.prev.yield);
+      const cells = [
+        [p.instruments.map(function (i) { return i.description; }).join(", "), "desc"],
+        [SEGMENT_LABEL[p.segment], "muted"],
+        [maturity(p.maturity_date), "num muted"],
+        [p.tenor_years.toFixed(2), "num"],
+        [yld(p.yield), "num"],
+        [p.prev ? yld(p.prev.yield) : "—", "num muted"],
+        [c.text, "num " + c.cls],
+      ];
+      cells.forEach(function (cell) {
+        const td = document.createElement("td");
+        td.textContent = cell[0];
+        td.className = cell[1];
+        tr.appendChild(td);
+      });
+      body.appendChild(tr);
+    });
+  }
+
+  // ------------------------------------------------------------ status
+
+  const BADGE_TEXT = { live: "Live", delayed: "Delayed", closed: "Market closed", disconnected: "Disconnected" };
+  const STATUS_TIMEOUT_MS = 20000;
+  let market = null, marketAt = 0, socketOpen = false;
+
+  function renderStatus() {
+    let badge = "disconnected";
+    if (socketOpen && market && Date.now() - marketAt <= STATUS_TIMEOUT_MS) badge = market.badge;
+    $("status").dataset.badge = badge;
+    $("statusText").textContent = "GFIM · " + BADGE_TEXT[badge];
+  }
+  function setMarket(status) {
+    // Follows GFIM's session, not the equity market's.
+    market = status.fixed_income || status;
+    marketAt = Date.now();
+    renderStatus();
+  }
+  setInterval(renderStatus, 5000);
+
+  // ------------------------------------------------------------ feed
+
+  let socket = null;
+  let hadWelcome = false;
+
+  function connect() {
+    const proto = location.protocol === "https:" ? "wss" : "ws";
+    const ws = socket = new WebSocket(proto + "://" + location.host + "/ws/market");
+    ws.onopen = function () { socketOpen = true; renderStatus(); };
+    ws.onmessage = function (evt) {
+      const msg = JSON.parse(evt.data);
+      if (msg.type === "welcome") {
+        if (msg.status) setMarket(msg.status);
+        const classes = msg.asset_classes || {};
+        const symbols = msg.symbols.filter(function (s) { return classes[s] === "bill" || classes[s] === "bond"; });
+        if (symbols.length) ws.send(JSON.stringify({ action: "subscribe", symbols: symbols }));
+        if (hadWelcome) scheduleRefresh();  // catch up after a reconnect
+        hadWelcome = true;
+      } else if (msg.type === "status") {
+        setMarket(msg);
+      } else if (msg.type === "tick") {
+        if (msg.data.tick_type === "fixed_income") scheduleRefresh();
+      } else if (msg.type === "error") {
+        console.warn("market feed:", msg.message);
+      }
+    };
+    ws.onclose = function () {
+      socketOpen = false;
+      renderStatus();
+      setTimeout(connect, 2000);
+    };
+    ws.onerror = function () { ws.close(); };
+  }
+
+  // ------------------------------------------------------------ boot
+
+  // The current session's date, for the picker's max and "today".
+  (wantDate ? fetchCurve(null).then(function (c) { today = c.date; }, function () {}) : Promise.resolve())
+    .then(load)
+    .then(connect);
+})();
+</script>
+</body>
+</html>
