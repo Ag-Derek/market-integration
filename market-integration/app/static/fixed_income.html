@@ -97,7 +97,11 @@
     font-size: 12px; color: var(--ink-soft); background: var(--panel); border: 1px solid var(--line);
     border-radius: 7px; padding: 6px 11px; text-decoration: none;
   }
+  .jump { font: inherit; font-size: 12px; cursor: pointer; }
   .jump:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .jump.active { color: var(--bg); background: var(--teal); border-color: var(--teal); }
+  .jump .n { opacity: 0.7; margin-left: 5px; font-family: ui-monospace, monospace; font-size: 11px; }
+  .jump:disabled { cursor: default; opacity: 0.45; }
   .filter {
     margin-left: auto; width: 260px; max-width: 100%;
     font: inherit; font-size: 13px; color: var(--ink); background: var(--panel);
@@ -223,11 +227,7 @@
 
   <section class="view" id="view-monitor">
     <div class="toolbar">
-      <a class="jump" href="#sec-treasury_bill">Treasury Bills</a>
-      <a class="jump" href="#sec-new_gog">New GoG</a>
-      <a class="jump" href="#sec-ddep">DDEP</a>
-      <a class="jump" href="#sec-old_gog">Old GoG</a>
-      <a class="jump" href="#sec-corporate">Corporate</a>
+      <div role="tablist" aria-label="GFIM segment" id="segments"></div>
       <input class="filter" id="filter" type="search" placeholder="Filter by description, ISIN or issuer"
              aria-label="Filter bills and bonds">
     </div>
@@ -515,8 +515,43 @@
     box.querySelector(".totals").textContent = "Volume " + compact(volume) + " · " + (trades || 0) + " trades";
   }
 
+  // One segment on screen at a time; the choice is remembered per browser.
+  let segment = "treasury_bill";
+  try { segment = localStorage.getItem("fi.segment") || segment; } catch (e) { /* storage blocked */ }
+  if (!SECTIONS.some(function (s) { return s.key === segment; })) segment = "treasury_bill";
+
+  function buildSegmentButtons() {
+    const host = $("segments");
+    host.innerHTML = "";
+    host.style.display = "contents";
+    SECTIONS.forEach(function (sec) {
+      const b = document.createElement("button");
+      b.className = "jump";
+      b.type = "button";
+      b.setAttribute("role", "tab");
+      b.dataset.segment = sec.key;
+      b.textContent = sec.key === "treasury_bill" ? "Treasury Bills"
+        : sec.key === "new_gog" ? "New GoG" : sec.key === "ddep" ? "DDEP"
+        : sec.key === "old_gog" ? "Old GoG" : "Corporate";
+      const n = document.createElement("span");
+      n.className = "n";
+      b.appendChild(n);
+      b.addEventListener("click", function () {
+        segment = sec.key;
+        try { localStorage.setItem("fi.segment", segment); } catch (e) { /* storage blocked */ }
+        $("filter").value = "";
+        applyFilter();
+      });
+      host.appendChild(b);
+    });
+  }
+
+  // Without a filter, only the chosen segment shows. With one, every
+  // segment with a match shows, so a search is never limited to one tab;
+  // the buttons then count the matches in each.
   function applyFilter() {
     const q = $("filter").value.trim().toLowerCase();
+    const counts = {};
     SECTIONS.forEach(function (sec) {
       const box = $("sec-" + sec.key);
       if (!box) return;
@@ -535,7 +570,16 @@
         if (match) { shown++; groupShown++; }
       });
       if (groupRow) groupRow.classList.toggle("hidden", groupShown === 0);
-      box.style.display = shown ? "" : "none";
+      counts[sec.key] = shown;
+      box.style.display = (q ? shown : sec.key === segment) ? "" : "none";
+    });
+    document.querySelectorAll("#segments .jump").forEach(function (b) {
+      const key = b.dataset.segment;
+      const on = !q && key === segment;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-selected", on ? "true" : "false");
+      b.querySelector(".n").textContent = counts[key] != null ? counts[key] : "";
+      b.disabled = !!q && !counts[key];
     });
   }
 
@@ -940,6 +984,7 @@
   // ------------------------------------------------------------ boot
 
   buildLegend();
+  buildSegmentButtons();
   showView();
   loadReport().then(connect, function () {
     $("sections").innerHTML = '<div class="empty">Could not load the GFIM report.</div>';
