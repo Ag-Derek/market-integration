@@ -19,8 +19,14 @@ from app.connectors.fixed_income_mock import MockFixedIncomeMarket
 from app.connectors.market_connector import MockMarketConnector
 from app.gateways.websocket_gateway import WebSocketGateway
 from app.instruments import INSTRUMENTS
+from app.instruments.search import InstrumentSearch
 from app.instruments.store import InstrumentStore
-from app.models.fixed_income import FixedIncomeReport, FixedIncomeSummary, GovernmentYieldCurve, ReportSection
+from app.models.fixed_income import (
+    FixedIncomeReport,
+    FixedIncomeSummary,
+    FixedIncomeTick,
+    GovernmentYieldCurve, ReportSection,
+)
 from app.models.instrument import AssetClass, Instrument
 from app.processors.market_processor import MarketProcessor
 from app.queue.market_buffer import MarketDataBuffer
@@ -110,6 +116,8 @@ gateway = WebSocketGateway(
 # Queryable copy of the instrument master; re-seeded from
 # data/instruments.json on every startup.
 instrument_store = InstrumentStore(config.DB_PATH)
+# The search bar's index, over the same instruments the store is seeded with.
+instrument_search = InstrumentSearch(INSTRUMENTS.values())
 
 # The buffer decouples ingestion (connector) from its downstream
 # consumers, each getting an independent bounded queue with drop-oldest
@@ -166,6 +174,44 @@ async def instrument_detail(symbol: str):
     if instrument is None:
         raise HTTPException(status_code=404, detail=f"Unknown instrument '{symbol.upper()}'")
     return instrument
+
+
+def _last_price(symbol: str) -> tuple[Optional[float], Optional[float]]:
+    """(price, change) as the UI headlines them: an equity's session VWAP
+    (the GSE closing price) and its change on the previous close; a bill
+    or bond's closing price and its change on the open. None where
+    there's no quote yet."""
+    quote = processor.get_latest(symbol)
+    if quote is None:
+        return None, None
+    if isinstance(quote, FixedIncomeTick):
+        close, open_ = quote.closing_price, quote.opening_price
+        change = None if close is None or open_ is None else round(close - open_, 4)
+        return close, change
+    return quote.vwap, quote.change
+
+
+@app.get("/search")
+async def search(
+    q: str = "",
+    limit: int = Query(10, ge=1, le=50),
+    asset_class: Optional[AssetClass] = None,
+):
+    """Typeahead over the instrument master: symbol, name, ISIN, tenor,
+    issuer and maturity date, case- and punctuation-insensitive. Ranked
+    exact symbol, symbol prefix, name word prefix, then substring; see
+    app/instruments/search.py. An empty query returns no results."""
+    results = []
+    for i in instrument_search.search(q, limit=limit, asset_class=asset_class):
+        price, change = _last_price(i.symbol)
+        results.append({
+            "symbol": i.symbol,
+            "name": i.name,
+            "asset_class": i.asset_class,
+            "price": price,
+            "change": change,
+        })
+    return results
 
 
 @app.get("/fixed-income/report", response_model=FixedIncomeReport)
