@@ -51,8 +51,8 @@
   .topbar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 12px;
+    gap: 16px;
+    flex-wrap: wrap;
     margin-bottom: 20px;
   }
 
@@ -62,6 +62,15 @@
     color: var(--ink-soft);
     letter-spacing: 0.02em;
   }
+
+  .tabs { display: flex; gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 3px; }
+  .tab {
+    font-size: 13px; font-weight: 600; color: var(--ink-soft); text-decoration: none;
+    padding: 6px 14px; border-radius: 6px;
+  }
+  .tab:hover { color: var(--ink); }
+  .tab.active { color: var(--bg); background: var(--teal); }
+  .topbar .spacer { flex: 1; }
 
   .sim-badge {
     font-size: 11px;
@@ -331,7 +340,12 @@
 <div class="page">
 
   <div class="topbar">
-    <span class="brand">Market Integration &middot; Live Ticker</span>
+    <span class="brand">Market Integration</span>
+    <nav class="tabs" aria-label="Markets">
+      <a class="tab active" href="/ticker" aria-current="page">Equities</a>
+      <a class="tab" href="/fixed-income">Fixed Income</a>
+    </nav>
+    <span class="spacer"></span>
     <span class="sim-badge">Simulated data, not a live GSE feed</span>
   </div>
 

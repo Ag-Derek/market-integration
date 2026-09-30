@@ -73,14 +73,26 @@ def asset_class(symbol: str) -> str:
 
 
 def current_status() -> dict:
-    """Session state plus feed freshness: what the UI's badge shows."""
-    return market_status(
+    """Session state plus feed freshness: what the UI's badge shows. The
+    top level is the equity market's; `fixed_income` is the same for
+    GFIM, whose session is longer, for the Fixed Income tab's badge."""
+    now = datetime.now(timezone.utc)
+    stale_after = timedelta(seconds=config.FEED_STALE_SECONDS)
+    status = market_status(
         calendar,
         running=connector.running,
         last_heartbeat=connector.last_heartbeat,
-        now=datetime.now(timezone.utc),
-        stale_after=timedelta(seconds=config.FEED_STALE_SECONDS),
+        now=now,
+        stale_after=stale_after,
     )
+    status["fixed_income"] = market_status(
+        fixed_income_calendar,
+        running=fixed_income_connector.running,
+        last_heartbeat=fixed_income_connector.last_heartbeat,
+        now=now,
+        stale_after=stale_after,
+    )
+    return status
 
 
 processor = MarketProcessor()
@@ -298,6 +310,22 @@ async def export_candles(symbol: Optional[str] = None, interval: str = "15m"):
         media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
+
+
+@app.get("/fixed-income", response_class=HTMLResponse)
+async def fixed_income_page():
+    """The Fixed Income tab: bills and bonds by GFIM segment, the yield
+    curve and sell/buy-backs, live over /ws/market."""
+    return (STATIC_DIR / "fixed_income.html").read_text(encoding="utf-8")
+
+
+@app.get("/bond/{symbol}", response_class=HTMLResponse)
+async def bond_page(symbol: str):
+    """A bill or bond's page, opened from the Fixed Income tab. For now a
+    summary of its quote; the full detail page is #39."""
+    if symbol.upper() not in fixed_income_connector.symbols:
+        raise HTTPException(status_code=404, detail=f"Unknown bill or bond '{symbol.upper()}'")
+    return (STATIC_DIR / "bond.html").read_text(encoding="utf-8")
 
 
 @app.get("/ticker", response_class=HTMLResponse)
