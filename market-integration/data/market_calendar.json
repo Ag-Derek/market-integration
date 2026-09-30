@@ -1,0 +1,31 @@
+{
+  "exchange": "GSE",
+  "timezone": "Africa/Accra",
+  "utc_offset_minutes": 0,
+  "trading_days": ["mon", "tue", "wed", "thu", "fri"],
+  "pre_open": "09:30",
+  "open": "10:00",
+  "close": "15:00",
+  "hours_source": "UNCONFIRMED: pre-open 09:30, continuous trading 10:00-15:00 GMT as commonly published; confirm current session hours with the GSE",
+  "holidays": [
+    {"date": "2026-01-01", "name": "New Year's Day"},
+    {"date": "2026-01-07", "name": "Constitution Day"},
+    {"date": "2026-03-06", "name": "Independence Day"},
+    {"date": "2026-03-20", "name": "Eid al-Fitr", "note": "estimated; the government announces the date shortly before"},
+    {"date": "2026-04-03", "name": "Good Friday"},
+    {"date": "2026-04-06", "name": "Easter Monday"},
+    {"date": "2026-05-01", "name": "May Day"},
+    {"date": "2026-05-27", "name": "Eid al-Adha", "note": "estimated; the government announces the date shortly before"},
+    {"date": "2026-07-01", "name": "Republic Day"},
+    {"date": "2026-08-04", "name": "Founders' Day"},
+    {"date": "2026-09-21", "name": "Kwame Nkrumah Memorial Day"},
+    {"date": "2026-12-04", "name": "Farmers' Day"},
+    {"date": "2026-12-25", "name": "Christmas Day"},
+    {"date": "2026-12-28", "name": "Boxing Day (observed)", "note": "26 December falls on a Saturday"},
+    {"date": "2027-01-01", "name": "New Year's Day"},
+    {"date": "2027-01-07", "name": "Constitution Day"},
+    {"date": "2027-03-08", "name": "Independence Day (observed)", "note": "6 March falls on a Saturday"},
+    {"date": "2027-03-26", "name": "Good Friday"},
+    {"date": "2027-03-29", "name": "Easter Monday"}
+  ]
+}

@@ -372,4 +372,7 @@ def test_websocket_welcome_lists_every_tracked_symbol_without_prices(client):
     with client.websocket_connect("/ws/market") as ws:
         msg = ws.receive_json()
 
+    # ...plus the market status, so its badge is right from the start (#14).
+    status = msg.pop("status")
     assert msg == {"type": "welcome", "symbols": config.SYMBOLS}
+    assert status["badge"] in ("live", "delayed", "closed", "disconnected")

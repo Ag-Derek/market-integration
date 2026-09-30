@@ -67,4 +67,9 @@ class MarketData(BaseModel):
     target_est: float = Field(gt=0)
     dividend_announcement: str | None = None
 
+    # Two different clocks. `timestamp` is when the feed published this
+    # quote, so it says how fresh the *feed* is. `last_trade_at` is when
+    # the symbol last traded -- for a thin GSE name that can be hours or
+    # days ago on a perfectly healthy feed. None if unknown or never.
     timestamp: datetime
+    last_trade_at: datetime | None = None

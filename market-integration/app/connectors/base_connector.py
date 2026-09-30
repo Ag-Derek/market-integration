@@ -19,6 +19,9 @@ Implementations are responsible for:
 - subscribing to the requested symbols
 - converting provider-specific messages into MarketData (normalize())
 - deciding what "connected" / "running" means for reconnection logic
+- keeping `last_heartbeat` current, so feed freshness can be told apart
+  from how long ago a symbol last traded
+- setting `MarketData.last_trade_at` from the provider's trade time
 - optionally, serving historical candles (fetch_history()) so charts
   have more than "since the service started" to show
 """
@@ -36,6 +39,12 @@ class BaseMarketConnector(ABC):
     def __init__(self, symbols: list[str]):
         self.symbols = symbols
         self.running = False
+        # When we last heard anything from the provider -- a quote, a
+        # trade or a bare keepalive. This is what "is the feed fresh?" is
+        # judged on (see app/session/status.py), not the last trade, which
+        # for a thin market can be hours old. Implementations must update
+        # it on every message, including heartbeats that carry no data.
+        self.last_heartbeat: Optional[datetime] = None
 
     @abstractmethod
     async def connect(self) -> None:

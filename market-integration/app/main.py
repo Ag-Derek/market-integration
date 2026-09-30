@@ -3,7 +3,7 @@ import csv
 import io
 import logging
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -22,6 +22,8 @@ from app.models.fixed_income import FixedIncomeReport, FixedIncomeSummary, Repor
 from app.models.instrument import AssetClass, Instrument
 from app.processors.market_processor import MarketProcessor
 from app.queue.market_buffer import MarketDataBuffer
+from app.session.calendar import load_calendar
+from app.session.status import market_status
 from app.validation.market_validator import ValidatingStream
 
 logger = logging.getLogger(__name__)
@@ -30,10 +32,27 @@ app = FastAPI(title="Market Data Integration Service")
 
 STATIC_DIR = Path(__file__).parent / "static"
 
+# The exchange's session hours and holidays. The mock only trades while
+# this says the market is open.
+calendar = load_calendar(config.MARKET_CALENDAR_PATH, override=config.MARKET_SESSION_OVERRIDE)
+
 connector = MockMarketConnector(
     symbols=config.SYMBOLS,
     interval_seconds=config.MOCK_INTERVAL_SECONDS,
+    calendar=calendar,
 )
+
+
+def current_status() -> dict:
+    """Session state plus feed freshness: what the UI's badge shows."""
+    return market_status(
+        calendar,
+        running=connector.running,
+        last_heartbeat=connector.last_heartbeat,
+        now=datetime.now(timezone.utc),
+        stale_after=timedelta(seconds=config.FEED_STALE_SECONDS),
+    )
+
 
 processor = MarketProcessor()
 # Clients subscribe to symbols from the feed's universe; a new
@@ -43,6 +62,7 @@ gateway = WebSocketGateway(
     snapshot=lambda symbols: {
         s: q for s in symbols if (q := processor.get_latest(s)) is not None
     },
+    status=current_status,
 )
 
 # Queryable copy of the instrument master; re-seeded from
@@ -69,6 +89,7 @@ aggregator = MarketAggregator(buffer.subscribe("aggregator"), db_path=config.DB_
 # Set once startup() creates it, so /health can check whether it's still
 # alive (e.g. hasn't died from an unhandled exception in processor.consume).
 consumer_task: Optional[asyncio.Task] = None
+status_task: Optional[asyncio.Task] = None
 
 
 @app.get("/health")
@@ -129,6 +150,16 @@ async def fixed_income_section(section: ReportSection):
     """One section's rows: new_gog, ddep, old_gog, treasury_bill,
     corporate or sell_buy_back."""
     return getattr(fixed_income.report(), section)
+
+
+@app.get("/market/status")
+async def get_market_status():
+    """Whether the exchange is in session (open | pre_open | closed, and
+    why), the next open and close, the last close, and how fresh the
+    feed is. `badge` is what the UI shows: live | delayed | closed |
+    disconnected. Declared before /market/{symbol} so it isn't taken for
+    a symbol."""
+    return current_status()
 
 
 @app.get("/market/{symbol}")
@@ -278,9 +309,21 @@ async def consumer_loop() -> None:
         raise
 
 
+async def status_loop() -> None:
+    """Push the market status to every WebSocket client periodically, so
+    badges flip at the open and close, and when the feed goes quiet,
+    without waiting for a tick."""
+    while True:
+        await asyncio.sleep(config.STATUS_INTERVAL_SECONDS)
+        try:
+            await gateway.broadcast_status(current_status())
+        except Exception:
+            logger.exception("Market status broadcast failed")
+
+
 @app.on_event("startup")
 async def startup():
-    global consumer_task
+    global consumer_task, status_task
     await asyncio.to_thread(instrument_store.seed, INSTRUMENTS.values())
     fixed_income.start()
     await connector.connect()
@@ -290,16 +333,18 @@ async def startup():
     await buffer.start()
     await aggregator.start()
     consumer_task = asyncio.create_task(consumer_loop())
+    status_task = asyncio.create_task(status_loop())
 
 
 @app.on_event("shutdown")
 async def shutdown():
-    if consumer_task is not None:
-        consumer_task.cancel()
-        try:
-            await consumer_task
-        except asyncio.CancelledError:
-            pass
+    for task in (status_task, consumer_task):
+        if task is not None:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
     await aggregator.stop()
     await buffer.stop()
     await connector.disconnect()
