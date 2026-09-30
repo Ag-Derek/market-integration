@@ -3,7 +3,7 @@ from datetime import date, datetime, timezone
 
 import pytest
 
-from app.connectors.fixed_income_mock import MockFixedIncomeMarket, bill_price, bond_clean_price
+from app.connectors.fixed_income_mock import MockFixedIncomeMarket
 from app.models.fixed_income import REPORT_SECTIONS, GovernmentBondQuote
 
 
@@ -27,20 +27,6 @@ def _market(*when):
 
 def _row(rows, **match):
     return next(r for r in rows if all(getattr(r, k) == v for k, v in match.items()))
-
-
-# ---------------------------------------------------------------- pricing
-
-def test_bill_pricing_reproduces_the_gfim_sample_exactly():
-    # 364-DAY BILL GOG-BL-21/06/27, 28-Sep-2026: yield 8.5651, 266 days, price 94.1096.
-    assert bill_price(8.565070279720281, 266) == pytest.approx(94.10959586571806, abs=1e-9)
-
-
-def test_bond_pricing_is_close_to_the_gfim_sample_for_ordinary_gog_bonds():
-    # 2023-GC-3 and the new 7-year bond; the GFIM convention isn't published,
-    # so the mock calibrates a per-bond offset on top of this.
-    assert bond_clean_price(date(2026, 9, 28), date(2029, 2, 13), 8.65, 13.63) == pytest.approx(90.1021, abs=0.1)
-    assert bond_clean_price(date(2026, 9, 28), date(2033, 3, 29), 12.50, 12.17) == pytest.approx(101.4478, abs=0.1)
 
 
 # ---------------------------------------------------------------- shape of the sample

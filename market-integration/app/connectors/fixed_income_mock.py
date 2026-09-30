@@ -40,13 +40,13 @@ the last read, so the state is always current and tests can drive it
 with a fake clock.
 """
 
-import calendar
 import math
 import random
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Callable, Optional
 
+from app.bond_math import Bond, bill_price, clean_price
 from app.instruments import INSTRUMENTS, MOCK_SEEDS
 from app.models.fixed_income import (
     REPORT_SECTIONS,
@@ -68,7 +68,6 @@ CALIBRATION_DATE = date(2026, 9, 28)
 
 BILL_TENOR_DAYS = {"91-DAY BILL": 91, "182-DAY BILL": 182, "364-DAY BILL": 364}
 _BILL_SYNTHETIC_CODE = {91: "A", 182: "B", 364: "C"}
-BILL_DAY_COUNT = 364  # price = 100 / (1 + y * days / 364) reproduces the sample exactly
 DEFAULT_BILL_YIELD = 8.0  # only if the seed has no bills to build a curve from
 
 # Trades per day for a security with fewer (or none) in the sample.
@@ -101,36 +100,6 @@ MIN_YIELD = 0.1
 CORPORATE_PRICE_DISPERSION = 0.01  # relative
 
 _SECONDS_PER_DAY = 24 * 3600
-
-
-# ---------------------------------------------------------------- pricing
-
-def bill_price(yield_pct: float, days: int) -> float:
-    return 100 / (1 + yield_pct / 100 * days / BILL_DAY_COUNT)
-
-
-def _add_months(d: date, months: int) -> date:
-    y, m = divmod(d.month - 1 + months, 12)
-    y += d.year
-    return date(y, m + 1, min(d.day, calendar.monthrange(y, m + 1)[1]))
-
-
-def bond_clean_price(settle: date, maturity: date, coupon: float, yield_pct: float) -> float:
-    """Clean price per 100 of a semi-annual coupon bond. Matches the
-    sample's ordinary GoG bonds to within ~0.05; structured ones (GFSF,
-    USD DDE) differ more, which the mock absorbs in a per-bond offset."""
-    if settle >= maturity:
-        return 100.0
-    k = 1
-    while _add_months(maturity, -6 * k) > settle:
-        k += 1
-    previous_coupon = _add_months(maturity, -6 * k)
-    next_coupon = _add_months(maturity, -6 * (k - 1))
-    period = (next_coupon - previous_coupon).days
-    frac = (next_coupon - settle).days / period
-    c, y = coupon / 2, yield_pct / 100 / 2
-    dirty = sum(c / (1 + y) ** (i + frac) for i in range(k)) + 100 / (1 + y) ** (k - 1 + frac)
-    return dirty - c * (settle - previous_coupon).days / period
 
 
 # ---------------------------------------------------------------- state
@@ -176,7 +145,11 @@ class _Gov:
     sbb_price_value: float = 0.0
 
     def price(self, yield_pct: float, settle: date) -> float:
-        return bond_clean_price(settle, self.inst.maturity_date, self.inst.coupon_rate or 0.0, yield_pct) + self.offset
+        return clean_price(self.bond, settle, yield_pct) + self.offset
+
+    @property
+    def bond(self) -> Bond:
+        return Bond(self.inst.maturity_date, self.inst.coupon_rate or 0.0)
 
 
 @dataclass
@@ -296,9 +269,7 @@ class MockFixedIncomeMarket:
             g.dispersion = min(max((g.day.high - g.day.low) / 2, DEFAULT_YIELD_DISPERSION), MAX_YIELD_DISPERSION)
         if g.quoted and seed.get("closing_price") is not None:
             # Calibrate away the pricing-convention gap for structured bonds.
-            g.offset = seed["closing_price"] - bond_clean_price(
-                CALIBRATION_DATE, inst.maturity_date, inst.coupon_rate or 0.0, close_yield
-            )
+            g.offset = seed["closing_price"] - clean_price(g.bond, CALIBRATION_DATE, close_yield)
         g.sbb_yield, g.sbb_price = seed.get("sbb_yield"), seed.get("sbb_price")
         return g
 
@@ -414,7 +385,7 @@ class MockFixedIncomeMarket:
     def _trade_bill(self, b: _Bill) -> None:
         point = self._curve[b.maturity]
         y = max(point.close + random.gauss(0, DEFAULT_YIELD_DISPERSION), MIN_YIELD)
-        b.day.record(bill_price(y, (b.maturity - self._session).days), _trade_size("treasury_bill"))
+        b.day.record(bill_price(self._session, b.maturity, y), _trade_size("treasury_bill"))
         point.close += CLOSE_WEIGHT * (y - point.close)
         self._last_trade[b.symbol] = self._trade_time
 
@@ -540,9 +511,9 @@ class MockFixedIncomeMarket:
             rows.append(TreasuryBillQuote(
                 symbol=b.symbol, description=b.description, tenor=b.tenor,
                 maturity_date=b.maturity, days_to_maturity=days,
-                opening_price=_r(bill_price(opening, days)) if opening is not None else None,
+                opening_price=_r(bill_price(self._session, b.maturity, opening)) if opening is not None else None,
                 opening_yield=_r(opening),
-                closing_price=_r(bill_price(point.close, days)),
+                closing_price=_r(bill_price(self._session, b.maturity, point.close)),
                 closing_yield=_r(point.close),
                 volume=b.day.volume or None, trade_count=b.day.trade_count or None,
                 day_low_price=_r(b.day.low), day_high_price=_r(b.day.high),

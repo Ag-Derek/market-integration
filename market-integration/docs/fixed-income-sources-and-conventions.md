@@ -146,6 +146,10 @@ Notes for #36:
 - **Yield is primary for government securities.** Where the report's closing
   price disagrees with its closing yield (common in Old GoG; see below),
   display the reported price but derive analytics from the yield.
+- **The final coupon period is compounded, like every other period.**
+  Excel's PRICE switches to simple interest when one coupon is left. The
+  sample can't settle this: the only bonds in the sample with one coupon left
+  are stale Old GoG rows. Implemented in `app/bond_math/`.
 - **Don't copy US conventions.** No 32nds, no ACT/360 money-market basis, no
   bond-equivalent yield conversion for bills.
 
