@@ -151,6 +151,87 @@ def test_search_bar_script_is_served_to_the_ticker_and_stock_pages(client):
     script = client.get("/static/search.js")
     assert script.status_code == 200
     assert script.headers["content-type"].startswith("text/javascript")
-    assert "/search?q=" in script.text
+    assert all(url in script.text for url in ('"/search?"', '"/movers?"', '"/sectors"'))
     for page in ("/ticker", "/stock/GCB"):
         assert '<script src="/static/search.js"></script>' in client.get(page).text
+
+
+# ---------------------------------------------------------------- filters (#25)
+
+def test_sector_filter_is_case_insensitive_and_combines_with_asset_class():
+    index = InstrumentSearch([
+        _eq("GCB", "GCB Bank PLC"),
+        Instrument(symbol="GCX", name="GCX Oil", asset_class="equity", sector="Energy"),
+    ])
+    assert _symbols(index, "gc", sector="banking") == ["GCB"]
+    assert _symbols(index, "gc", sector="BANKING", asset_class="bond") == []
+    assert _symbols(index, "gc", sector="Nope") == []
+
+
+def test_an_empty_query_lists_the_sector_but_only_with_a_sector():
+    banks = sorted(s for s, i in INSTRUMENTS.items() if i.sector == "Banking")
+    assert sorted(_symbols(INDEX, "", sector="Banking", limit=None)) == banks
+    assert _symbols(INDEX, "") == []
+    assert _symbols(INDEX, "", asset_class="equity") == []
+
+
+def test_sectors_are_counted():
+    sectors = dict(INDEX.sectors())
+    assert sectors["Banking"] == sum(1 for i in INSTRUMENTS.values() if i.sector == "Banking")
+    assert sum(sectors.values()) == len(INSTRUMENTS)
+    assert list(sectors) == sorted(sectors)
+
+
+def test_movers_ranking(make_tick):
+    from app.processors.movers import change_percent, rank_movers
+
+    quotes = [
+        make_tick("UP1", previous_close=10.0, change=0.5, volume=100, value_traded=1000),   # +5%
+        make_tick("UP2", previous_close=1.0, change=0.1, volume=5000, value_traded=500),    # +10%
+        make_tick("DN1", previous_close=10.0, change=-2.0, volume=0, value_traded=0),       # -20%
+        make_tick("DN2", previous_close=10.0, change=-0.1, volume=300, value_traded=3000),  # -1%
+        make_tick("FLAT", previous_close=10.0, change=0.0, volume=0, value_traded=0),
+    ]
+    symbols = lambda type, limit=10: [q.symbol for q in rank_movers(quotes, type, limit)]  # noqa: E731
+    assert symbols("gainers") == ["UP2", "UP1"]
+    assert symbols("losers") == ["DN1", "DN2"]
+    assert symbols("active") == ["UP2", "DN2", "UP1"]  # untraded names aren't active
+    assert symbols("gainers", limit=1) == ["UP2"]
+    assert change_percent(quotes[2]) == -20.0
+
+
+def test_sectors_endpoint(client):
+    body = client.get("/sectors").json()
+    assert {"sector": "Banking", "count": 12} in body
+
+
+def test_search_endpoint_sector_filter(client):
+    banks = client.get("/search", params={"q": "", "sector": "banking", "limit": 50}).json()
+    assert {r["symbol"] for r in banks} == {s for s, i in INSTRUMENTS.items() if i.sector == "Banking"}
+    assert client.get("/search", params={"q": "gc", "sector": "Mining"}).json() == []
+
+
+@pytest.mark.parametrize("type", ["gainers", "losers", "active"])
+def test_movers_endpoint(client, type):
+    body = client.get("/movers", params={"type": type, "limit": 50}).json()
+    assert all(r["asset_class"] == "equity" for r in body)
+    if type == "gainers":
+        pcts = [r["change_percent"] for r in body]
+        assert all(p > 0 for p in pcts) and pcts == sorted(pcts, reverse=True)
+    elif type == "losers":
+        pcts = [r["change_percent"] for r in body]
+        assert all(p < 0 for p in pcts) and pcts == sorted(pcts)
+    else:
+        vols = [r["volume"] for r in body]
+        assert all(v > 0 for v in vols) and vols == sorted(vols, reverse=True)
+
+
+def test_movers_endpoint_filters_and_validates(client):
+    banks = {s for s, i in INSTRUMENTS.items() if i.sector == "Banking"}
+    for r in client.get("/movers", params={"type": "active", "sector": "BANKING", "limit": 50}).json():
+        assert r["symbol"] in banks
+    for r in client.get("/movers", params={"type": "active", "q": "gcb", "limit": 50}).json():
+        assert r["symbol"] == "GCB"
+    assert len(client.get("/movers", params={"type": "active", "limit": 3}).json()) <= 3
+    assert client.get("/movers", params={"type": "biggest"}).status_code == 422
+    assert client.get("/movers").status_code == 422

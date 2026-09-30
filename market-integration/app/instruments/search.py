@@ -20,6 +20,10 @@ then active before suspended/delisted, shorter symbols (equities) before
 longer ones (ISINs), earlier maturity, and symbol. A one-character query
 only matches tiers 0-2; a substring of one letter would match nearly
 everything.
+
+Filters (asset class, sector) narrow the matches. An empty query matches
+nothing, unless a sector is given: then it lists that sector, so the
+search bar's Sector filter can be browsed without typing.
 """
 
 import re
@@ -86,18 +90,33 @@ class InstrumentSearch:
             return 4
         return None
 
+    def sectors(self) -> list[tuple[str, int]]:
+        """Every sector with its number of instruments, by name."""
+        counts: dict[str, int] = {}
+        for e in self._entries:
+            counts[e.instrument.sector] = counts.get(e.instrument.sector, 0) + 1
+        return sorted(counts.items())
+
     def search(
-        self, query: str, limit: int = 10, asset_class: Optional[str] = None
+        self,
+        query: str,
+        limit: Optional[int] = 10,
+        asset_class: Optional[str] = None,
+        sector: Optional[str] = None,
     ) -> list[Instrument]:
+        """Matches for `query`, best first; `limit` None for all of them."""
         compact, words = _compact(query), _words(query)
-        if not compact:
+        if not compact and sector is None:
             return []
+        sector = sector.casefold() if sector is not None else None
         ranked = []
         for e in self._entries:
             i = e.instrument
             if asset_class is not None and i.asset_class != asset_class:
                 continue
-            tier = self._tier(e, compact, words)
+            if sector is not None and i.sector.casefold() != sector:
+                continue
+            tier = self._tier(e, compact, words) if compact else 0
             if tier is not None:
                 ranked.append((
                     tier, i.status != "active", len(i.symbol),
