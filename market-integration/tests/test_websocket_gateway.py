@@ -227,7 +227,7 @@ async def test_a_slow_client_holds_up_neither_the_feed_nor_other_clients(make_ti
     assert [m["data"]["price"] for m in fast.of_type("tick") if m["data"]["symbol"] == "MTNGH"] == prices
     # The slow one has nothing yet, and at most one tick per symbol waiting.
     assert slow.of_type("tick") == []
-    assert set(slow_client.pending) <= {"MTNGH", "GCB"}
+    assert set(slow_client.pending) <= {("equity", "MTNGH"), ("equity", "GCB")}
     assert slow_client.conflated > 0
 
     gate.set()

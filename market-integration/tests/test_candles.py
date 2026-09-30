@@ -268,6 +268,7 @@ def test_candles_api_serves_every_range(client, range_):
     latest = client.get("/market/MTNGH").json()
     # The newest candle is the live one, not the last backfilled bar.
     assert candles[-1]["close"] == pytest.approx(latest["price"], abs=0.5)
+    assert all(c["yield"] is None for c in candles)  # equities have no yield
 
 
 def test_candles_api_rejects_unknown_inputs(client):
@@ -282,7 +283,10 @@ def test_csv_export_still_serves_15m_candles(client):
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/csv")
     lines = response.text.strip().splitlines()
-    assert lines[0] == "symbol,interval,window_start,window_end,open,high,low,close,volume,tick_count"
+    assert lines[0] == (
+        "symbol,interval,window_start,window_end,open,high,low,close,volume,tick_count,"
+        "yield_open,yield_high,yield_low,yield_close"
+    )
     assert len(lines) > 1
     assert all(line.startswith("MTNGH,15m,") for line in lines[1:])
 

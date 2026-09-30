@@ -29,6 +29,10 @@ dates, junk or reversed price ranges, prices in yield columns); those
 are for the real connector to handle, and docs/data-formats.md lists
 them.
 
+ticks() gives the same state as pipeline ticks (FixedIncomeTick and, for
+sell/buy-back trades, RepoTick) -- what a fixed-income connector's
+stream will yield.
+
 Like the equity mock it trades 24/7, with a session per UTC day (Ghana
 is on UTC). There is no background task: every read first advances the
 market to "now", simulating the trades that would have happened since
@@ -49,8 +53,10 @@ from app.models.fixed_income import (
     CorporateBondQuote,
     FixedIncomeReport,
     FixedIncomeSummary,
+    FixedIncomeTick,
     GovernmentBondQuote,
     LargestTrade,
+    RepoTick,
     SectionSummary,
     SellBuyBackQuote,
     TreasuryBillQuote,
@@ -214,6 +220,12 @@ class MockFixedIncomeMarket:
         self._seeded_bills: dict[tuple[str, date], Instrument] = {}
         self._session: Optional[date] = None
         self._last: Optional[datetime] = None
+        # symbol -> when it last traded outright / in a sell/buy-back.
+        # Trades are simulated in batches between reads, so a trade is
+        # stamped with the end of the batch it fell in.
+        self._last_trade: dict[str, datetime] = {}
+        self._last_repo_trade: dict[str, datetime] = {}
+        self._trade_time: Optional[datetime] = None
 
     @property
     def ready(self) -> bool:
@@ -268,11 +280,12 @@ class MockFixedIncomeMarket:
         sessions at each UTC midnight in between."""
         while now.date() > self._session:
             end = _midnight(self._session + timedelta(days=1))
-            self._simulate((end - self._last).total_seconds())
+            # Stamped just inside the session the trades belong to.
+            self._simulate((end - self._last).total_seconds(), end - timedelta(microseconds=1))
             self._start_session(self._session + timedelta(days=1))
             self._last = end
         if now > self._last:
-            self._simulate((now - self._last).total_seconds())
+            self._simulate((now - self._last).total_seconds(), now)
             self._last = now
 
     def _start_session(self, session: date) -> None:
@@ -340,9 +353,10 @@ class MockFixedIncomeMarket:
 
     # ------------------------------------------------------------ trading
 
-    def _simulate(self, seconds: float) -> None:
+    def _simulate(self, seconds: float, end: datetime) -> None:
         if seconds <= 0:
             return
+        self._trade_time = end
         frac = seconds / _SECONDS_PER_DAY
         for g in self._gov:
             if g.quoted:
@@ -366,19 +380,23 @@ class MockFixedIncomeMarket:
         y = max(g.close_yield + random.gauss(0, g.dispersion), MIN_YIELD)
         g.day.record(y, _trade_size(g.inst.segment))
         g.close_yield += CLOSE_WEIGHT * (y - g.close_yield)
+        self._last_trade[g.inst.symbol] = self._trade_time
 
     def _trade_bill(self, b: _Bill) -> None:
         point = self._curve[b.maturity]
         y = max(point.close + random.gauss(0, DEFAULT_YIELD_DISPERSION), MIN_YIELD)
         b.day.record(bill_price(self._session, b.maturity, y), _trade_size("treasury_bill"))
         point.close += CLOSE_WEIGHT * (y - point.close)
+        self._last_trade[b.symbol] = self._trade_time
 
     def _trade_corp(self, c: _Corp) -> None:
         p = c.close_price * math.exp(random.gauss(0, CORPORATE_PRICE_DISPERSION))
         c.day.record(p, _trade_size("corporate"))
         c.close_price += CLOSE_WEIGHT * (p - c.close_price)
+        self._last_trade[c.inst.symbol] = self._trade_time
 
     def _trade_sell_buy_back(self, g: _Gov) -> None:
+        self._last_repo_trade[g.inst.symbol] = self._trade_time
         y = max(g.close_yield + random.gauss(0, max(g.dispersion, 0.3)), MIN_YIELD)
         size = _trade_size("sell_buy_back")
         g.sbb_volume += size
@@ -408,6 +426,54 @@ class MockFixedIncomeMarket:
             total_trade_count=sum(s.trade_count for s in summaries),
         )
         return FixedIncomeReport(report_date=self._session, as_of=self._last, summary=summary, **sections)
+
+    def ticks(self) -> list[FixedIncomeTick | RepoTick]:
+        """The report as pipeline ticks: one FixedIncomeTick per bill and
+        bond, and a RepoTick per bond with sell/buy-back trades this
+        session (sell/buy-back rows only carry the last session's
+        figures over otherwise). The report has no two-way quotes, so
+        bid and ask are empty."""
+        r = self.report()
+
+        def common(row) -> dict:
+            return dict(
+                symbol=row.symbol, name=row.description, maturity_date=row.maturity_date,
+                volume=row.volume or 0, trade_count=row.trade_count or 0, timestamp=r.as_of,
+            )
+
+        ticks: list[FixedIncomeTick | RepoTick] = []
+        for row in r.new_gog + r.ddep + r.old_gog:
+            ticks.append(FixedIncomeTick(
+                **common(row), segment=row.segment, currency=row.currency,
+                opening_yield=row.opening_yield, closing_yield=row.closing_yield,
+                day_low_yield=row.day_low_yield, day_high_yield=row.day_high_yield,
+                closing_price=row.closing_price, last_trade_at=self._last_trade.get(row.symbol),
+            ))
+        for row in r.treasury_bill:
+            ticks.append(FixedIncomeTick(
+                **common(row), segment="treasury_bill", currency="GHS",
+                opening_yield=row.opening_yield, closing_yield=row.closing_yield,
+                opening_price=row.opening_price, closing_price=row.closing_price,
+                day_low_price=row.day_low_price, day_high_price=row.day_high_price,
+                last_trade_at=self._last_trade.get(row.symbol),
+            ))
+        for row in r.corporate:
+            inst = self._instruments.get(row.symbol)
+            ticks.append(FixedIncomeTick(
+                **common(row), segment="corporate", currency=inst.currency if inst else "GHS",
+                opening_price=row.opening_price, closing_price=row.closing_price,
+                day_low_price=row.day_low_price, day_high_price=row.day_high_price,
+                last_trade_at=self._last_trade.get(row.symbol),
+            ))
+        currency = {g.inst.symbol: g.inst.currency for g in self._gov}
+        for row in r.sell_buy_back:
+            if row.trade_count:
+                ticks.append(RepoTick(
+                    **common(row), segment=row.segment, currency=currency[row.symbol],
+                    bond_yield=repo_bond_yield(row), bond_price=row.weighted_average_price,
+                    last_trade_at=self._last_repo_trade.get(row.symbol),
+                ))
+        return ticks
 
     def _days(self, maturity: date) -> int:
         return (maturity - self._session).days
@@ -481,6 +547,15 @@ class MockFixedIncomeMarket:
             for g in self._gov
             if g.inst.segment in ("new_gog", "ddep")
         ]
+
+
+def repo_bond_yield(row: SellBuyBackQuote) -> Optional[float]:
+    """The report's sell/buy-back "Yield", or None where the column holds
+    the price instead (quirk 12: 79.96 and 86.80 on the USD DDE bonds).
+    Better unmapped than a price in a yield field."""
+    if row.yield_ is not None and row.yield_ == row.weighted_average_price:
+        return None
+    return row.yield_
 
 
 def _r(value: Optional[float]) -> Optional[float]:
