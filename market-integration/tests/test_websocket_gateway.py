@@ -76,6 +76,28 @@ async def test_a_new_client_gets_the_symbol_list_and_no_market_data(make_tick):
     assert socket.sent == [{"type": "welcome", "symbols": SYMBOLS}]
 
 
+async def test_the_welcome_labels_asset_classes_and_the_universe_can_grow():
+    # Fixed income joins the feed (#35): pages pick what they show by asset
+    # class, and a T-bill issued after startup can be subscribed to.
+    universe = ["MTNGH", "GHGGOG069931"]
+    gateway = WebSocketGateway(
+        lambda: universe, snapshot=lambda syms: {},
+        asset_class=lambda s: "equity" if s == "MTNGH" else "bond",
+    )
+    socket, client = await _connect(gateway)
+    await _settle()
+    assert socket.sent[0] == {
+        "type": "welcome", "symbols": universe,
+        "asset_classes": {"MTNGH": "equity", "GHGGOG069931": "bond"},
+    }
+
+    universe.append("GHMKA2701040")
+    _subscribe(gateway, client, "GHMKA2701040")
+    await _settle()
+    assert socket.of_type("subscribed")[0]["symbols"] == ["GHMKA2701040"]
+    assert socket.of_type("error") == []
+
+
 async def test_subscribe_acknowledges_and_snapshots_only_the_new_symbols(make_tick):
     latest = {s: make_tick(s) for s in SYMBOLS}
     gateway = _gateway(latest)

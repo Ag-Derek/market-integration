@@ -67,9 +67,10 @@ def get_instrument(symbol: str, instruments: Optional[dict[str, Instrument]] = N
 
 
 def streamable(instrument: Instrument) -> bool:
-    """Whether the market data feed carries this instrument. Only active
-    equities for now: the mock can't price bills or bonds yet, and a
-    suspended or delisted name has no live market."""
+    """Whether the equity feed (MARKET_SYMBOLS) can carry this instrument:
+    active equities only, since a suspended or delisted name has no live
+    market. Bills and bonds come from the fixed-income feed, which
+    carries every active one."""
     return instrument.asset_class == "equity" and instrument.status == "active"
 
 

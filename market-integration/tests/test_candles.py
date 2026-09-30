@@ -378,5 +378,13 @@ def test_websocket_welcome_lists_every_tracked_symbol_without_prices(client):
 
     # ...plus the market status, so its badge is right from the start (#14).
     status = msg.pop("status")
-    assert msg == {"type": "welcome", "symbols": config.SYMBOLS}
+    assert set(msg) == {"type", "symbols", "asset_classes"}
+    # Equities first, then every bill and bond (#35), each labelled so a
+    # page can show only what it handles.
+    equities = msg["symbols"][:len(config.SYMBOLS)]
+    assert equities == config.SYMBOLS
+    classes = msg["asset_classes"]
+    assert set(classes) == set(msg["symbols"])
+    assert {classes[s] for s in equities} == {"equity"}
+    assert {classes[s] for s in msg["symbols"][len(equities):]} == {"bill", "bond"}
     assert status["badge"] in ("live", "delayed", "closed", "disconnected")

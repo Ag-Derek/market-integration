@@ -60,7 +60,7 @@ REST endpoint  WebSocketGateway   (app/gateways/)
   code change**. The seed holds all 42 GSE equities plus the 161
   government bonds, T-bills and corporate bonds from the GFIM sample
   report (fixed income uses the ISIN as its symbol). The feed carries
-  only active equities; bills, bonds and suspended names (ALW, PBC) are
+  every active equity, bill and bond; suspended names (ALW, PBC) are
   listed by `/instruments` but not streamed.
 - **`docs/`** — `data-formats.md` maps every field of the official GSE and
   GFIM daily reports to our models and records their data quirks, for
@@ -185,6 +185,24 @@ that isn't in the instrument master, or that the feed can't carry
 (a bill, bond, or suspended/delisted name), stops the service at startup
 with an error naming it. Untracked symbols get a 404 from
 `/market/{symbol}` and `/candles`.
+
+Bills and bonds come from a separate mock (the GFIM market) in the same
+feed. Its quote rates and a burst mode for load tests are set with:
+
+```env
+FI_MOCK_INTERVAL_SECONDS=0.5
+FI_QUOTE_INTERVALS=treasury_bill=2,GHGGOG069931=0.5
+FI_BURST_RATE=0
+```
+
+`FI_QUOTE_INTERVALS` sets the seconds between two-way quotes by segment
+(`new_gog`, `ddep`, `old_gog`, `treasury_bill`, `corporate`) or by ISIN;
+anything not listed keeps the defaults in
+`app/connectors/fixed_income_connector.py`, and 0 means "only when it
+trades". `FI_BURST_RATE` > 0 quotes every bill and bond that many times a
+second, in session or not, for throughput tests. Otherwise the GFIM mock
+trades in the GFIM session, 09:00–16:00 GMT (`FI_SESSION_OPEN`,
+`FI_SESSION_CLOSE`), on the equity calendar's trading days.
 
 The GSE only trades in a fixed session on weekdays, and the mock follows
 `data/market_calendar.json` (session hours, trading days and Ghana public
@@ -347,6 +365,9 @@ market-integration/
 │   │   ├── base_connector.py      # interface every provider must implement
 │   │   ├── market_connector.py    # mock equity provider (current)
 │   │   ├── fixed_income_mock.py   # mock GFIM fixed-income market (current)
+│   │   ├── fixed_income_connector.py  # streams it: quote rates, burst mode
+│   │   ├── yield_curve.py         # drifting Nelson-Siegel curve behind it
+│   │   ├── composite_connector.py # equities + fixed income as one feed
 │   │   └── gse_mock_profiles.py   # mock calibration fields + defaults
 │   │
 │   ├── queue/

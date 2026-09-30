@@ -250,11 +250,16 @@ def test_get_one_instrument(client):
     assert response.json()["kind"] == "preference"
 
 
-def test_suspended_and_fixed_income_instruments_are_listed_but_not_streamed(client):
+def test_suspended_instruments_are_listed_but_not_streamed(client):
     assert client.get("/instruments/PBC").json()["status"] == "suspended"
-    assert client.get("/instruments/GHGGOG069931").json()["tenor"] == "2023-GC-3"
-    for symbol in ("PBC", "ALW", "GHGGOG069931"):
+    for symbol in ("PBC", "ALW"):
         assert client.get(f"/market/{symbol}").status_code == 404
+
+
+def test_fixed_income_instruments_are_listed_and_streamed(client):
+    # The fixed-income mock streams every active bill and bond (#35).
+    assert client.get("/instruments/GHGGOG069931").json()["tenor"] == "2023-GC-3"
+    assert client.get("/market/GHGGOG069931").json()["tick_type"] == "fixed_income"
 
 
 def test_reseeding_upgrades_a_table_with_an_older_layout(tmp_path):
