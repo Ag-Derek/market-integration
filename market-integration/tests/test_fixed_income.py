@@ -156,6 +156,66 @@ def test_t_bills_roll_weekly():
     assert new["91-DAY BILL"].description == "GOG-BL-04/01/27-MOCK-0"
 
 
+# ---------------------------------------------------------------- yield curve
+
+def test_the_curve_is_the_reports_ghs_government_closes_by_tenor():
+    market, clock = _market(2026, 9, 28)
+    clock.set(2026, 9, 28, 15, 0)
+    curve = market.curve()
+    r = market.report()
+
+    assert curve.date == date(2026, 9, 28) and curve.currency == "GHS"
+    assert [p.days_to_maturity for p in curve.points] == sorted(p.days_to_maturity for p in curve.points)
+    assert {p.segment for p in curve.points} == {"treasury_bill", "new_gog", "ddep", "old_gog"}
+
+    # One point per bill maturity, carrying every bill that matures then.
+    bill_points = [p for p in curve.points if p.segment == "treasury_bill"]
+    assert len(bill_points) == len({b.maturity_date for b in r.treasury_bill})
+    assert sum(len(p.instruments) for p in bill_points) == len(r.treasury_bill)
+    closes = {b.symbol: b.closing_yield for b in r.treasury_bill}
+    for p in bill_points:
+        assert p.tenor_years == round(p.days_to_maturity / 365.25, 4)
+        assert all(closes[i.symbol] == p.yield_ for i in p.instruments)
+
+    # Bonds: quoted GHS ones only -- no GFSF, USD DDE or unpriced bonds.
+    bonds = {p.instruments[0].symbol: p for p in curve.points if p.segment != "treasury_bill"}
+    gov = [g for g in r.new_gog + r.ddep + r.old_gog
+           if g.closing_yield is not None and g.currency == "GHS" and not g.tenor.startswith("GFSF")]
+    assert set(bonds) == {g.symbol for g in gov}
+    for g in gov:
+        assert bonds[g.symbol].yield_ == g.closing_yield
+
+
+def test_a_past_curve_is_that_sessions_close():
+    market, clock = _market(2026, 9, 28)
+    clock.set(2026, 9, 28, 23, 59)
+    close = {p.maturity_date: p.yield_ for p in market.curve().points if p.segment == "treasury_bill"}
+    clock.set(2026, 9, 30, 12, 0)
+    market.report()  # trade on a couple more days
+
+    past = market.curve(date(2026, 9, 28))
+    assert past.date == date(2026, 9, 28)
+    assert {p.maturity_date: p.yield_ for p in past.points if p.segment == "treasury_bill"} == close
+    assert market.curve(date(2026, 9, 29)).date == date(2026, 9, 29)
+    # Invented history goes back further; the 364-day bill issued on the
+    # 28th wasn't there a month before.
+    month = market.curve(date(2026, 8, 28))
+    assert month.points and all(p.maturity_date != date(2027, 9, 27) for p in month.points)
+    with pytest.raises(ValueError):
+        market.curve(date(2026, 10, 1))
+
+
+def test_curve_api(client):
+    body = client.get("/curve").json()
+    assert body["currency"] == "GHS" and body["points"]
+    p = body["points"][0]
+    assert {"tenor_years", "yield", "segment", "maturity_date", "instruments"} <= set(p)
+    assert client.get("/curve", params={"date": body["date"]}).json()["date"] == body["date"]
+    assert client.get("/curve", params={"date": "2999-01-01"}).status_code == 400
+    assert client.get("/curve", params={"date": "not-a-date"}).status_code == 422
+    assert client.get("/yield-curve").status_code == 200
+
+
 # ---------------------------------------------------------------- API
 
 def test_fixed_income_api(client):
