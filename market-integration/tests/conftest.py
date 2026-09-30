@@ -1,7 +1,7 @@
 import os
 import shutil
 import tempfile
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -12,6 +12,9 @@ import pytest
 # override variables that are already set, so .env can't undo this.
 _TEST_DB_DIR = Path(tempfile.mkdtemp(prefix="market-integration-tests-"))
 os.environ["MARKET_DB_PATH"] = str(_TEST_DB_DIR / "market_data.db")
+# The mock only trades in session; keep the app's feed live whatever time
+# the suite runs. Calendar behaviour is tested with explicit times.
+os.environ["MARKET_SESSION_OVERRIDE"] = "open"
 
 from app.models.market_data import MarketData  # noqa: E402
 
@@ -60,6 +63,11 @@ def make_tick():
             timestamp=datetime.now(timezone.utc),
         )
         base.update(overrides)
+        # Traded a minute before the quote, unless told otherwise; a
+        # no-volume tick defaults to never having traded.
+        base.setdefault(
+            "last_trade_at", base["timestamp"] - timedelta(minutes=1) if base["volume"] else None
+        )
         return MarketData(**base)
 
     return _make

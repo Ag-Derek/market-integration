@@ -18,6 +18,11 @@
     --gold-bg: #2A2313;
     --green: #34C57F;
     --red: #E5675A;
+    /* Status colours: the badge never borrows the up/down price colours. */
+    --status-live: #5AA9E6;
+    --status-live-halo: rgba(90, 169, 230, 0.18);
+    --status-delayed: var(--gold);
+    --status-closed: var(--ink-faint);
   }
 
   * { box-sizing: border-box; }
@@ -198,14 +203,17 @@
     margin: 0 40px 10px 0;
   }
 
+  /* Market status badge: session and connection state only. */
   .pane-status { display: flex; align-items: center; gap: 5px; }
   .status-dot {
     width: 6px; height: 6px;
     border-radius: 50%;
-    background: var(--ink-faint);
+    background: var(--status-closed);
   }
-  .status-dot.live { background: var(--green); }
-  .status-dot.down { background: var(--red); }
+  [data-badge="live"] .status-dot { background: var(--status-live); box-shadow: 0 0 0 3px var(--status-live-halo); }
+  [data-badge="delayed"] .status-dot { background: var(--status-delayed); }
+  [data-badge="delayed"] .status-text { color: var(--status-delayed); }
+  [data-badge="disconnected"] .status-dot { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ink-faint); }
 
   .pane-name {
     display: block;
@@ -239,6 +247,8 @@
     margin-top: 6px;
   }
   .pane-price { font-size: 24px; font-weight: 700; letter-spacing: -0.01em; }
+  .price-caption { display: none; font-size: 11px; color: var(--ink-faint); }
+  .price-caption.show { display: inline; }
 
   .change-pill { font-size: 12.5px; font-weight: 600; padding: 2px 7px; border-radius: 5px; }
   .change-pill.up { color: var(--green); background: rgba(52, 197, 127, 0.12); }
@@ -338,7 +348,8 @@
   <footer>
     Live over <code>/ws/market</code>, the same feed the rest of the pipeline uses. Prices follow the GSE: the headline
     price is the session's volume-weighted average (the GSE closing price) and the change is measured against the
-    previous VWAP close; the chart plots individual trades. Market cap and other fundamentals are generated
+    previous VWAP close; the chart plots individual trades. The status badge reflects the trading session and the
+    feed's connection (<code>/market/status</code>), never price direction. Market cap and other fundamentals are generated
     placeholders, there is no real GSE fundamentals data behind them yet.
   </footer>
 
@@ -382,14 +393,65 @@
     if (abs >= 1e3) return (n / 1e3).toFixed(2) + "K";
     return String(n);
   }
-  function fmtTime(ts) {
-    return new Date(ts).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-  }
-  function secondsAgo(ts) {
+  function relTime(ts) {
     const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
-    if (s < 1) return "just now";
-    if (s === 1) return "1 second ago";
-    return s + " seconds ago";
+    if (s < 5) return "just now";
+    if (s < 60) return s + "s ago";
+    const m = Math.round(s / 60);
+    if (m < 60) return m + " min ago";
+    const h = Math.round(m / 60);
+    if (h < 48) return h + " h ago";
+    return Math.round(h / 24) + " days ago";
+  }
+  function fmtWhen(iso) {
+    return new Date(iso).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  }
+
+  // ---------------------------------------------------------- market status
+  // The badge follows the server's session + feed status and this page's
+  // own connection, never price direction.
+
+  const BADGE_TEXT = { live: "Live", delayed: "Delayed", closed: "Market closed", disconnected: "Disconnected" };
+  // Status arrives every few seconds; this long without one means the
+  // connection is gone even if the socket hasn't noticed yet.
+  const STATUS_TIMEOUT_MS = 20000;
+  let market = null;      // latest GET /market/status-shaped body
+  let marketAt = 0;
+  let socketOpen = false;
+
+  function badgeState() {
+    if (!socketOpen || !market || Date.now() - marketAt > STATUS_TIMEOUT_MS) return "disconnected";
+    return market.badge;
+  }
+  // From the last known status, so a dropped connection doesn't hide that
+  // the market is closed.
+  function marketClosed() { return !!market && market.status !== "open"; }
+
+  function asOfText(d) {
+    if (marketClosed()) {
+      const why = market.reason === "holiday" && market.holiday ? "Closed for " + market.holiday + " · " : "";
+      const last = market.last_close ? "Last close " + fmtWhen(market.last_close) : "Market closed";
+      const next = (market.status === "pre_open" ? "pre-open, opens " : "opens ") + fmtWhen(market.next_open);
+      return why + last + " · " + next;
+    }
+    if (!d.last_trade_at) return "No trades yet";
+    return "Last trade " + fmtWhen(d.last_trade_at) + " · " + relTime(Date.parse(d.last_trade_at));
+  }
+
+  function renderStatus(sym) {
+    const p = paneEls[sym];
+    if (!p) return;
+    const badge = badgeState();
+    p.status.dataset.badge = badge;
+    p.statusText.textContent = BADGE_TEXT[badge];
+    p.priceCaption.classList.toggle("show", marketClosed());
+    if (state[sym]) p.asOf.textContent = asOfText(state[sym]);
+  }
+
+  function setMarket(status) {
+    market = status;
+    marketAt = Date.now();
+    openSymbols.forEach(renderStatus);
   }
 
   function showCapNote() {
@@ -460,7 +522,7 @@
     exchangeLabel.textContent = "Connecting…";
     const status = document.createElement("span");
     status.className = "pane-status";
-    status.innerHTML = '<span class="status-dot"></span><span class="status-text">Live</span>';
+    status.innerHTML = '<span class="status-dot"></span><span class="status-text"></span>';
     exchangeRow.appendChild(exchangeLabel);
     exchangeRow.appendChild(status);
     root.appendChild(exchangeRow);
@@ -486,10 +548,14 @@
     price.textContent = "—";
     const change = document.createElement("span");
     change.className = "change-pill num";
+    const priceCaption = document.createElement("span");
+    priceCaption.className = "price-caption";
+    priceCaption.textContent = "Last close";
     const noTrades = document.createElement("span");
     noTrades.className = "no-trades";
     noTrades.textContent = "No trades today";
     priceRow.appendChild(price);
+    priceRow.appendChild(priceCaption);
     priceRow.appendChild(change);
     priceRow.appendChild(noTrades);
     root.appendChild(priceRow);
@@ -525,10 +591,11 @@
     return {
       root: root,
       exchangeLabel: exchangeLabel,
-      statusDot: status.querySelector(".status-dot"),
+      status: status,
       statusText: status.querySelector(".status-text"),
       nameText: name.querySelector(".name-text"),
       price: price,
+      priceCaption: priceCaption,
       change: change,
       noTrades: noTrades,
       asOf: asOf,
@@ -555,6 +622,7 @@
         const pane = createPane(sym);
         el.grid.appendChild(pane.root);
         paneEls[sym] = pane;
+        renderStatus(sym);
         if (state[sym]) updatePane(sym);
       });
     }
@@ -579,12 +647,11 @@
     const arrow = dir === "up" ? "▲" : dir === "down" ? "▼" : "–";
     p.change.textContent = arrow + " " + Math.abs(d.change).toFixed(2) + " (" + Math.abs(pct).toFixed(2) + "%)";
     p.change.className = "change-pill num " + dir;
-    p.statusDot.className = "status-dot live" + (dir === "down" ? " down" : "");
 
     const traded = d.volume > 0;
     p.noTrades.classList.toggle("show", !traded);
 
-    p.asOf.textContent = "As of " + fmtTime(d._receivedAt) + " · updated " + secondsAgo(d._receivedAt);
+    renderStatus(sym);
 
     if (d.dividend_announcement) {
       p.dividend.style.display = "block";
@@ -780,10 +847,17 @@
     const proto = location.protocol === "https:" ? "wss" : "ws";
     const ws = socket = new WebSocket(proto + "://" + location.host + "/ws/market");
 
+    ws.onopen = function () {
+      socketOpen = true;
+    };
+
     ws.onmessage = function (evt) {
       const msg = JSON.parse(evt.data);
       if (msg.type === "welcome") {
+        if (msg.status) { market = msg.status; marketAt = Date.now(); }
         onWelcome(msg.symbols);
+      } else if (msg.type === "status") {
+        setMarket(msg);
       } else if (msg.type === "snapshot") {
         Object.values(msg.data).forEach(ingest);
       } else if (msg.type === "tick") {
@@ -794,6 +868,8 @@
     };
 
     ws.onclose = function () {
+      socketOpen = false;
+      openSymbols.forEach(renderStatus);
       setTimeout(connect, 2000);
     };
 
@@ -810,12 +886,9 @@
     }, 120);
   });
 
-  setInterval(function () {
-    openSymbols.forEach(function (sym) {
-      const p = paneEls[sym], d = state[sym];
-      if (p && d) p.asOf.textContent = "As of " + fmtTime(d._receivedAt) + " · updated " + secondsAgo(d._receivedAt);
-    });
-  }, 1000);
+  // Keeps relative times current, and turns the badge to Disconnected if
+  // status messages stop arriving.
+  setInterval(function () { openSymbols.forEach(renderStatus); }, 1000);
 
   connect();
 })();

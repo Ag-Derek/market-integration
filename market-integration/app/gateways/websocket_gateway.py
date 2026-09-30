@@ -4,7 +4,9 @@ Real-time delivery layer: per-client subscriptions over /ws/market.
 Protocol (JSON text frames):
 
   server -> client, on connect
-    {"type": "welcome", "symbols": [...]}        what can be subscribed to; no prices
+    {"type": "welcome", "symbols": [...], "status": {...}}
+                                                 what can be subscribed to, and the
+                                                 market status; no prices
   client -> server
     {"action": "subscribe",   "symbols": [...]}
     {"action": "unsubscribe", "symbols": [...]}
@@ -13,6 +15,9 @@ Protocol (JSON text frames):
     {"type": "snapshot",     "data": {symbol: quote}}   newly subscribed symbols only
     {"type": "unsubscribed", "symbols": [removed],     "subscriptions": [all]}
     {"type": "tick",         "data": quote}             subscribed symbols only
+    {"type": "status", ...}                             every few seconds, to everyone:
+                                                        session + feed state, same
+                                                        body as GET /market/status
     {"type": "error", "code": "bad_json" | "bad_request" | "unknown_symbols",
      "message": ..., "symbols": [...]}
 
@@ -26,7 +31,8 @@ most one pending tick per symbol -- drained by a per-client sender
 task. A newer tick for a symbol replaces one that hasn't been sent yet
 (conflation), so a slow client can't build a backlog or delay the feed
 or anyone else; it just skips intermediate prices and catches up to the
-current one.
+current one. Status messages are conflated the same way: only the
+newest unsent one is kept.
 
 This is the same "latest per symbol" idea as
 MarketDataBuffer.subscribe_latest(), but it deliberately lives here
@@ -51,13 +57,16 @@ logger = logging.getLogger(__name__)
 class _Client:
     """One connection: its subscriptions and its outbox."""
 
-    __slots__ = ("ws", "subscriptions", "control", "pending", "wakeup", "sender", "closed", "conflated")
+    __slots__ = (
+        "ws", "subscriptions", "control", "pending", "status", "wakeup", "sender", "closed", "conflated",
+    )
 
     def __init__(self, ws: WebSocket):
         self.ws = ws
         self.subscriptions: set[str] = set()
         self.control: deque[dict] = deque()     # sent in order, never dropped
         self.pending: dict[str, dict] = {}      # symbol -> latest unsent tick
+        self.status: Optional[dict] = None      # latest unsent status message
         self.wakeup = asyncio.Event()
         self.sender: Optional[asyncio.Task] = None
         self.closed = False
@@ -65,6 +74,10 @@ class _Client:
 
     def send_control(self, message: dict) -> None:
         self.control.append(message)
+        self.wakeup.set()
+
+    def offer_status(self, message: dict) -> None:
+        self.status = message
         self.wakeup.set()
 
     def offer_tick(self, symbol: str, message: dict) -> None:
@@ -80,13 +93,16 @@ class WebSocketGateway:
         self,
         symbols: Iterable[str],
         snapshot: Callable[[list[str]], Mapping[str, MarketData]],
+        status: Optional[Callable[[], dict]] = None,
     ):
         """`symbols` is what clients may subscribe to (the feed's
         universe); `snapshot` returns the latest quote for each of the
-        given symbols that has one."""
+        given symbols that has one; `status`, if given, the current
+        market status for the welcome message."""
         self._symbols = list(symbols)
         self._known = set(self._symbols)
         self._snapshot = snapshot
+        self._status = status
         self._clients: dict[WebSocket, _Client] = {}
         self._subscribers: dict[str, set[_Client]] = {}
 
@@ -117,7 +133,10 @@ class WebSocketGateway:
         client = _Client(websocket)
         self._clients[websocket] = client
         client.sender = asyncio.create_task(self._send_loop(client))
-        client.send_control({"type": "welcome", "symbols": self._symbols})
+        welcome = {"type": "welcome", "symbols": self._symbols}
+        if self._status is not None:
+            welcome["status"] = self._status()
+        client.send_control(welcome)
         logger.info("Client connected. Total clients: %d", len(self._clients))
         return client
 
@@ -145,6 +164,7 @@ class WebSocketGateway:
                     del self._subscribers[symbol]
         client.subscriptions.clear()
         client.pending.clear()
+        client.status = None
 
     # ------------------------------------------------------------ protocol
 
@@ -221,6 +241,14 @@ class WebSocketGateway:
         for client in subs:
             client.offer_tick(data.symbol, message)
 
+    async def broadcast_status(self, status: dict) -> None:
+        """Queue a market status message for every client, subscribed or
+        not. Like broadcast(), never awaits a send."""
+        message = {"type": "status", **status}
+        for client in self._clients.values():
+            if not client.closed:
+                client.offer_status(message)
+
     async def _send_loop(self, client: _Client) -> None:
         try:
             while not client.closed:
@@ -228,6 +256,9 @@ class WebSocketGateway:
                 client.wakeup.clear()
                 while client.control:
                     await client.ws.send_json(client.control.popleft())
+                if client.status is not None:
+                    status, client.status = client.status, None
+                    await client.ws.send_json(status)
                 # Swap the dict out before sending: ticks that arrive while
                 # we await a send land in the fresh one, not the one being
                 # iterated.

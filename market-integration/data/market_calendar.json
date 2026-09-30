@@ -1,0 +1,30 @@
+{
+  "exchange": "GSE",
+  "timezone": "Africa/Accra",
+  "utc_offset_minutes": 0,
+  "trading_days": ["mon", "tue", "wed", "thu", "fri"],
+  "pre_open": "09:30",
+  "open": "10:00",
+  "close": "15:00",
+  "hours_source": "GSE Trading Rules: pre-open 9:30-10:00, opening 10:00, continuous auction 10:00-15:00, closing 15:00",
+  "holidays_source": "2026: the market holiday list (market closed dates, observed). Add each year's list when it is published",
+  "holidays": [
+    {"date": "2026-01-01", "name": "New Year's Day"},
+    {"date": "2026-01-09", "name": "Constitution Day (observed)"},
+    {"date": "2026-03-06", "name": "Independence Day"},
+    {"date": "2026-03-20", "name": "Eid al-Fitr"},
+    {"date": "2026-03-21", "name": "Eid al-Fitr"},
+    {"date": "2026-04-03", "name": "Good Friday"},
+    {"date": "2026-04-06", "name": "Easter Monday"},
+    {"date": "2026-05-01", "name": "Labour Day"},
+    {"date": "2026-05-27", "name": "Eid al-Adha"},
+    {"date": "2026-07-03", "name": "Market Holiday (observed)"},
+    {"date": "2026-09-21", "name": "Founder's Day"},
+    {"date": "2026-12-04", "name": "Farmers' Day"},
+    {"date": "2026-12-25", "name": "Christmas Day"},
+    {"date": "2026-12-28", "name": "Boxing Day (observed)"},
+    {"date": "2027-01-01", "name": "New Year's Day", "note": "2027 is provisional, not from the published market holiday list; replace once it is out"},
+    {"date": "2027-03-26", "name": "Good Friday", "note": "provisional"},
+    {"date": "2027-03-29", "name": "Easter Monday", "note": "provisional"}
+  ]
+}

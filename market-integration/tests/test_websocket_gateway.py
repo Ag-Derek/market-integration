@@ -256,6 +256,8 @@ def test_live_feed_sends_only_subscribed_symbols(client):
         ticks = []
         while len(ticks) < 3:
             msg = ws.receive_json()
+            if msg["type"] == "status":  # periodic, to every client
+                continue
             assert msg["type"] == "tick"
             ticks.append(msg["data"]["symbol"])
     assert set(ticks) <= set(wanted)

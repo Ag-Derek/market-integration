@@ -186,6 +186,23 @@ that isn't in the instrument master, or that the feed can't carry
 with an error naming it. Untracked symbols get a 404 from
 `/market/{symbol}` and `/candles`.
 
+The GSE only trades in a fixed session on weekdays, and the mock follows
+`data/market_calendar.json` (session hours, trading days and Ghana public
+holidays; `MARKET_CALENDAR_PATH` points elsewhere). Outside the session
+the mock doesn't trade, so to see prices move in the evening or at the
+weekend, set:
+
+```env
+MARKET_SESSION_OVERRIDE=open
+```
+
+The session hours come from the GSE Trading Rules (pre-open 09:30–10:00,
+continuous auction 10:00–15:00 GMT). The holiday list is kept by hand: add each year's gazetted dates
+(including the two Eids, announced shortly before) as they are published.
+`FEED_STALE_SECONDS` (default 15) is how long the feed may go without a
+heartbeat before the badge shows "Delayed", and `STATUS_INTERVAL_SECONDS`
+(default 5) how often WebSocket clients get a status update.
+
 `MARKET_DB_PATH` (default `market_data.db`) sets where the SQLite
 database holding the instruments table and aggregated candles lives.
 The test suite points it at a temporary file, so running `pytest` never
@@ -228,6 +245,7 @@ Uvicorn running on http://127.0.0.1:8000
 | `http://127.0.0.1:8000/fixed-income/report` | Today's fixed-income report in the shape of the GFIM daily trading report: every section plus the summary. Blank report cells are `null` |
 | `http://127.0.0.1:8000/fixed-income/summary` | Volume, number of trades and largest trade per section, plus grand totals |
 | `http://127.0.0.1:8000/fixed-income/{section}` | One section's rows: `new_gog`, `ddep`, `old_gog`, `treasury_bill`, `corporate` or `sell_buy_back` |
+| `http://127.0.0.1:8000/market/status` | Market session and feed status: `status` is `open`, `pre_open` or `closed` (with a `reason`: `weekend`, `holiday`, `before_hours`, `after_hours`), plus `next_open`, `next_close`, `last_close`, the feed's heartbeat, and `badge` (`live`, `delayed`, `closed` or `disconnected`) |
 | `http://127.0.0.1:8000/market/{symbol}` | Latest snapshot for a tracked symbol (e.g. `/market/MTNGH`); 404 if unknown |
 | `ws://127.0.0.1:8000/ws/market`   | WebSocket — live quotes for the symbols a client subscribes to (protocol below) |
 | `http://127.0.0.1:8000/ticker`    | Live quote card UI (`app/static/ticker.html`), driven by the WebSocket feed above |
@@ -240,6 +258,7 @@ another computer or from Symphony yet. That's expected during development.
 
 ```bash
 curl http://127.0.0.1:8000/health
+curl http://127.0.0.1:8000/market/status
 curl http://127.0.0.1:8000/market/MTNGH
 curl http://127.0.0.1:8000/candles/export -o market_candles.csv
 ```
@@ -251,13 +270,19 @@ messages are JSON:
 
 | Direction | Message | Meaning |
 |---|---|---|
-| server → client | `{"type": "welcome", "symbols": [...]}` | Sent on connect: the symbols you can subscribe to. No prices; a client that never subscribes gets nothing else. |
+| server → client | `{"type": "welcome", "symbols": [...], "status": {...}}` | Sent on connect: the symbols you can subscribe to and the current market status. No prices; a client that never subscribes gets nothing but status updates. |
 | client → server | `{"action": "subscribe", "symbols": ["MTNGH", "GCB"]}` | Start receiving these symbols (case-insensitive). |
 | client → server | `{"action": "unsubscribe", "symbols": ["GCB"]}` | Stop receiving them. |
 | server → client | `{"type": "subscribed" \| "unsubscribed", "symbols": [...], "subscriptions": [...]}` | Confirmation: what changed, and everything you're now subscribed to. |
 | server → client | `{"type": "snapshot", "data": {"MTNGH": {...}}}` | Current quotes for the symbols you just subscribed to. |
-| server → client | `{"type": "tick", "data": {...}}` | A new quote for a subscribed symbol. |
+| server → client | `{"type": "tick", "data": {...}}` | A new quote for a subscribed symbol. `timestamp` is when the feed published it; `last_trade_at` is when the symbol last traded, which for a thin name can be days ago. |
+| server → client | `{"type": "status", "status": "open", "badge": "live", ...}` | Every few seconds, to every client: the same body as `/market/status`. If these stop arriving, treat the connection as lost. |
 | server → client | `{"type": "error", "code": "bad_json" \| "bad_request" \| "unknown_symbols", "message": "...", "symbols": [...]}` | Your message couldn't be used. Unknown symbols are listed; the valid ones in the same request still apply. |
+
+The "Live" badge on the pages comes from `badge`, and from the page's own
+connection (Disconnected when the socket drops or status updates stop).
+It never depends on price direction. Feed freshness is judged on the
+connector's heartbeat, not on the last trade.
 
 A slow client never holds up the feed or other clients. It skips
 intermediate prices and always catches up to the latest one for each
@@ -339,11 +364,16 @@ market-integration/
 │   ├── gateways/
 │   │   └── websocket_gateway.py   # client tracking + concurrent broadcast
 │   │
+│   ├── session/
+│   │   ├── calendar.py            # trading calendar: session hours, holidays, open/closed
+│   │   └── status.py              # session + feed heartbeat -> /market/status, badge
+│   │
 │   └── static/
 │       └── ticker.html            # live quote card UI, served at /ticker
 │
 ├── data/
-│   └── instruments.json           # instrument master seed (source of truth)
+│   ├── instruments.json           # instrument master seed (source of truth)
+│   └── market_calendar.json       # GSE session hours + Ghana public holidays
 │
 ├── docs/
 │   ├── data-formats.md            # GSE/GFIM report fields -> our models, data quirks

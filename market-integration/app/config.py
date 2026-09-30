@@ -9,6 +9,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from app.instruments import INSTRUMENTS, streamable, streamable_symbols
+from app.session import CALENDAR_PATH
 
 load_dotenv()
 
@@ -51,6 +52,22 @@ MOCK_INTERVAL_SECONDS: float = float(os.getenv("MOCK_INTERVAL_SECONDS", "0.5"))
 # tick for that subscriber is dropped to make room — see
 # app/queue/market_buffer.py.
 QUEUE_MAX_SIZE: int = int(os.getenv("QUEUE_MAX_SIZE", "200"))
+
+# Trading calendar: session hours, trading days and public holidays.
+MARKET_CALENDAR_PATH: Path = Path(os.getenv("MARKET_CALENDAR_PATH", str(CALENDAR_PATH)))
+
+# Pins the reported session state to open, pre_open or closed regardless
+# of the clock. For development outside GSE hours: the mock only trades
+# while the market is open. Leave empty in production.
+MARKET_SESSION_OVERRIDE: str = os.getenv("MARKET_SESSION_OVERRIDE", "").strip()
+
+# How long the feed may go without a heartbeat (anything at all from the
+# provider, trade or not) before the badge says "Delayed".
+FEED_STALE_SECONDS: float = float(os.getenv("FEED_STALE_SECONDS", "15"))
+
+# How often WebSocket clients get a "status" message (session + feed).
+# Clients treat a few missed ones as a lost connection.
+STATUS_INTERVAL_SECONDS: float = float(os.getenv("STATUS_INTERVAL_SECONDS", "5"))
 
 # Placeholders for when a real provider is chosen — unused by the mock.
 MARKET_PROVIDER_URL: str = os.getenv("MARKET_PROVIDER_URL", "")

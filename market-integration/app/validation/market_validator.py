@@ -6,8 +6,9 @@ positive prices, non-negative volumes, ...) at construction time -- a
 tick that violates those never even becomes a MarketData object. This
 module adds the cross-field business rules the schema can't express on
 its own: relationships between fields (bid < ask when both sides are
-quoted, price within the day's and year's range) and freshness (the tick isn't stale or timestamped in the
-future).
+quoted, price within the day's and year's range) and freshness (the
+feed published the tick recently and not in the future; how long ago the
+symbol last traded doesn't matter).
 
 `validate_tick` is a plain, dependency-free function on purpose: it is
 called independently by more than one downstream branch off the buffer
@@ -26,8 +27,9 @@ from app.models.market_data import MarketData
 
 logger = logging.getLogger(__name__)
 
-# How far a tick's timestamp may drift from "now" before we stop
-# trusting it as a live tick (clock skew, a stalled pipeline, etc.).
+# How far a tick's publish timestamp may drift from "now" before we stop
+# trusting it as a live tick (clock skew, a stalled pipeline, etc.). This
+# is about the feed, not the market: last_trade_at has no age limit.
 MAX_TICK_AGE = timedelta(seconds=30)
 MAX_CLOCK_SKEW_AHEAD = timedelta(seconds=5)
 
@@ -77,11 +79,22 @@ def validate_tick(tick: MarketData, *, now: datetime | None = None) -> Validatio
         if not (low <= tick.price <= high):
             errors.append(f"price ({tick.price}) outside {label} range [{low}, {high}]")
 
+    # Freshness is judged on when the feed published the quote, never on
+    # the last trade: that can legitimately be hours old (see MarketData).
     age = now - tick.timestamp
     if age > MAX_TICK_AGE:
-        errors.append(f"tick is stale: {age.total_seconds():.1f}s old")
+        errors.append(f"tick is stale: published {age.total_seconds():.1f}s ago")
     elif age < -MAX_CLOCK_SKEW_AHEAD:
         errors.append(f"tick is timestamped {(-age).total_seconds():.1f}s in the future")
+
+    if tick.last_trade_at is not None:
+        if tick.last_trade_at - tick.timestamp > MAX_CLOCK_SKEW_AHEAD:
+            errors.append(
+                f"last_trade_at ({tick.last_trade_at.isoformat()}) is after the quote's "
+                f"timestamp ({tick.timestamp.isoformat()})"
+            )
+    elif tick.volume > 0:
+        errors.append(f"volume ({tick.volume}) traded this session but no last_trade_at")
 
     return ValidationResult(is_valid=not errors, errors=errors)
 

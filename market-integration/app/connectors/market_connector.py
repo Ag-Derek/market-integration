@@ -35,14 +35,23 @@ stream() emits one snapshot per symbol when it starts, so every symbol
 has a quote downstream from the outset, and after that only a tick for
 each trade. A symbol that doesn't trade sends nothing, so its latest
 quote just ages -- that is the no-trade / staleness case consumers need
-to handle.
+to handle. Every quote carries `last_trade_at` (when the symbol last
+traded, possibly days ago) apart from `timestamp` (when it was
+published), and `last_heartbeat` is refreshed on every loop whether or
+not anything traded, the way a real provider's keepalive would be.
+
+Given a MarketCalendar, the mock only trades while the market is open,
+and the first trade loop of a new session rolls the session over: the
+last session's VWAP becomes the previous close and volume starts again
+from 0. Without one (tests) it trades around the clock. The backfilled
+history is still around the clock either way.
 """
 
 import asyncio
 import math
 import random
-from datetime import datetime, timedelta, timezone
-from typing import AsyncIterator, Optional
+from datetime import date, datetime, timedelta, timezone
+from typing import TYPE_CHECKING, AsyncIterator, Optional
 
 from app.connectors.base_connector import BaseMarketConnector
 from app.connectors.gse_mock_profiles import (
@@ -55,6 +64,9 @@ from app.instruments import INSTRUMENTS, MOCK_SEEDS, get_instrument
 from app.models.candle import INTERVALS, Candle, bucket_start, resample
 from app.models.instrument import Instrument
 from app.models.market_data import MarketData
+
+if TYPE_CHECKING:
+    from app.session.calendar import MarketCalendar
 
 EXCHANGE_LABEL = "GSE - Simulated Quote - GHS"
 
@@ -110,6 +122,17 @@ def _previous_session_vwap(history: dict[str, list[Candle]], midnight: datetime)
     return max(round(sum(_typical_price(c) * c.volume for c in bars) / volume, 2), TICK_SIZE)
 
 
+def _last_traded(history: dict[str, list[Candle]], now: datetime) -> Optional[datetime]:
+    """When the backfilled history last traded: the end of the newest bar
+    with volume, finest interval first (bars say when, not exactly when
+    within them). None if it never did."""
+    for interval in ("5m", "15m", "1h", "1d"):
+        traded = [c for c in history.get(interval, []) if c.volume]
+        if traded:
+            return min(traded[-1].window_end, now)
+    return None
+
+
 def _trade_probability(span_seconds: float, trade_gap_seconds: float) -> float:
     """Chance of at least one trade in `span_seconds`, for trades
     arriving on average every `trade_gap_seconds`."""
@@ -124,10 +147,12 @@ class MockMarketConnector(BaseMarketConnector):
         interval_seconds: float = 0.5,
         instruments: Optional[dict[str, Instrument]] = None,
         mock_seeds: Optional[dict[str, dict]] = None,
+        calendar: Optional["MarketCalendar"] = None,
     ):
         """`instruments` / `mock_seeds` default to the instrument master
         loaded from data/instruments.json; pass another load_seed() result
-        to run against a different seed file."""
+        to run against a different seed file. With a `calendar`, symbols
+        only trade while it says the market is open."""
         super().__init__(symbols)
         instruments = INSTRUMENTS if instruments is None else instruments
         mock_seeds = MOCK_SEEDS if mock_seeds is None else mock_seeds
@@ -140,6 +165,10 @@ class MockMarketConnector(BaseMarketConnector):
         self._profiles: dict[str, dict] = {}
         self._session: dict[str, dict] = {}
         self._history: dict[str, dict[str, list[Candle]]] = {}
+        self._last_trade_at: dict[str, Optional[datetime]] = {}
+        self._calendar = calendar
+        # The (exchange-local) day the current session belongs to.
+        self._session_day: Optional[date] = None
 
     async def connect(self) -> None:
         print("Connecting to (mock) market data provider...")
@@ -209,6 +238,7 @@ class MockMarketConnector(BaseMarketConnector):
                 )
 
             self._profiles[symbol] = profile
+            self._last_trade_at[symbol] = _last_traded(history, now)
             self._session[symbol] = {
                 # The GSE report's opening price is the previous closing
                 # VWAP on every row, traded or not -- a reference price,
@@ -221,7 +251,10 @@ class MockMarketConnector(BaseMarketConnector):
                 "value": sum(_typical_price(c) * c.volume for c in session_bars),
             }
 
+        if self._calendar is not None:
+            self._session_day = self._calendar.local_date(now)
         self.running = True
+        self.last_heartbeat = now
         print("Connected to (mock) market data provider.")
 
     async def fetch_history(
@@ -340,10 +373,14 @@ class MockMarketConnector(BaseMarketConnector):
 
         snapshot = True
         while self.running:
+            now = datetime.now(timezone.utc)
+            # The mock provider is "alive" on every loop, trades or not.
+            self.last_heartbeat = now
+            trading = self._trading(now)
             for symbol in self.symbols:
                 profile = self._profiles[symbol]
                 trade_gap = profile["trade_gap"]
-                traded = random.random() < _trade_probability(self.interval_seconds, trade_gap)
+                traded = trading and random.random() < _trade_probability(self.interval_seconds, trade_gap)
                 if traded:
                     self._trade(symbol, profile, trade_gap)
                 elif not snapshot:
@@ -351,6 +388,36 @@ class MockMarketConnector(BaseMarketConnector):
                 yield self.normalize(self._quote(symbol, profile))
             snapshot = False
             await asyncio.sleep(self.interval_seconds)
+
+    def _trading(self, now: datetime) -> bool:
+        """Whether symbols may trade now; rolls every symbol into a new
+        session on the first open loop of a new trading day."""
+        if self._calendar is None:
+            return True
+        if not self._calendar.is_open(now):
+            return False
+        day = self._calendar.local_date(now)
+        if day != self._session_day:
+            for symbol in self.symbols:
+                self._new_session(symbol)
+            self._session_day = day
+        return True
+
+    def _new_session(self, symbol: str) -> None:
+        """The last session's VWAP becomes the previous close (carried
+        over if it had no trades), and today starts with no trades."""
+        profile = self._profiles[symbol]
+        session = self._session[symbol]
+        if session["volume"]:
+            profile["previous_close"] = max(round(session["value"] / session["volume"], 2), TICK_SIZE)
+        price = round(self._prices[symbol], 2)
+        self._session[symbol] = {
+            "open": profile["previous_close"],
+            "day_high": price,
+            "day_low": price,
+            "volume": 0,
+            "value": 0.0,
+        }
 
     def _trade(self, symbol: str, profile: dict, trade_gap: float) -> None:
         # Same volatility as the backfilled history, per trade rather
@@ -369,6 +436,7 @@ class MockMarketConnector(BaseMarketConnector):
         size = max(int(per_trade * random.uniform(0.2, 1.8)), 1)
         session["volume"] += size
         session["value"] += price * size
+        self._last_trade_at[symbol] = datetime.now(timezone.utc)
 
         # A new high/low extends the year and 52-week ranges rather than
         # making the tick fail validation.
@@ -420,6 +488,7 @@ class MockMarketConnector(BaseMarketConnector):
             "target_est": profile["target_est"],
             "dividend_announcement": profile["dividend_announcement"],
             "timestamp": datetime.now(timezone.utc),
+            "last_trade_at": self._last_trade_at.get(symbol),
         }
 
     @staticmethod
