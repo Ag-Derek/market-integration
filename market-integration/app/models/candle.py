@@ -11,7 +11,7 @@ midnight), except "1w", which starts on Monday 00:00 UTC.
 """
 
 from datetime import datetime, timedelta, timezone
-from typing import Iterable
+from typing import Iterable, Optional
 
 from pydantic import BaseModel
 
@@ -42,6 +42,14 @@ class Candle(BaseModel):
     # How many live ticks were folded into this candle. 0 for candles
     # that came from a provider's history (backfill) rather than ticks.
     tick_count: int = 0
+    # Fixed income only: the same window in yield (% a year), so a chart
+    # can toggle between price and yield. OHLC above is then clean price.
+    # Its own range, not derived from price's: the high yield is the low
+    # price. None for equities and for price-only (corporate) bonds.
+    yield_open: Optional[float] = None
+    yield_high: Optional[float] = None
+    yield_low: Optional[float] = None
+    yield_close: Optional[float] = None
 
 
 def bucket_start(ts: datetime, interval: str) -> datetime:
@@ -64,9 +72,11 @@ def resample(candles: Iterable[Candle], interval: str) -> list[Candle]:
     out: list[Candle] = []
     symbol = None
     acc = None  # [start, open, high, low, close, volume, tick_count]
+    yld = None  # [open, high, low, close], or None while no input had a yield
 
     def emit() -> None:
         start, open_, high, low, close, volume, tick_count = acc
+        yield_open, yield_high, yield_low, yield_close = yld or (None,) * 4
         out.append(Candle(
             symbol=symbol,
             interval=interval,
@@ -78,6 +88,10 @@ def resample(candles: Iterable[Candle], interval: str) -> list[Candle]:
             close=close,
             volume=volume,
             tick_count=tick_count,
+            yield_open=yield_open,
+            yield_high=yield_high,
+            yield_low=yield_low,
+            yield_close=yield_close,
         ))
 
     for c in candles:
@@ -95,6 +109,14 @@ def resample(candles: Iterable[Candle], interval: str) -> list[Candle]:
                 emit()
             symbol = c.symbol
             acc = [start, c.open, c.high, c.low, c.close, c.volume, c.tick_count]
+            yld = None
+        if c.yield_close is not None:
+            if yld is None:
+                yld = [c.yield_open, c.yield_high, c.yield_low, c.yield_close]
+            else:
+                yld[1] = max(yld[1], c.yield_high)
+                yld[2] = min(yld[2], c.yield_low)
+                yld[3] = c.yield_close
     if acc is not None:
         emit()
     return out

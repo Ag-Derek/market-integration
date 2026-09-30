@@ -14,11 +14,16 @@ app/connectors/market_connector.py.
 """
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
 
 class MarketData(BaseModel):
+    # Tells equity ticks from fixed-income ones in the pipeline's
+    # discriminated union (app/models/tick.py).
+    tick_type: Literal["equity"] = "equity"
+
     symbol: str
     name: str
     exchange_label: str

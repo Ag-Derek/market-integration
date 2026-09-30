@@ -54,6 +54,38 @@ def test_checked_in_seed_has_every_gfim_sample_security():
     assert INSTRUMENTS["GHCLGH075751"].coupon_rate is None  # LGH-BD-04/10/29-C0936: no coupon given
 
 
+def test_fixed_income_terms_follow_the_conventions_doc():
+    fixed = [i for i in INSTRUMENTS.values() if i.asset_class != "equity"]
+    assert all(i.face_value == 100 for i in fixed)
+    assert all(i.face_value is None and i.frequency is None for i in INSTRUMENTS.values()
+               if i.asset_class == "equity")
+
+    # Bills: zero coupon, ACT/364, issued on a Monday for their tenor.
+    bill = INSTRUMENTS["GHGGOGI01925"]  # 91-day, matures 05-Oct-2026
+    assert (bill.issue_date.isoformat(), bill.frequency, bill.day_count) == ("2026-07-06", 0, "ACT/364")
+    days = {"91-DAY BILL": 91, "182-DAY BILL": 182, "364-DAY BILL": 364}
+    for i in fixed:
+        if i.segment == "treasury_bill":
+            assert (i.maturity_date - i.issue_date).days == days[i.tenor]
+            assert i.issue_date.weekday() == 0
+
+    # Ordinary GoG bonds: semi-annual ACT/ACT. GFSF, USD DDE and
+    # corporates need term sheets, so their terms stay unknown.
+    gc3 = INSTRUMENTS["GHGGOG069931"]
+    assert (gc3.frequency, gc3.day_count, gc3.issue_date) == (2, "ACT/ACT", None)
+    for symbol in ("GHGGOG072851", "GHGGOG071689", "GHCLGH075744"):  # GFSF-5-14YR, USD-DDE-FCA-27, Letshego
+        assert (INSTRUMENTS[symbol].frequency, INSTRUMENTS[symbol].day_count) == (None, None)
+
+
+def test_an_issue_date_on_or_after_maturity_is_rejected():
+    terms = dict(symbol="GHGGOGI01925", name="X", asset_class="bill", sector="Government",
+                 maturity_date="2026-10-05")
+    with pytest.raises(ValueError, match="issue_date"):
+        Instrument(**terms, issue_date="2026-10-05")
+    with pytest.raises(ValueError, match="face_value"):
+        Instrument(**terms, face_value=0)
+
+
 @pytest.mark.parametrize("isin,ok", [
     ("GHEMTN051541", True),
     ("GB0001500809", True),
@@ -177,6 +209,7 @@ def test_list_instruments(client):
         "sector": "Telecommunications", "currency": "GHS", "isin": "GHEMTN051541",
         "status": "active", "kind": "ordinary",
         "issuer": None, "segment": None, "tenor": None, "maturity_date": None, "coupon_rate": None,
+        "issue_date": None, "frequency": None, "day_count": None, "face_value": None,
     }
     assert all("mock" not in i for i in body)
 
@@ -186,6 +219,7 @@ def test_list_instruments(client):
         "sector": "Government", "currency": "GHS", "isin": "GHGGOGI01883", "status": "active",
         "kind": None, "issuer": "Government of Ghana", "segment": "treasury_bill",
         "tenor": "364-DAY BILL", "maturity_date": "2027-06-21", "coupon_rate": 0.0,
+        "issue_date": "2026-06-22", "frequency": 0, "day_count": "ACT/364", "face_value": 100.0,
     }
 
 

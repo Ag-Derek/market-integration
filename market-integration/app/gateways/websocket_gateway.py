@@ -27,7 +27,7 @@ valid ones are still applied. Symbols are case-insensitive.
 
 Slow clients: broadcast() never awaits a send. Each client has its own
 outbox -- control messages (acks, snapshots, errors) in order, plus at
-most one pending tick per symbol -- drained by a per-client sender
+most one pending tick per symbol and tick type -- drained by a per-client sender
 task. A newer tick for a symbol replaces one that hasn't been sent yet
 (conflation), so a slow client can't build a backlog or delay the feed
 or anyone else; it just skips intermediate prices and catches up to the
@@ -49,7 +49,7 @@ from typing import Callable, Iterable, Mapping, Optional
 
 from fastapi import WebSocket, WebSocketDisconnect
 
-from app.models.market_data import MarketData
+from app.models.tick import Tick
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +65,9 @@ class _Client:
         self.ws = ws
         self.subscriptions: set[str] = set()
         self.control: deque[dict] = deque()     # sent in order, never dropped
-        self.pending: dict[str, dict] = {}      # symbol -> latest unsent tick
+        # (tick_type, symbol) -> latest unsent tick. Keyed by type too, so
+        # a bond's repo tick can't replace its unsent quote, or vice versa.
+        self.pending: dict[tuple[str, str], dict] = {}
         self.status: Optional[dict] = None      # latest unsent status message
         self.wakeup = asyncio.Event()
         self.sender: Optional[asyncio.Task] = None
@@ -80,10 +82,10 @@ class _Client:
         self.status = message
         self.wakeup.set()
 
-    def offer_tick(self, symbol: str, message: dict) -> None:
-        if symbol in self.pending:
+    def offer_tick(self, key: tuple[str, str], message: dict) -> None:
+        if key in self.pending:
             self.conflated += 1
-        self.pending[symbol] = message
+        self.pending[key] = message
         self.wakeup.set()
 
 
@@ -92,7 +94,7 @@ class WebSocketGateway:
     def __init__(
         self,
         symbols: Iterable[str],
-        snapshot: Callable[[list[str]], Mapping[str, MarketData]],
+        snapshot: Callable[[list[str]], Mapping[str, Tick]],
         status: Optional[Callable[[], dict]] = None,
     ):
         """`symbols` is what clients may subscribe to (the feed's
@@ -217,9 +219,10 @@ class WebSocketGateway:
 
     def _unsubscribe(self, client: _Client, symbols: list[str]) -> None:
         removed = [s for s in symbols if s in client.subscriptions]
+        gone = set(removed)
+        client.pending = {k: m for k, m in client.pending.items() if k[1] not in gone}
         for symbol in removed:
             client.subscriptions.discard(symbol)
-            client.pending.pop(symbol, None)
             subs = self._subscribers.get(symbol)
             if subs is not None:
                 subs.discard(client)
@@ -231,15 +234,16 @@ class WebSocketGateway:
 
     # ------------------------------------------------------------ delivery
 
-    async def broadcast(self, data: MarketData) -> None:
+    async def broadcast(self, data: Tick) -> None:
         """Queue a tick for the symbol's subscribers. Never awaits a send,
-        so no client can hold up the feed or the other clients."""
+        so no client can hold up the feed or the other clients. The
+        message's data.tick_type tells clients what kind of tick it is."""
         subs = self._subscribers.get(data.symbol)
         if not subs:
             return
         message = {"type": "tick", "data": data.model_dump(mode="json")}
         for client in subs:
-            client.offer_tick(data.symbol, message)
+            client.offer_tick((data.tick_type, data.symbol), message)
 
     async def broadcast_status(self, status: dict) -> None:
         """Queue a market status message for every client, subscribed or

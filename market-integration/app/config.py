@@ -69,6 +69,12 @@ FEED_STALE_SECONDS: float = float(os.getenv("FEED_STALE_SECONDS", "15"))
 # Clients treat a few missed ones as a lost connection.
 STATUS_INTERVAL_SECONDS: float = float(os.getenv("STATUS_INTERVAL_SECONDS", "5"))
 
+# Plausible range for a fixed-income yield, in % a year; a bill or bond
+# tick with any yield outside it is rejected. Wide on purpose: the
+# 28-Sep-2026 GFIM sample has a real 58.59% close on an Old GoG bond.
+FI_YIELD_MIN: float = float(os.getenv("FI_YIELD_MIN", "0"))
+FI_YIELD_MAX: float = float(os.getenv("FI_YIELD_MAX", "100"))
+
 # Placeholders for when a real provider is chosen — unused by the mock.
 MARKET_PROVIDER_URL: str = os.getenv("MARKET_PROVIDER_URL", "")
 MARKET_PROVIDER_API_KEY: str = os.getenv("MARKET_PROVIDER_API_KEY", "")

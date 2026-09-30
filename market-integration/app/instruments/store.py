@@ -18,6 +18,7 @@ from app.models.instrument import Instrument
 _COLUMNS = (
     "symbol", "name", "asset_class", "kind", "sector", "currency", "isin", "status",
     "issuer", "segment", "tenor", "maturity_date", "coupon_rate",
+    "issue_date", "frequency", "day_count", "face_value",
 )
 
 _CREATE_TABLE = """
@@ -35,6 +36,10 @@ _CREATE_TABLE = """
         tenor TEXT,
         maturity_date TEXT,
         coupon_rate REAL,
+        issue_date TEXT,
+        frequency INTEGER,
+        day_count TEXT,
+        face_value REAL,
         updated_at TEXT NOT NULL
     )
 """

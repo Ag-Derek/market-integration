@@ -19,6 +19,8 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.models.instrument import FixedIncomeSegment
+
 GovernmentSegment = Literal["new_gog", "ddep", "old_gog"]
 ReportSection = Literal["new_gog", "ddep", "old_gog", "treasury_bill", "corporate", "sell_buy_back"]
 REPORT_SECTIONS: tuple[ReportSection, ...] = (
@@ -118,3 +120,86 @@ class FixedIncomeReport(BaseModel):
     treasury_bill: list[TreasuryBillQuote]
     corporate: list[CorporateBondQuote]
     sell_buy_back: list[SellBuyBackQuote]
+
+
+# ---------------------------------------------------------------- ticks
+# The pipeline's shape for fixed income: one message per security, like
+# the equity MarketData, and in the same discriminated union
+# (app/models/tick.py). The report rows above are the GFIM report as
+# published; these are what a connector normalizes a quote into.
+
+
+class FixedIncomeTick(BaseModel):
+    """A bill or bond quote. Prices are clean, per 100 face value; yields
+    are % a year.
+
+    Every price and yield is optional: government securities are quoted
+    by yield with a price derived from it, corporates by price only, and
+    a security that hasn't traded or been quoted has neither. Nothing is
+    range-checked here -- the validator does that, so a bad value is
+    logged and dropped instead of failing the connector -- and there are
+    deliberately no low <= close <= high checks at all (see the module
+    docstring)."""
+    tick_type: Literal["fixed_income"] = "fixed_income"
+
+    symbol: str                  # the ISIN
+    name: str                    # the GFIM description
+    segment: FixedIncomeSegment
+    currency: str                # GHS, except the four USD DDE bonds
+    maturity_date: date
+
+    # Two-way quote. Not in the end-of-day report; expected from the API.
+    bid_price: Optional[float] = None
+    ask_price: Optional[float] = None
+    bid_yield: Optional[float] = None
+    ask_yield: Optional[float] = None
+
+    # The session so far, as in the report. The closing values are the
+    # GFIM end-of-day methodology's, not the last trade's.
+    opening_yield: Optional[float] = None
+    closing_yield: Optional[float] = None
+    day_low_yield: Optional[float] = None
+    day_high_yield: Optional[float] = None
+    opening_price: Optional[float] = None
+    closing_price: Optional[float] = None
+    day_low_price: Optional[float] = None
+    day_high_price: Optional[float] = None
+    volume: int = Field(default=0, ge=0)       # face value traded this session, cumulative
+    trade_count: int = Field(default=0, ge=0)
+
+    # Same two clocks as MarketData: when the feed published this, and
+    # when the security last traded (None if unknown or never).
+    timestamp: datetime
+    last_trade_at: Optional[datetime] = None
+
+
+class RepoTick(BaseModel):
+    """A bond's sell/buy-back trades this session. These are repos --
+    financing, not outright trades -- so their yields and prices must
+    never reach price charts or yield curves: the aggregator records
+    them in a table of their own, and the processor keeps them apart
+    from the bond's quote."""
+    tick_type: Literal["repo"] = "repo"
+
+    symbol: str
+    name: str
+    segment: GovernmentSegment
+    currency: str
+    maturity_date: date
+    # The bond that changed hands in the sell leg, from the report's
+    # "Yield" and "Weighted average closing prices" columns: the
+    # collateral's yield (% a year) and clean price per 100. Neither is
+    # the financing rate. For the USD DDE bonds the report's yield column
+    # holds the price (quirk 12); a connector must leave bond_yield None
+    # then rather than map a price into it, and the validator rejects a
+    # tick where the two are equal.
+    bond_yield: Optional[float] = None
+    bond_price: Optional[float] = None
+    # The repo (financing) rate, % a year. Not in the GFIM report; None
+    # until a source provides it.
+    repo_rate: Optional[float] = None
+    volume: int = Field(default=0, ge=0)
+    trade_count: int = Field(default=0, ge=0)
+
+    timestamp: datetime
+    last_trade_at: Optional[datetime] = None
