@@ -50,6 +50,12 @@ def bill_modified_duration(settle: date, maturity: date, yield_pct: float) -> fl
     return t / (1 + yield_pct / 100 * t)
 
 
+def bill_convexity(settle: date, maturity: date, yield_pct: float) -> float:
+    """(d2P/dy2) / P in years squared, for y as a decimal."""
+    t = _days(settle, maturity) / BILL_DAY_BASIS
+    return 2 * t * t / (1 + yield_pct / 100 * t) ** 2
+
+
 def bill_dv01(settle: date, maturity: date, yield_pct: float) -> float:
     """Price change per 100 face for a 1bp fall in yield."""
     return bill_modified_duration(settle, maturity, yield_pct) * bill_price(settle, maturity, yield_pct) / 10_000
