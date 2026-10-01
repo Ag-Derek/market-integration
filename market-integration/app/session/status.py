@@ -24,6 +24,7 @@ class FeedState(str, Enum):
     OK = "ok"              # heartbeat within the staleness window
     DELAYED = "delayed"    # connected, but the heartbeat is late
     DOWN = "down"          # not connected, or never heard from
+    RECONNECTING = "reconnecting"  # down, and retrying (connectors/supervisor.py)
 
 
 class Badge(str, Enum):
@@ -34,10 +35,14 @@ class Badge(str, Enum):
 
 
 def feed_state(
-    running: bool, last_heartbeat: Optional[datetime], now: datetime, stale_after: timedelta
+    running: bool,
+    last_heartbeat: Optional[datetime],
+    now: datetime,
+    stale_after: timedelta,
+    reconnecting: bool = False,
 ) -> FeedState:
     if not running or last_heartbeat is None:
-        return FeedState.DOWN
+        return FeedState.RECONNECTING if reconnecting else FeedState.DOWN
     if now - last_heartbeat > stale_after:
         return FeedState.DELAYED
     return FeedState.OK
@@ -45,8 +50,9 @@ def feed_state(
 
 def badge(session: SessionState, feed: FeedState) -> Badge:
     # A dead feed wins even out of hours: "Market closed" would hide that
-    # nothing will arrive when it opens.
-    if feed is FeedState.DOWN:
+    # nothing will arrive when it opens. Reconnecting is still
+    # disconnected; feed.state tells the UI it's being retried.
+    if feed in (FeedState.DOWN, FeedState.RECONNECTING):
         return Badge.DISCONNECTED
     if session is not SessionState.OPEN:
         return Badge.CLOSED
@@ -66,11 +72,13 @@ def market_status(
     last_heartbeat: Optional[datetime],
     now: datetime,
     stale_after: timedelta,
+    reconnect: Optional[dict] = None,
 ) -> dict:
     """The body of GET /market/status and of the WebSocket "status"
-    message."""
+    message. `reconnect` is the supervisor's describe() while it retries
+    the feed (None otherwise); it is passed through as feed.reconnect."""
     session = calendar.status(now)
-    feed = feed_state(running, last_heartbeat, now, stale_after)
+    feed = feed_state(running, last_heartbeat, now, stale_after, reconnecting=reconnect is not None)
     return {
         "exchange": calendar.exchange,
         "status": session.state.value,
@@ -85,6 +93,7 @@ def market_status(
             "state": feed.value,
             "last_heartbeat": _iso(last_heartbeat),
             "stale_after_seconds": stale_after.total_seconds(),
+            "reconnect": reconnect if feed is FeedState.RECONNECTING else None,
         },
         "badge": badge(session.state, feed).value,
     }

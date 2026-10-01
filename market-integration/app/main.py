@@ -25,6 +25,7 @@ from app.connectors.composite_connector import CompositeConnector
 from app.connectors.fixed_income_connector import MockFixedIncomeConnector
 from app.connectors.fixed_income_mock import MockFixedIncomeMarket
 from app.connectors.market_connector import MockMarketConnector
+from app.connectors.supervisor import SupervisedConnector
 from app.gateways.websocket_gateway import WebSocketGateway
 from app.instruments import INSTRUMENTS
 from app.instruments.search import InstrumentSearch
@@ -78,8 +79,41 @@ fixed_income_connector = MockFixedIncomeConnector(
     burst_rate=config.FI_BURST_RATE,
 )
 
+# Each feed reconnects on its own if it drops (with backoff; see
+# connectors/supervisor.py), so an equities outage doesn't take the
+# fixed-income feed down with it, nor the service.
+_status_tasks: set[asyncio.Task] = set()
+
+
+def _on_feed_change(feed: SupervisedConnector) -> None:
+    """Tell WebSocket clients at once when a feed drops or recovers,
+    rather than at the next periodic status message."""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    task = loop.create_task(gateway.broadcast_status(current_status()))
+    _status_tasks.add(task)
+    task.add_done_callback(_status_tasks.discard)
+
+
+def _supervised(feed, name: str) -> SupervisedConnector:
+    return SupervisedConnector(
+        feed,
+        name=name,
+        initial_delay=config.RECONNECT_INITIAL_DELAY_SECONDS,
+        max_delay=config.RECONNECT_MAX_DELAY_SECONDS,
+        jitter=config.RECONNECT_JITTER,
+        on_change=_on_feed_change,
+    )
+
+
+equities_feed = _supervised(equities, "equities")
+fixed_income_feed = _supervised(fixed_income_connector, "fixed_income")
+feeds = (equities_feed, fixed_income_feed)
+
 # One feed for the pipeline: equities and fixed income ticks together.
-connector = CompositeConnector([equities, fixed_income_connector])
+connector = CompositeConnector(list(feeds))
 
 
 def asset_class(symbol: str) -> str:
@@ -88,10 +122,19 @@ def asset_class(symbol: str) -> str:
     return fixed_income.asset_class(symbol)
 
 
+def _reconnecting(*candidates: SupervisedConnector) -> Optional[dict]:
+    """The first of these feeds that is retrying, as status reports it."""
+    feed = next((f for f in candidates if f.reconnecting), None)
+    return None if feed is None else {"feed": feed.name, **feed.describe()}
+
+
 def current_status() -> dict:
     """Session state plus feed freshness: what the UI's badge shows. The
     top level is the equity market's; `fixed_income` is the same for
-    GFIM, whose session is longer, for the Fixed Income tab's badge."""
+    GFIM, whose session is longer, for the Fixed Income tab's badge.
+    While a feed is being reconnected, feed.state is "reconnecting" and
+    feed.reconnect says which feed, which attempt and when the next one
+    is."""
     now = datetime.now(timezone.utc)
     stale_after = timedelta(seconds=config.FEED_STALE_SECONDS)
     status = market_status(
@@ -100,13 +143,15 @@ def current_status() -> dict:
         last_heartbeat=connector.last_heartbeat,
         now=now,
         stale_after=stale_after,
+        reconnect=_reconnecting(*feeds),
     )
     status["fixed_income"] = market_status(
         fixed_income_calendar,
-        running=fixed_income_connector.running,
-        last_heartbeat=fixed_income_connector.last_heartbeat,
+        running=fixed_income_feed.running,
+        last_heartbeat=fixed_income_feed.last_heartbeat,
         now=now,
         stale_after=stale_after,
+        reconnect=_reconnecting(fixed_income_feed),
     )
     return status
 
@@ -158,11 +203,20 @@ async def health():
         "fixed_income": fixed_income.ready,
     }
     healthy = all(components.values())
+    if healthy:
+        status = "healthy"
+    elif any(f.reconnecting for f in feeds):
+        status = "reconnecting"
+    else:
+        status = "unhealthy"
     return JSONResponse(
         status_code=200 if healthy else 503,
         content={
-            "status": "healthy" if healthy else "unhealthy",
+            "status": status,
             "components": components,
+            # Each feed's supervisor: connected, or reconnecting (which
+            # attempt, when the next is, why it dropped).
+            "feeds": {f.name: f.describe() for f in feeds},
         },
     )
 

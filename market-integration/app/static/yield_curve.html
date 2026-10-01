@@ -682,6 +682,13 @@
   // ------------------------------------------------------------ status
 
   const BADGE_TEXT = { live: "Live", delayed: "Delayed", closed: "Market closed", disconnected: "Disconnected" };
+  // While the server is retrying a dropped feed, say so: a bare
+  // "Disconnected" reads as if this page had lost its own connection.
+  function badgeText(badge) {
+    const retrying = badge === "disconnected" && socketOpen && market && market.feed &&
+      market.feed.state === "reconnecting" && Date.now() - marketAt <= STATUS_TIMEOUT_MS;
+    return retrying ? "Reconnecting…" : BADGE_TEXT[badge];
+  }
   const STATUS_TIMEOUT_MS = 20000;
   let market = null, marketAt = 0, socketOpen = false;
 
@@ -689,7 +696,7 @@
     let badge = "disconnected";
     if (socketOpen && market && Date.now() - marketAt <= STATUS_TIMEOUT_MS) badge = market.badge;
     $("status").dataset.badge = badge;
-    $("statusText").textContent = "GFIM · " + BADGE_TEXT[badge];
+    $("statusText").textContent = "GFIM · " + badgeText(badge);
   }
   function setMarket(status) {
     // Follows GFIM's session, not the equity market's.

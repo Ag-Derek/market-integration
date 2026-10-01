@@ -289,6 +289,18 @@ continuous auction 10:00–15:00 GMT). The holiday list is kept by hand: add eac
 heartbeat before the badge shows "Delayed", and `STATUS_INTERVAL_SECONDS`
 (default 5) how often WebSocket clients get a status update.
 
+If a feed drops, it reconnects on its own, without a restart
+(`app/connectors/supervisor.py`). Equities and fixed income are
+supervised separately, so one dropping doesn't stop the other. Retry
+*n* waits `RECONNECT_INITIAL_DELAY_SECONDS` (default 1) × 2^(*n*−1), capped
+at `RECONNECT_MAX_DELAY_SECONDS` (default 30), with up to
+`RECONNECT_JITTER` (default 0.5) of each delay randomised. While it
+retries, `/health` returns 503 with `"status": "reconnecting"` and each
+feed's state under `feeds`. The status message's `feed.state` is
+`"reconnecting"`, and `feed.reconnect` gives the attempt and next retry
+time. Clients are sent a status message the moment a feed drops or
+recovers, and the pages' badges then read "Reconnecting…".
+
 `MARKET_DB_PATH` (default `market_data.db`) sets where the SQLite
 database holding the instruments table and aggregated candles lives.
 The test suite points it at a temporary file, so running `pytest` never
@@ -325,7 +337,7 @@ Uvicorn running on http://127.0.0.1:8000
 |-----------------------------------|---------------------------------------|
 | `http://127.0.0.1:8000/docs`      | Interactive Swagger UI — try endpoints directly in the browser |
 | `http://127.0.0.1:8000/redoc`     | Alternative API documentation        |
-| `http://127.0.0.1:8000/health`    | Health check                         |
+| `http://127.0.0.1:8000/health`    | Health check: 200 `healthy`, or 503 `reconnecting` (a feed is being retried) / `unhealthy`; `feeds` gives each feed's reconnect state |
 | `http://127.0.0.1:8000/instruments` | Instrument master as JSON. Optional `?asset_class=equity\|bill\|bond` and `?sector=Banking` (case-insensitive) filters |
 | `http://127.0.0.1:8000/instruments/{symbol}` | One instrument's reference data (e.g. `/instruments/MTNGH`); 404 if unknown |
 | `http://127.0.0.1:8000/search?q=gc` | Typeahead for the search bar: `symbol`, `name`, `asset_class`, `price` and `change` (null until quoted). Matches symbol, name, ISIN, tenor, issuer and maturity date (`?q=2027`), ignoring case and punctuation (`?q=fan milk`); ranked exact symbol, symbol prefix, name word prefix, then substring. Optional `limit` (1–50, default 10), `asset_class` and `sector` (case-insensitive; with an empty `q` it lists the whole sector) |
@@ -444,6 +456,7 @@ market-integration/
 │   │   ├── fixed_income_connector.py  # streams it: quote rates, burst mode
 │   │   ├── yield_curve.py         # drifting Nelson-Siegel curve behind it
 │   │   ├── composite_connector.py # equities + fixed income as one feed
+│   │   ├── supervisor.py          # reconnects a dropped feed, with backoff + jitter
 │   │   └── gse_mock_profiles.py   # mock calibration fields + defaults
 │   │
 │   ├── queue/
@@ -523,7 +536,7 @@ change — that's the point of the connector interface.
 - [ ] Real market-data provider connector (pending provider selection)
 - [ ] Webhook/event gateway for Symphony workflow triggers (e.g. threshold
       crossings, % change alerts)
-- [ ] Reconnect/backoff logic for the connector
+- [x] Reconnect/backoff logic for the connector
 - [x] Bounded queue + backpressure policy for high-throughput feeds
       (`MarketDataBuffer`, drop-oldest per subscriber)
 - [x] OHLCV aggregation + persistence, with CSV export of historical candles

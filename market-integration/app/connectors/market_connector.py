@@ -175,6 +175,14 @@ class MockMarketConnector(BaseMarketConnector):
         await asyncio.sleep(1)
 
         now = datetime.now(timezone.utc)
+        if self._profiles:
+            # A reconnect: the simulated market carried on without us, as
+            # a real provider's would, so resume it rather than generate a
+            # new one (which would reset every price and chart).
+            self.running = True
+            self.last_heartbeat = now
+            print("Reconnected to (mock) market data provider.")
+            return
         today = now.date()
 
         for symbol in self.symbols:
