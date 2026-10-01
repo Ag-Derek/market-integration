@@ -5,18 +5,19 @@ import logging
 import sqlite3
 from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import FastAPI, HTTPException, Query, WebSocket
 from fastapi.responses import (
     FileResponse,
     HTMLResponse,
     JSONResponse,
+    PlainTextResponse,
     RedirectResponse,
     StreamingResponse,
 )
 
-from app import config
+from app import config, metrics
 from app.aggregation.market_aggregator import MarketAggregator
 from app.aggregation.ranges import RANGES
 from app.bond_math import settlement_date
@@ -193,6 +194,29 @@ consumer_task: Optional[asyncio.Task] = None
 status_task: Optional[asyncio.Task] = None
 
 
+def pipeline_metrics() -> dict:
+    return metrics.collect(
+        buffer=buffer,
+        gateway=gateway,
+        validators={"processor": validated_feed.rejections, "aggregator": aggregator.rejections},
+        aggregator=aggregator,
+        feeds=feeds,
+    )
+
+
+@app.get("/metrics")
+async def get_metrics(format_: Literal["prometheus", "json"] = Query("prometheus", alias="format")):
+    """Pipeline metrics: dropped ticks and queue depth per buffer
+    subscriber, WebSocket clients, ticks rejected by validation (by
+    rule), the aggregator's last flush, and feed reconnects. Prometheus
+    text format by default, for scraping; ?format=json for the same
+    numbers as JSON. See app/metrics.py."""
+    snapshot = pipeline_metrics()
+    if format_ == "json":
+        return snapshot
+    return PlainTextResponse(metrics.to_prometheus(snapshot), media_type="text/plain; version=0.0.4")
+
+
 @app.get("/health")
 async def health():
     components = {
@@ -217,6 +241,8 @@ async def health():
             # Each feed's supervisor: connected, or reconnecting (which
             # attempt, when the next is, why it dropped).
             "feeds": {f.name: f.describe() for f in feeds},
+            # The headline numbers from /metrics.
+            "metrics": metrics.summary(pipeline_metrics()),
         },
     )
 

@@ -337,7 +337,8 @@ Uvicorn running on http://127.0.0.1:8000
 |-----------------------------------|---------------------------------------|
 | `http://127.0.0.1:8000/docs`      | Interactive Swagger UI — try endpoints directly in the browser |
 | `http://127.0.0.1:8000/redoc`     | Alternative API documentation        |
-| `http://127.0.0.1:8000/health`    | Health check: 200 `healthy`, or 503 `reconnecting` (a feed is being retried) / `unhealthy`; `feeds` gives each feed's reconnect state |
+| `http://127.0.0.1:8000/health`    | Health check: 200 `healthy`, or 503 `reconnecting` (a feed is being retried) / `unhealthy`; `feeds` gives each feed's reconnect state, `metrics` a summary of `/metrics` |
+| `http://127.0.0.1:8000/metrics`   | Pipeline metrics in Prometheus text format (scrape it directly); `?format=json` for the same as JSON. Ticks received; dropped ticks and queue depth per buffer subscriber; WebSocket clients and subscriptions; ticks passed/rejected by each validating consumer, and rejections by rule (`crossed_book`, `stale`, `matured`, …); the aggregator's flush count and last flush time, duration and rows; each feed's up/reconnect state |
 | `http://127.0.0.1:8000/instruments` | Instrument master as JSON. Optional `?asset_class=equity\|bill\|bond` and `?sector=Banking` (case-insensitive) filters |
 | `http://127.0.0.1:8000/instruments/{symbol}` | One instrument's reference data (e.g. `/instruments/MTNGH`); 404 if unknown |
 | `http://127.0.0.1:8000/search?q=gc` | Typeahead for the search bar: `symbol`, `name`, `asset_class`, `price` and `change` (null until quoted). Matches symbol, name, ISIN, tenor, issuer and maturity date (`?q=2027`), ignoring case and punctuation (`?q=fan milk`); ranked exact symbol, symbol prefix, name word prefix, then substring. Optional `limit` (1–50, default 10), `asset_class` and `sector` (case-insensitive; with an empty `q` it lists the whole sector) |
@@ -436,6 +437,7 @@ market-integration/
 │   ├── __init__.py
 │   ├── main.py                    # FastAPI app, wires everything together
 │   ├── config.py                  # env-driven settings
+│   ├── metrics.py                 # /metrics snapshot + Prometheus rendering
 │   │
 │   ├── models/
 │   │   ├── tick.py                # Tick: equity quote | bill/bond quote | repo trades, by tick_type
@@ -540,6 +542,7 @@ change — that's the point of the connector interface.
 - [x] Bounded queue + backpressure policy for high-throughput feeds
       (`MarketDataBuffer`, drop-oldest per subscriber)
 - [x] OHLCV aggregation + persistence, with CSV export of historical candles
-- [ ] Observability (connection status, messages/sec, latency, dropped
-      messages — `MarketDataBuffer.dropped_counts` already tracks the last
-      of these per subscriber and just needs to be surfaced)
+- [ ] Observability: connection status, dropped messages, queue depth,
+      clients and validation rejections are on `/metrics` (messages/sec is
+      `rate(market_buffer_received_ticks_total[1m])`); end-to-end latency
+      is still to do

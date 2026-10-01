@@ -77,6 +77,7 @@ class MarketDataBuffer:
         self._subscribers: dict[str, "asyncio.Queue[Tick]"] = {}
         self._conflated: dict[str, _ConflatedSubscriber] = {}
         self._dropped_counts: dict[str, int] = {}
+        self.received = 0  # ticks taken off the source, ever
         self._pump_task: Optional[asyncio.Task] = None
         self._running = False
 
@@ -136,6 +137,25 @@ class MarketDataBuffer:
         return dict(self._dropped_counts)
 
     @property
+    def maxsize(self) -> int:
+        return self._maxsize
+
+    @property
+    def queue_depths(self) -> dict[str, int]:
+        """Ticks waiting to be read, per subscriber: queued ticks for
+        subscribe(), symbols with an unread tick for subscribe_latest()."""
+        depths = {name: queue.qsize() for name, queue in self._subscribers.items()}
+        depths.update({name: len(sub.pending) for name, sub in self._conflated.items()})
+        return depths
+
+    @property
+    def subscriber_modes(self) -> dict[str, str]:
+        """'queue' (subscribe()) or 'latest' (subscribe_latest()), per subscriber."""
+        modes = {name: "queue" for name in self._subscribers}
+        modes.update({name: "latest" for name in self._conflated})
+        return modes
+
+    @property
     def healthy(self) -> bool:
         """False once start() hasn't run yet, or the pump task has
         stopped or crashed (e.g. the source connector raised)."""
@@ -144,6 +164,7 @@ class MarketDataBuffer:
     async def _pump(self) -> None:
         try:
             async for tick in self._source:
+                self.received += 1
                 for name, queue in list(self._subscribers.items()):
                     self._offer(name, queue, tick)
                 for name, sub in list(self._conflated.items()):
