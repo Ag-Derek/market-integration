@@ -117,6 +117,11 @@ class WebSocketGateway:
     def client_count(self) -> int:
         return len(self._clients)
 
+    @property
+    def subscription_count(self) -> int:
+        """Symbol subscriptions across all clients."""
+        return sum(len(c.subscriptions) for c in self._clients.values())
+
     def subscribers(self, symbol: str) -> int:
         return len(self._subscribers.get(symbol, ()))
 

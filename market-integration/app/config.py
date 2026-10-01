@@ -77,6 +77,15 @@ FEED_STALE_SECONDS: float = float(os.getenv("FEED_STALE_SECONDS", "15"))
 # Clients treat a few missed ones as a lost connection.
 STATUS_INTERVAL_SECONDS: float = float(os.getenv("STATUS_INTERVAL_SECONDS", "5"))
 
+# Reconnecting a dropped feed (app/connectors/supervisor.py): the first
+# retry waits about RECONNECT_INITIAL_DELAY_SECONDS, each later one twice
+# as long, never more than RECONNECT_MAX_DELAY_SECONDS. RECONNECT_JITTER
+# (0-1) is the fraction of each delay that is randomised, so many
+# clients dropped at once don't all retry in step.
+RECONNECT_INITIAL_DELAY_SECONDS: float = float(os.getenv("RECONNECT_INITIAL_DELAY_SECONDS", "1"))
+RECONNECT_MAX_DELAY_SECONDS: float = float(os.getenv("RECONNECT_MAX_DELAY_SECONDS", "30"))
+RECONNECT_JITTER: float = float(os.getenv("RECONNECT_JITTER", "0.5"))
+
 # Plausible range for a fixed-income yield, in % a year; a bill or bond
 # tick with any yield outside it is rejected. Wide on purpose: the
 # 28-Sep-2026 GFIM sample has a real 58.59% close on an Old GoG bond.

@@ -45,6 +45,7 @@ the database, /candles and the CSV export.
 import asyncio
 import logging
 import sqlite3
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -55,7 +56,7 @@ from app.models.candle import INTERVALS, Candle, bucket_end, bucket_start
 from app.models.fixed_income import RepoTick
 from app.models.market_data import MarketData
 from app.models.tick import Tick
-from app.validation.market_validator import validate_candle, validate_tick
+from app.validation.market_validator import RejectionCounter, validate_candle, validate_tick
 
 if TYPE_CHECKING:
     from app.connectors.base_connector import BaseMarketConnector
@@ -235,6 +236,12 @@ class MarketAggregator:
         self._consume_task: Optional[asyncio.Task] = None
         self._flush_task: Optional[asyncio.Task] = None
         self._running = False
+        # For /metrics: what validation turned away, and the last write.
+        self.rejections = RejectionCounter()
+        self.flushes = 0
+        self.last_flush_at: Optional[datetime] = None
+        self.last_flush_seconds: Optional[float] = None
+        self.last_flush_rows: Optional[int] = None
         self._init_db()
 
     def _init_db(self) -> None:
@@ -484,6 +491,7 @@ class MarketAggregator:
         try:
             async for tick in self._feed:
                 result = validate_tick(tick)
+                self.rejections.record(result)
                 if not result:
                     logger.warning(
                         "[aggregator] dropped %s tick for %s: %s",
@@ -600,7 +608,12 @@ class MarketAggregator:
         created_at = datetime.now(timezone.utc).isoformat()
         rows = [_to_row(c, created_at) for c in _valid_candles(closed + still_open)]
         repo_rows = [_repo_row(t) + (created_at,) for t in repos.values()]
+        started = time.perf_counter()
         await asyncio.to_thread(self._write_rows, rows, repo_rows)
+        self.last_flush_seconds = time.perf_counter() - started
+        self.last_flush_at = datetime.now(timezone.utc)
+        self.last_flush_rows = len(rows) + len(repo_rows)
+        self.flushes += 1
         del self._pending[:len(closed)]
         # Only drop what was written; a newer tick for the same key that
         # arrived during the write stays for the next flush.

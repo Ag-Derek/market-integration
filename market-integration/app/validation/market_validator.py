@@ -45,17 +45,26 @@ MAX_CLOCK_SKEW_AHEAD = timedelta(seconds=5)
 
 
 class ValidationResult:
-    __slots__ = ("is_valid", "errors")
+    """`errors` are human-readable, with the offending values; `rules`
+    names the check behind each one (same order), for counting
+    rejections by rule -- see RejectionCounter."""
 
-    def __init__(self, is_valid: bool, errors: list[str]):
+    __slots__ = ("is_valid", "errors", "rules")
+
+    def __init__(self, is_valid: bool, errors: list[str], rules: list[str] | None = None):
         self.is_valid = is_valid
         self.errors = errors
+        self.rules = rules if rules is not None else []
 
     def __bool__(self) -> bool:
         return self.is_valid
 
     def __repr__(self) -> str:
         return f"ValidationResult(is_valid={self.is_valid}, errors={self.errors})"
+
+
+# A failed check: (rule, message).
+_Failure = tuple[str, str]
 
 
 def validate_tick(
@@ -69,27 +78,31 @@ def validate_tick(
     to config.FI_YIELD_MIN/FI_YIELD_MAX."""
     now = now or datetime.now(timezone.utc)
     if isinstance(tick, MarketData):
-        errors = _equity_errors(tick)
+        failures = _equity_errors(tick)
     else:
         bounds = yield_bounds or (config.FI_YIELD_MIN, config.FI_YIELD_MAX)
         if isinstance(tick, FixedIncomeTick):
-            errors = _fixed_income_errors(tick, now, bounds)
+            failures = _fixed_income_errors(tick, now, bounds)
         else:
-            errors = _repo_errors(tick, now, bounds)
-    errors += _clock_errors(tick, now)
-    return ValidationResult(is_valid=not errors, errors=errors)
+            failures = _repo_errors(tick, now, bounds)
+    failures += _clock_errors(tick, now)
+    return ValidationResult(
+        is_valid=not failures,
+        errors=[message for _, message in failures],
+        rules=[rule for rule, _ in failures],
+    )
 
 
-def _equity_errors(tick: MarketData) -> list[str]:
-    errors: list[str] = []
+def _equity_errors(tick: MarketData) -> list[_Failure]:
+    errors: list[_Failure] = []
 
     # A one-sided or empty book is normal on the GSE; only a crossed or
     # locked two-sided book is an error.
     if tick.bid is not None and tick.ask is not None and tick.bid >= tick.ask:
-        errors.append(f"bid ({tick.bid}) is not less than ask ({tick.ask})")
+        errors.append(("crossed_book", f"bid ({tick.bid}) is not less than ask ({tick.ask})"))
 
     if tick.day_low > tick.day_high:
-        errors.append(f"day_low ({tick.day_low}) > day_high ({tick.day_high})")
+        errors.append(("day_range_inverted", f"day_low ({tick.day_low}) > day_high ({tick.day_high})"))
     else:
         # The session VWAP is only made of today's trades once there are
         # some; before that it is the previous session's, carried over.
@@ -97,17 +110,17 @@ def _equity_errors(tick: MarketData) -> list[str]:
         for field in fields:
             value = getattr(tick, field)
             if not (tick.day_low <= value <= tick.day_high):
-                errors.append(
-                    f"{field} ({value}) outside day range "
-                    f"[{tick.day_low}, {tick.day_high}]"
-                )
+                errors.append((
+                    "outside_day_range",
+                    f"{field} ({value}) outside day range [{tick.day_low}, {tick.day_high}]",
+                ))
 
-    for label, low, high in (
-        ("year", tick.year_low, tick.year_high),
-        ("52-week", tick.week52_low, tick.week52_high),
+    for rule, label, low, high in (
+        ("outside_year_range", "year", tick.year_low, tick.year_high),
+        ("outside_52_week_range", "52-week", tick.week52_low, tick.week52_high),
     ):
         if not (low <= tick.price <= high):
-            errors.append(f"price ({tick.price}) outside {label} range [{low}, {high}]")
+            errors.append((rule, f"price ({tick.price}) outside {label} range [{low}, {high}]"))
 
     return errors
 
@@ -118,7 +131,7 @@ _FI_YIELDS = ("bid_yield", "ask_yield", "opening_yield", "closing_yield", "day_l
 
 def _fixed_income_errors(
     tick: FixedIncomeTick, now: datetime, bounds: tuple[float, float]
-) -> list[str]:
+) -> list[_Failure]:
     # No day-range checks: GFIM closes routinely fall outside the traded
     # range, and price ranges come reversed (docs/data-formats.md,
     # quirks 7 and 9).
@@ -128,13 +141,13 @@ def _fixed_income_errors(
     # Quoted by yield, a bid is the *higher* yield (the lower price).
     # Unlike equities, a locked book (bid = ask) is allowed.
     if tick.bid_yield is not None and tick.ask_yield is not None and tick.bid_yield < tick.ask_yield:
-        errors.append(f"bid_yield ({tick.bid_yield}) is below ask_yield ({tick.ask_yield})")
+        errors.append(("crossed_book", f"bid_yield ({tick.bid_yield}) is below ask_yield ({tick.ask_yield})"))
     if tick.bid_price is not None and tick.ask_price is not None and tick.bid_price > tick.ask_price:
-        errors.append(f"bid_price ({tick.bid_price}) is above ask_price ({tick.ask_price})")
+        errors.append(("crossed_book", f"bid_price ({tick.bid_price}) is above ask_price ({tick.ask_price})"))
     return errors
 
 
-def _repo_errors(tick: RepoTick, now: datetime, bounds: tuple[float, float]) -> list[str]:
+def _repo_errors(tick: RepoTick, now: datetime, bounds: tuple[float, float]) -> list[_Failure]:
     errors = (
         _positive(tick, ("bond_price",))
         + _in_bounds(tick, ("bond_yield", "repo_rate"), bounds)
@@ -143,54 +156,84 @@ def _repo_errors(tick: RepoTick, now: datetime, bounds: tuple[float, float]) -> 
     # A yield equal to the price is the report's price-in-the-yield-column
     # error (quirk 12), which the bounds alone can't catch (79.96 < 100).
     if tick.bond_yield is not None and tick.bond_yield == tick.bond_price:
-        errors.append(f"bond_yield ({tick.bond_yield}) equals bond_price: a price in the yield field")
+        errors.append((
+            "price_in_yield_field",
+            f"bond_yield ({tick.bond_yield}) equals bond_price: a price in the yield field",
+        ))
     return errors
 
 
-def _positive(tick, fields: tuple[str, ...]) -> list[str]:
+def _positive(tick, fields: tuple[str, ...]) -> list[_Failure]:
     return [
-        f"{f} ({v}) is not positive"
+        ("non_positive_price", f"{f} ({v}) is not positive")
         for f in fields
         if (v := getattr(tick, f)) is not None and v <= 0
     ]
 
 
-def _in_bounds(tick, fields: tuple[str, ...], bounds: tuple[float, float]) -> list[str]:
+def _in_bounds(tick, fields: tuple[str, ...], bounds: tuple[float, float]) -> list[_Failure]:
     low, high = bounds
     return [
-        f"{f} ({v}) outside [{low}, {high}]"
+        ("yield_out_of_bounds", f"{f} ({v}) outside [{low}, {high}]")
         for f in fields
         if (v := getattr(tick, f)) is not None and not (low <= v <= high)
     ]
 
 
-def _maturity_errors(tick: FixedIncomeTick | RepoTick, now: datetime) -> list[str]:
+def _maturity_errors(tick: FixedIncomeTick | RepoTick, now: datetime) -> list[_Failure]:
     # A security redeemed today no longer trades.
     if tick.maturity_date <= now.date():
-        return [f"security has matured (maturity_date {tick.maturity_date.isoformat()})"]
+        return [("matured", f"security has matured (maturity_date {tick.maturity_date.isoformat()})")]
     return []
 
 
-def _clock_errors(tick: Tick, now: datetime) -> list[str]:
-    errors: list[str] = []
+def _clock_errors(tick: Tick, now: datetime) -> list[_Failure]:
+    errors: list[_Failure] = []
     # Freshness is judged on when the feed published the quote, never on
     # the last trade: that can legitimately be hours old (see MarketData).
     age = now - tick.timestamp
     if age > MAX_TICK_AGE:
-        errors.append(f"tick is stale: published {age.total_seconds():.1f}s ago")
+        errors.append(("stale", f"tick is stale: published {age.total_seconds():.1f}s ago"))
     elif age < -MAX_CLOCK_SKEW_AHEAD:
-        errors.append(f"tick is timestamped {(-age).total_seconds():.1f}s in the future")
+        errors.append(("future_timestamp", f"tick is timestamped {(-age).total_seconds():.1f}s in the future"))
 
     if tick.last_trade_at is not None:
         if tick.last_trade_at - tick.timestamp > MAX_CLOCK_SKEW_AHEAD:
-            errors.append(
+            errors.append((
+                "trade_after_quote",
                 f"last_trade_at ({tick.last_trade_at.isoformat()}) is after the quote's "
-                f"timestamp ({tick.timestamp.isoformat()})"
-            )
+                f"timestamp ({tick.timestamp.isoformat()})",
+            ))
     elif tick.volume > 0:
-        errors.append(f"volume ({tick.volume}) traded this session but no last_trade_at")
+        errors.append((
+            "volume_without_trade_time",
+            f"volume ({tick.volume}) traded this session but no last_trade_at",
+        ))
 
     return errors
+
+
+class RejectionCounter:
+    """Running totals for one validating consumer, for /metrics: ticks
+    that passed, ticks rejected, and rejections by rule. A tick that
+    breaks several rules counts once in `rejected` and once under each
+    rule it broke."""
+
+    def __init__(self):
+        self.passed = 0
+        self.rejected = 0
+        self.by_rule: dict[str, int] = {}
+
+    def record(self, result: ValidationResult) -> None:
+        if result:
+            self.passed += 1
+            return
+        self.rejected += 1
+        for rule in set(result.rules):
+            self.by_rule[rule] = self.by_rule.get(rule, 0) + 1
+
+    def snapshot(self) -> dict:
+        return {"passed": self.passed, "rejected": self.rejected, "by_rule": dict(sorted(self.by_rule.items()))}
 
 
 def validate_candle(candle: Candle) -> ValidationResult:
@@ -257,15 +300,17 @@ class ValidatingStream:
 
     def __init__(self, feed: AsyncIterator[Tick], name: str = "validator"):
         self._feed = feed
-        self._name = name
+        self.name = name
+        self.rejections = RejectionCounter()
 
     async def __aiter__(self) -> AsyncIterator[Tick]:
         async for tick in self._feed:
             result = validate_tick(tick)
+            self.rejections.record(result)
             if result:
                 yield tick
             else:
                 logger.warning(
                     "[%s] rejected %s tick for %s: %s",
-                    self._name, tick.tick_type, tick.symbol, "; ".join(result.errors),
+                    self.name, tick.tick_type, tick.symbol, "; ".join(result.errors),
                 )

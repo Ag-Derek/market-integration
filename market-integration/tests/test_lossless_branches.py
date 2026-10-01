@@ -222,14 +222,19 @@ def test_metrics_reports_drops_per_subscriber_and_incomplete_candles(client):
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/plain")
     lines = response.text.splitlines()
-    assert "# TYPE market_buffer_dropped_ticks_total counter" in lines
-    assert any(
-        line.startswith('market_buffer_dropped_ticks_total{subscriber="aggregator",policy="lossless"} ')
-        for line in lines
-    )
-    assert any(line.startswith('market_buffer_queue_capacity{subscriber="aggregator"') for line in lines)
+    assert 'market_buffer_dropped_ticks_total{subscriber="aggregator"} 0' in lines
+    assert any(line.startswith('market_buffer_queue_depth{subscriber="aggregator",mode="lossless"} ')
+               for line in lines)
+    assert 'market_buffer_queue_capacity{subscriber="aggregator"} 10000' in lines
+    assert 'market_buffer_queue_capacity{subscriber="processor"} 200' in lines
+    for name in ("market_buffer_queue_peak_depth", "market_buffer_blocked_seconds_total"):
+        assert any(line.startswith(f'{name}{{subscriber="aggregator"}} ') for line in lines)
     assert any(line.startswith("market_aggregator_incomplete_candles_total ") for line in lines)
-    assert any(line.startswith("market_buffer_ticks_total ") for line in lines)
+
+    snapshot = client.get("/metrics", params={"format": "json"}).json()
+    aggregator = snapshot["buffer"]["subscribers"]["aggregator"]
+    assert aggregator["mode"] == "lossless" and aggregator["capacity"] == 10_000
+    assert snapshot["aggregator"]["incomplete_candles"] == 0
 
 
 def test_candles_api_says_whether_each_candle_is_complete(client):

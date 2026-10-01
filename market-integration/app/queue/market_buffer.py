@@ -137,7 +137,7 @@ class MarketDataBuffer:
         self._block_timeout = block_timeout
         self._subscribers: dict[str, _QueuedSubscriber] = {}
         self._conflated: dict[str, _ConflatedSubscriber] = {}
-        self._ticks_total = 0
+        self.received = 0  # ticks taken off the source, ever
         self._pump_task: Optional[asyncio.Task] = None
         self._running = False
 
@@ -209,11 +209,6 @@ class MarketDataBuffer:
         backpressure so far."""
         return {name: sub.dropped for name, sub in self._subscribers.items()}
 
-    @property
-    def ticks_total(self) -> int:
-        """Ticks read from the source so far."""
-        return self._ticks_total
-
     def stats(self) -> list[dict]:
         """Per subscribe() subscriber: its policy, queue depth (now and
         the most ever) and capacity, ticks dropped, and seconds the pump
@@ -232,6 +227,28 @@ class MarketDataBuffer:
         ]
 
     @property
+    def maxsize(self) -> int:
+        """Queue size of a plain (drop-oldest) subscribe() subscriber."""
+        return self._maxsize
+
+    @property
+    def queue_depths(self) -> dict[str, int]:
+        """Ticks waiting to be read, per subscriber: queued ticks for
+        subscribe(), symbols with an unread tick for subscribe_latest()."""
+        depths = {name: sub.queue.qsize() for name, sub in self._subscribers.items()}
+        depths.update({name: len(sub.pending) for name, sub in self._conflated.items()})
+        return depths
+
+    @property
+    def subscriber_modes(self) -> dict[str, str]:
+        """'queue' (subscribe(), drop-oldest), 'lossless'
+        (subscribe(lossless=True)) or 'latest' (subscribe_latest()), per
+        subscriber."""
+        modes = {name: "lossless" if sub.lossless else "queue" for name, sub in self._subscribers.items()}
+        modes.update({name: "latest" for name in self._conflated})
+        return modes
+
+    @property
     def healthy(self) -> bool:
         """False once start() hasn't run yet, or the pump task has
         stopped or crashed (e.g. the source connector raised)."""
@@ -240,7 +257,7 @@ class MarketDataBuffer:
     async def _pump(self) -> None:
         try:
             async for tick in self._source:
-                self._ticks_total += 1
+                self.received += 1
                 waiting = []
                 for name, sub in list(self._subscribers.items()):
                     if not self._offer(name, sub, tick):
