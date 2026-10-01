@@ -493,6 +493,13 @@
   // own connection, never price direction.
 
   const BADGE_TEXT = { live: "Live", delayed: "Delayed", closed: "Market closed", disconnected: "Disconnected" };
+  // While the server is retrying a dropped feed, say so: a bare
+  // "Disconnected" reads as if this page had lost its own connection.
+  function badgeText(badge) {
+    const retrying = badge === "disconnected" && socketOpen && market && market.feed &&
+      market.feed.state === "reconnecting" && Date.now() - marketAt <= STATUS_TIMEOUT_MS;
+    return retrying ? "Reconnecting…" : BADGE_TEXT[badge];
+  }
   // Status arrives every few seconds; this long without one means the
   // connection is gone even if the socket hasn't noticed yet.
   const STATUS_TIMEOUT_MS = 20000;
@@ -524,7 +531,7 @@
     if (!p) return;
     const badge = badgeState();
     p.status.dataset.badge = badge;
-    p.statusText.textContent = BADGE_TEXT[badge];
+    p.statusText.textContent = badgeText(badge);
     p.priceCaption.classList.toggle("show", marketClosed());
     if (state[sym]) p.asOf.textContent = asOfText(state[sym]);
   }
