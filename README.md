@@ -18,33 +18,44 @@ built and tested before a real market-data source is chosen.
 Market Data Provider (mock, later real)
             │
             ▼
-     MarketConnector                (app/connectors/)
-            │  MarketData
-            ▼
-     MarketDataBuffer               (app/queue/)
-   per-subscriber bounded queues, drop-oldest backpressure
-            │
-   ┌────────┴─────────────────────┐
-   ▼                               ▼
-ValidatingStream                MarketAggregator        (app/aggregation/)
-(app/validation/)                builds OHLCV candles per symbol,
-   │  drops bad ticks             flushes to SQLite every 15 min
-   ▼                                       │
-MarketProcessor                            ▼
-(app/processors/)                   market_data.db (market_candles table)
-tracks latest state per symbol              │
-   │                                        ▼
-   ├──────────────┐              GET /candles/export (CSV download)
-   ▼              ▼
-REST endpoint  WebSocketGateway   (app/gateways/)
-(/market/{symbol})   │
-                      ▼
-                Connected clients (eventually Symphony)
+     CompositeConnector             (app/connectors/)
+     equities + fixed income as one feed
+            │                 │
+            │ live ticks      │ fetch_history() — once, at startup
+            ▼                 └───────────────────────────────┐
+     MarketDataBuffer               (app/queue/)              │
+   per-subscriber bounded queues, drop-oldest backpressure    │
+            │                                                 │
+   ┌────────┴──────── two independent subscribers ───┐        │
+   │  "processor" queue                 "aggregator" queue    │
+   ▼                                                 ▼        ▼
+ValidatingStream                         MarketAggregator    (app/aggregation/)
+(app/validation/)                        validates on its own; backfill()
+   │  drops bad ticks                    seeds history, then live ticks
+   ▼                                     build 5m/15m/1h/1d/1w candles
+MarketProcessor                          in memory, flushed every 60 s
+(app/processors/)                                    │
+tracks latest state per symbol                       ▼
+   │                                 market_data.db (market_candles,
+   ├───────────────┐                                 repo_trades)
+   ▼               ▼                                 │
+REST endpoints  WebSocketGateway  (app/gateways/)    ├─► GET /candles  (JSON for charts;
+(/market/…,     /ws/market                           │   overlays the in-memory
+ /search, …)       │                                 │   open windows)
+                   ▼                                 └─► GET /candles/export (CSV)
+            Connected clients: /ticker, /stock/{symbol},
+            /fixed-income, … (eventually Symphony)
 ```
+
+The two branches each get their own queue from `MarketDataBuffer`, so
+neither can hold up the other: a slow SQLite write never delays a
+WebSocket client, and a slow client never costs the aggregator a tick.
+Each branch validates ticks itself.
 
 - **`app/connectors/`** — talks to the market-data source. `base_connector.py`
   defines the interface every provider adapter must implement
-  (`connect`, `stream`, `disconnect`, `normalize`). `market_connector.py` is
+  (`connect`, `stream`, `disconnect`, `normalize`, and `fetch_history`
+  for backfill). `market_connector.py` is
   the current mock implementation; `gse_mock_profiles.py` documents the
   per-symbol calibration it reads (starting price, volatility, trade
   frequency, book shape). A real provider gets its own class here
@@ -71,7 +82,15 @@ REST endpoint  WebSocketGateway   (app/gateways/)
   `timestamp`) plus the quote-page fundamentals (`previous_close`, day/52-week
   range, market cap, bid/ask, dividend info, ...). The mock connector
   generates the fundamentals; a real connector would only need to supply
-  what its entitlement actually includes.
+  what its entitlement actually includes. `candle.py` holds the `Candle`
+  model (OHLCV, `tick_count` — 0 for backfilled candles — and the optional
+  yield OHLC for fixed income), the supported intervals (`INTERVALS`), and
+  the time grid: `bucket_start()` aligns every window to the UTC epoch
+  (`1d` is UTC midnight to midnight; `1w` starts Monday 00:00 UTC). Both
+  backfill and live aggregation use it, so a backfilled candle and a live
+  one for the same window share a `window_start` and merge cleanly.
+  `resample()` rolls finer candles up into coarser ones (the mocks build
+  their weekly history from daily this way).
 - **`app/queue/`** — `MarketDataBuffer` sits between the connector and every
   downstream consumer. Each subscriber gets its own bounded queue; if a
   consumer falls behind and its queue fills up, the oldest buffered tick for
@@ -86,14 +105,63 @@ REST endpoint  WebSocketGateway   (app/gateways/)
   latest known value per symbol.
 - **`app/aggregation/`** — `MarketAggregator` is a separate branch off the
   buffer (not downstream of the processor), so a slow database write can
-  never delay real-time delivery. It builds OHLCV candles per symbol in
-  memory and flushes them to a SQLite database (`market_data.db`, table
-  `market_candles`) every 15 minutes, plus once more on clean shutdown.
+  never delay real-time delivery. It builds OHLCV candles per symbol on
+  every interval at once (`5m`, `15m`, `1h`, `1d`, `1w`) in memory and
+  flushes them to a SQLite database (`market_data.db`, table
+  `market_candles`) every 60 seconds (`DEFAULT_FLUSH_INTERVAL_SECONDS`),
+  plus once more on clean shutdown. Each flush writes the closed windows
+  and a snapshot of the still-open ones; `INSERT OR REPLACE` on
+  `(symbol, interval, window_start)` keeps re-flushing idempotent.
+  `/candles` overlays the in-memory windows on the stored rows, so the
+  newest candle is always current, not as of the last flush.
+  - **Backfill.** On startup, before any live ticks flow,
+    `aggregator.backfill(connector)` asks the connector for each symbol's
+    history on every interval (`fetch_history()`, part of the connector
+    interface) and replaces whatever is stored from the start of that span
+    onward: the provider is the source of truth for the past. If the
+    newest fetched candle is the still-open bucket, it seeds the live
+    window with it, so e.g. today's daily candle keeps its pre-startup
+    open/high/low. Bad candles are dropped (and logged) by
+    `validate_candle` before they reach the database.
+  - **`ranges.py`** — the chart range selector. `RANGES` maps each range
+    to the candle interval it is drawn from (coarsest that still gives
+    roughly 100–750 points) and its lookback; `HISTORY_DEPTH` is how far
+    back backfill fetches per interval so every range is fully covered:
+
+    | Range | Interval | Lookback |
+    |---|---|---|
+    | `1D` | `5m` | 1 day |
+    | `5D` | `15m` | 5 days |
+    | `1M` | `1h` | 30 days |
+    | `6M` | `1d` | 182 days |
+    | `YTD` | `1d` | since 1 Jan (UTC) |
+    | `1Y` | `1d` | 365 days |
+    | `5Y` | `1w` | 5 years |
+    | `Max` | `1w` | everything |
+
+    | Interval | Backfill depth |
+    |---|---|
+    | `5m` | 2 days |
+    | `15m` | 7 days |
+    | `1h` | 35 days |
+    | `1d` | 400 days |
+    | `1w` | everything the provider has |
+
+  - Volume: the mock reports *cumulative* session volume, so each tick
+    contributes its increase over the previous tick, not its raw value.
+  - Fixed income: bills and bonds are charted on clean closing price,
+    and each candle also carries the same window in yield
+    (`yield_open` … `yield_close`). Sell/buy-back (repo) ticks never make
+    candles; they go to a `repo_trades` table, one row per bond per
+    session.
 - **`app/gateways/`** — delivery layer. Currently a WebSocket gateway that
   broadcasts to connected clients concurrently; a webhook gateway for
   Symphony workflow events would live here too.
 - **`app/main.py`** — wires everything together and exposes the FastAPI app,
-  including the `/candles/export` CSV download of aggregated history.
+  including `/candles` (chart data), the `/candles/export` CSV download of
+  aggregated history, and the `/stock/{symbol}` page. Startup order is:
+  seed instruments → connect → backfill → start buffer → start aggregator
+  and processor.
 - **`app/config.py`** — environment-driven settings (tracked symbols, mock
   update interval, queue size, provider URL/key placeholders).
 
@@ -270,7 +338,9 @@ Uvicorn running on http://127.0.0.1:8000
 | `http://127.0.0.1:8000/market/{symbol}` | Latest snapshot for a tracked symbol (e.g. `/market/MTNGH`); 404 if unknown |
 | `ws://127.0.0.1:8000/ws/market`   | WebSocket — live quotes for the symbols a client subscribes to (protocol below) |
 | `http://127.0.0.1:8000/ticker`    | Live quote card UI (`app/static/ticker.html`), driven by the WebSocket feed above. The equities list is a collapsible sidebar; the open views are the watchlist, kept in the browser. The header search (press `/`; ↑/↓, Enter to open, Shift+Enter to pin, Esc to close) is also on `/stock/{symbol}` |
-| `http://127.0.0.1:8000/candles/export` | Historical OHLCV candles as a CSV download (opens in Excel). Optional `?symbol=MTNGH` and `?interval=15m` query params |
+| `http://127.0.0.1:8000/stock/{symbol}` | Single-stock page (`app/static/stock.html`) for an equity: live quote over `/ws/market` plus a chart from `/candles` with the 1D–Max range selector. 404 for bills, bonds and unknown symbols. `/stock` redirects to the first equity |
+| `http://127.0.0.1:8000/candles?symbol=MTNGH&range=1D` | OHLCV candles as JSON for charting. `symbol` is required (404 if not in the feed). `range` is `1D`, `5D`, `1M`, `6M`, `YTD`, `1Y`, `5Y` or `Max` (default `1D`) and picks the lookback and candle interval (see `ranges.py` above); `interval` (`5m`, `15m`, `1h`, `1d`, `1w`) overrides the interval. 400 for an unknown range or interval. Returns `symbol`, `range`, `interval`, `start` and `candles` — each `time`, `open`, `high`, `low`, `close`, `volume` and `yield` (`{open, high, low, close}` for bills and bonds, `null` for equities and price-only corporates). The newest candle is the live, still-open one |
+| `http://127.0.0.1:8000/candles/export` | Stored OHLCV candles from `market_candles` as a CSV download (opens in Excel), ordered by symbol then time. Optional `?symbol=MTNGH` (default: all symbols) and `?interval=` (`5m`, `15m`, `1h`, `1d`, `1w`; default `15m`). Columns: `symbol`, `interval`, `window_start`, `window_end`, `open`, `high`, `low`, `close`, `volume`, `tick_count`, `yield_open`, `yield_high`, `yield_low`, `yield_close`. Reads the database only, so the open window is as of the last flush (up to 60 s old) |
 
 `127.0.0.1` means "this machine only" — the service isn't reachable from
 another computer or from Symphony yet. That's expected during development.
@@ -281,7 +351,8 @@ another computer or from Symphony yet. That's expected during development.
 curl http://127.0.0.1:8000/health
 curl http://127.0.0.1:8000/market/status
 curl http://127.0.0.1:8000/market/MTNGH
-curl http://127.0.0.1:8000/candles/export -o market_candles.csv
+curl "http://127.0.0.1:8000/candles?symbol=MTNGH&range=5D"
+curl "http://127.0.0.1:8000/candles/export?symbol=MTNGH&interval=1d" -o market_candles_MTNGH.csv
 ```
 
 ### The live WebSocket feed
@@ -355,8 +426,9 @@ market-integration/
 │   ├── config.py                  # env-driven settings
 │   │
 │   ├── models/
+│   │   ├── tick.py                # Tick: equity quote | bill/bond quote | repo trades, by tick_type
 │   │   ├── market_data.py         # canonical MarketData schema
-│   │   ├── candle.py              # OHLCV candle + time-bucket grid
+│   │   ├── candle.py              # OHLCV candle, INTERVALS, time-bucket grid, resample()
 │   │   ├── fixed_income.py        # GFIM report rows (bonds, bills, corporates, sell/buy-backs)
 │   │   └── instrument.py          # Instrument reference-data schema
 │   │
@@ -381,10 +453,20 @@ market-integration/
 │   │   └── market_validator.py    # business-rule checks + ValidatingStream
 │   │
 │   ├── processors/
-│   │   └── market_processor.py    # tracks latest state per symbol
+│   │   ├── market_processor.py    # tracks latest state per symbol
+│   │   └── movers.py              # equity gainers / losers / most active behind /movers
+│   │
+│   ├── bond_math/                 # Ghana fixed-income math (% a year, per 100 face)
+│   │   ├── __init__.py            # public API of the package
+│   │   ├── bills.py               # T-bills: simple-interest ACT/364 price <-> yield, risk
+│   │   ├── bonds.py               # coupon bonds: price <-> yield, accrued, duration, DV01
+│   │   ├── conventions.py         # day counts, coupon calendar, T+2 settlement date
+│   │   ├── invoice.py             # trade invoice: principal + accrued = total
+│   │   └── calculator.py          # bond page calculator behind /bond/{symbol}/analytics
 │   │
 │   ├── aggregation/
-│   │   └── market_aggregator.py   # OHLCV candles -> SQLite (market_data.db)
+│   │   ├── market_aggregator.py   # backfill + live OHLCV candles -> SQLite (market_data.db)
+│   │   └── ranges.py              # chart ranges -> candle interval, backfill depth
 │   │
 │   ├── gateways/
 │   │   └── websocket_gateway.py   # client tracking + concurrent broadcast
@@ -395,7 +477,11 @@ market-integration/
 │   │
 │   └── static/
 │       ├── search.js              # header search bar (autocomplete over /search) on /ticker and /stock
-│       └── ticker.html            # live quote card UI, served at /ticker
+│       ├── ticker.html            # live quote card UI, served at /ticker
+│       ├── stock.html             # single-stock page + range chart, served at /stock/{symbol}
+│       ├── fixed_income.html      # bills and bonds by GFIM segment, served at /fixed-income
+│       ├── yield_curve.html       # GoG yield curve vs. a past day, served at /yield-curve
+│       └── bond.html              # bill/bond page (simplified YAS), served at /bond/{symbol}
 │
 ├── data/
 │   ├── instruments.json           # instrument master seed (source of truth)
@@ -403,9 +489,14 @@ market-integration/
 │
 ├── docs/
 │   ├── data-formats.md            # GSE/GFIM report fields -> our models, data quirks
+│   ├── fixed-income-sources-and-conventions.md  # day counts, settlement, yield conventions behind bond_math/
 │   └── samples/                   # official daily reports for 28-Sep-2026 (xlsx + pdf)
 │
+├── tests/                         # pytest suite (pipeline, candles, bond math, gateway, ...)
+│
 ├── requirements.txt
+├── requirements-dev.txt           # test dependencies
+├── pytest.ini
 ├── .env.example
 ├── market_data.db                 # SQLite, created on first run (gitignored)
 └── README.md
@@ -415,8 +506,10 @@ market-integration/
 
 1. Create a new class in `app/connectors/` (e.g. `real_market_connector.py`)
    implementing `BaseMarketConnector`: `connect()` (auth + subscribe),
-   `stream()` (yield normalized `MarketData`), `disconnect()`, and
-   `normalize()` (map the provider's raw fields to `MarketData`).
+   `stream()` (yield normalized `MarketData`), `disconnect()`,
+   `normalize()` (map the provider's raw fields to `MarketData`), and
+   `fetch_history()` (historical candles for backfill, bucketed with
+   `bucket_start()` from `app/models/candle.py`).
 2. Swap the import in `app/main.py` from `MockMarketConnector` to the new
    class.
 3. Add any provider-specific settings (URL, API key, symbol format) to
