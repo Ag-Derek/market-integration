@@ -8,6 +8,7 @@ prices are per 100 face, durations are in years.
 """
 
 from app.bond_math.bills import (
+    bill_convexity,
     bill_dv01,
     bill_invoice,
     bill_modified_duration,
@@ -37,7 +38,7 @@ from app.bond_math.invoice import Invoice
 
 __all__ = [
     "BILL_DAY_BASIS", "SETTLEMENT_LAG", "Bond", "DayCount", "Invoice",
-    "accrued_interest", "bill_dv01", "bill_invoice", "bill_modified_duration", "bill_price",
+    "accrued_interest", "bill_convexity", "bill_dv01", "bill_invoice", "bill_modified_duration", "bill_price",
     "bill_yield", "bond_invoice", "bond_yield", "clean_price", "convexity", "days_accrued",
     "dirty_price", "discount_rate_to_yield", "dv01", "macaulay_duration", "modified_duration",
     "next_coupon_date", "previous_coupon_date", "settlement_date", "supports",
