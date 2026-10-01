@@ -83,7 +83,7 @@ SNAPSHOT = {
     "websocket": {"clients": 3, "subscriptions": 7},
     "validation": {"processor": {"passed": 8, "rejected": 2, "by_rule": {"stale": 2}}},
     "aggregator": {"flushes": 5, "last_flush_at": "2026-10-01T12:00:00+00:00",
-                   "last_flush_seconds": 0.012, "last_flush_rows": 40},
+                   "last_flush_seconds": 0.012, "last_flush_rows": 40, "incomplete_candles": 0},
     "feeds": {"equities": {"state": "connected", "up": True, "reconnects": 1, "attempt": 0}},
 }
 
@@ -110,7 +110,8 @@ def test_prometheus_exposition():
 
 def test_prometheus_omits_flush_gauges_before_the_first_flush():
     snapshot = {**SNAPSHOT, "aggregator": {"flushes": 0, "last_flush_at": None,
-                                           "last_flush_seconds": None, "last_flush_rows": None}}
+                                           "last_flush_seconds": None, "last_flush_rows": None,
+                                           "incomplete_candles": 0}}
     text = metrics.to_prometheus(snapshot)
     assert "market_aggregator_flushes_total 0" in text
     assert "last_flush_duration" not in text

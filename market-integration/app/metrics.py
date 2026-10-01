@@ -1,13 +1,21 @@
 """
 Pipeline metrics behind GET /metrics: how much the buffer is dropping
 and holding, how many WebSocket clients are connected, what validation
-turns away (by rule), the aggregator's last database write, and each
-feed's reconnects.
+turns away (by rule), the aggregator's last database write and the
+candles it flagged possibly incomplete, and each feed's reconnects.
 
 collect() reads the counters the components already keep into one
 snapshot (served as JSON); to_prometheus() renders that snapshot in the
 Prometheus text exposition format, so a Prometheus server can scrape
 /metrics directly with no client library.
+
+A drop on a lossless subscriber (the aggregator; alerts) means data
+loss, so alert on
+
+    increase(market_buffer_dropped_ticks_total{subscriber="aggregator"}[5m]) > 0
+
+Drops on the drop-oldest display branch ("processor") are expected
+under load.
 """
 
 from datetime import datetime
@@ -30,12 +38,27 @@ def collect(
 ) -> dict:
     depths = buffer.queue_depths
     dropped = buffer.dropped_counts
+    # Queue size, high-water mark and time the feed waited on it, for
+    # subscribe() subscribers (conflated ones have no queue).
+    queued = {
+        s["subscriber"]: {
+            "capacity": s["capacity"],
+            "peak_depth": s["peak_depth"],
+            "blocked_seconds": s["blocked_seconds"],
+        }
+        for s in buffer.stats()
+    }
     return {
         "buffer": {
             "received": buffer.received,
             "capacity": buffer.maxsize,
             "subscribers": {
-                name: {"mode": mode, "depth": depths.get(name, 0), "dropped": dropped.get(name, 0)}
+                name: {
+                    "mode": mode,
+                    "depth": depths.get(name, 0),
+                    "dropped": dropped.get(name, 0),
+                    **queued.get(name, {}),
+                }
                 for name, mode in buffer.subscriber_modes.items()
             },
         },
@@ -49,6 +72,7 @@ def collect(
             "last_flush_at": aggregator.last_flush_at.isoformat() if aggregator.last_flush_at else None,
             "last_flush_seconds": aggregator.last_flush_seconds,
             "last_flush_rows": aggregator.last_flush_rows,
+            "incomplete_candles": aggregator.incomplete_candles,
         },
         "feeds": {
             feed.name: {
@@ -115,6 +139,7 @@ def to_prometheus(snapshot: dict) -> str:
     out = _Exposition()
     buffer = snapshot["buffer"]
     subscribers = buffer["subscribers"]
+    queued = {n: s for n, s in subscribers.items() if "capacity" in s}
     out.metric("market_buffer_received_ticks_total", "counter",
                "Ticks taken off the connector by the buffer.", [(None, buffer["received"])])
     out.metric("market_buffer_dropped_ticks_total", "counter",
@@ -123,8 +148,15 @@ def to_prometheus(snapshot: dict) -> str:
     out.metric("market_buffer_queue_depth", "gauge",
                "Ticks waiting to be read, per subscriber (symbols with an unread tick, for conflated ones).",
                [({"subscriber": n, "mode": s["mode"]}, s["depth"]) for n, s in subscribers.items()])
+    out.metric("market_buffer_queue_peak_depth", "gauge",
+               "Most ticks ever waiting in a subscriber's queue at once since startup.",
+               [({"subscriber": n}, s["peak_depth"]) for n, s in queued.items()])
     out.metric("market_buffer_queue_capacity", "gauge",
-               "Per-subscriber queue size before ticks are dropped.", [(None, buffer["capacity"])])
+               "Per-subscriber queue size: the display's drops when full, a lossless one's holds the feed.",
+               [({"subscriber": n}, s["capacity"]) for n, s in queued.items()])
+    out.metric("market_buffer_blocked_seconds_total", "counter",
+               "Seconds the feed was held back waiting for a full lossless subscriber.",
+               [({"subscriber": n}, s["blocked_seconds"]) for n, s in queued.items()])
 
     ws = snapshot["websocket"]
     out.metric("market_websocket_clients", "gauge", "Connected WebSocket clients.", [(None, ws["clients"])])
@@ -143,6 +175,9 @@ def to_prometheus(snapshot: dict) -> str:
     agg = snapshot["aggregator"]
     out.metric("market_aggregator_flushes_total", "counter",
                "Candle/repo writes to the database.", [(None, agg["flushes"])])
+    out.metric("market_aggregator_incomplete_candles_total", "counter",
+               "Live candles flagged possibly_incomplete because a tick was dropped.",
+               [(None, agg["incomplete_candles"])])
     if agg["last_flush_at"] is not None:
         out.metric("market_aggregator_last_flush_timestamp_seconds", "gauge",
                    "When the last flush finished, as a Unix timestamp.",

@@ -176,17 +176,29 @@ instrument_store = InstrumentStore(config.DB_PATH)
 instrument_search = InstrumentSearch(INSTRUMENTS.values())
 
 # The buffer decouples ingestion (connector) from its downstream
-# consumers, each getting an independent bounded queue with drop-oldest
-# backpressure. See queue/market_buffer.py for why.
-buffer = MarketDataBuffer(connector.stream(), maxsize=config.QUEUE_MAX_SIZE)
+# consumers, each getting an independent bounded queue: drop-oldest for
+# the live display, lossless (bigger, and briefly blocking the feed when
+# full) for branches that must see every tick. See queue/market_buffer.py.
+buffer = MarketDataBuffer(
+    connector.stream(),
+    maxsize=config.QUEUE_MAX_SIZE,
+    lossless_maxsize=config.LOSSLESS_QUEUE_MAX_SIZE,
+    block_timeout=config.LOSSLESS_BLOCK_SECONDS,
+)
 
 # Real-time delivery: every tick, validated so a bad tick never reaches
-# a WebSocket client.
+# a WebSocket client. A dropped tick here only delays a price update.
 validated_feed = ValidatingStream(buffer.subscribe("processor"), name="processor")
 
 # OHLCV persistence: a separate branch off the buffer, so a slow database
 # write can never delay real-time delivery. Validates independently.
-aggregator = MarketAggregator(buffer.subscribe("aggregator"), db_path=config.DB_PATH)
+# Lossless: a lost tick can mean a wrong high, low or volume, so if one
+# is dropped anyway the candles it touched are flagged. (The alert
+# engine, when it lands, subscribes the same way.)
+aggregator = MarketAggregator(
+    buffer.subscribe("aggregator", lossless=True, on_drop=lambda tick: aggregator.mark_dropped(tick)),
+    db_path=config.DB_PATH,
+)
 
 # Set once startup() creates it, so /health can check whether it's still
 # alive (e.g. hasn't died from an unhandled exception in processor.consume).
@@ -206,8 +218,9 @@ def pipeline_metrics() -> dict:
 
 @app.get("/metrics")
 async def get_metrics(format_: Literal["prometheus", "json"] = Query("prometheus", alias="format")):
-    """Pipeline metrics: dropped ticks and queue depth per buffer
-    subscriber, WebSocket clients, ticks rejected by validation (by
+    """Pipeline metrics: dropped ticks, queue depth and capacity per
+    buffer subscriber (and how long the feed waited on lossless ones),
+    candles flagged possibly incomplete, WebSocket clients, ticks rejected by validation (by
     rule), the aggregator's last flush, and feed reconnects. Prometheus
     text format by default, for scraping; ?format=json for the same
     numbers as JSON. See app/metrics.py."""
@@ -416,6 +429,8 @@ async def get_candles(
     latter. The newest candle is the live, still-open one. For bills and
     bonds OHLC is clean price and `yield` the same window in yield (null
     for equities and price-only corporates), so a chart can toggle.
+    `possibly_incomplete` is true where the live feed lost a tick in
+    that window under load.
     """
     symbol = symbol.upper()
     if symbol not in connector.symbols:
@@ -455,6 +470,7 @@ async def get_candles(
                     "low": c.yield_low,
                     "close": c.yield_close,
                 },
+                "possibly_incomplete": c.possibly_incomplete,
             }
             for c in candles
         ],
@@ -473,7 +489,7 @@ async def export_candles(symbol: Optional[str] = None, interval: str = "15m"):
             query = (
                 "SELECT symbol, interval, window_start, window_end, "
                 "open, high, low, close, volume, tick_count, "
-                "yield_open, yield_high, yield_low, yield_close "
+                "yield_open, yield_high, yield_low, yield_close, possibly_incomplete "
                 "FROM market_candles WHERE interval = ?"
             )
             params: list = [interval]
@@ -492,7 +508,7 @@ async def export_candles(symbol: Optional[str] = None, interval: str = "15m"):
     writer.writerow([
         "symbol", "interval", "window_start", "window_end",
         "open", "high", "low", "close", "volume", "tick_count",
-        "yield_open", "yield_high", "yield_low", "yield_close",
+        "yield_open", "yield_high", "yield_low", "yield_close", "possibly_incomplete",
     ])
     writer.writerows(rows)
 
