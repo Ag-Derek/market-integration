@@ -285,7 +285,7 @@ def test_csv_export_still_serves_15m_candles(client):
     lines = response.text.strip().splitlines()
     assert lines[0] == (
         "symbol,interval,window_start,window_end,open,high,low,close,volume,tick_count,"
-        "yield_open,yield_high,yield_low,yield_close"
+        "yield_open,yield_high,yield_low,yield_close,possibly_incomplete"
     )
     assert len(lines) > 1
     assert all(line.startswith("MTNGH,15m,") for line in lines[1:])
