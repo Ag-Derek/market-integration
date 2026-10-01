@@ -426,6 +426,7 @@ market-integration/
 │   ├── config.py                  # env-driven settings
 │   │
 │   ├── models/
+│   │   ├── tick.py                # Tick: equity quote | bill/bond quote | repo trades, by tick_type
 │   │   ├── market_data.py         # canonical MarketData schema
 │   │   ├── candle.py              # OHLCV candle, INTERVALS, time-bucket grid, resample()
 │   │   ├── fixed_income.py        # GFIM report rows (bonds, bills, corporates, sell/buy-backs)
@@ -452,7 +453,16 @@ market-integration/
 │   │   └── market_validator.py    # business-rule checks + ValidatingStream
 │   │
 │   ├── processors/
-│   │   └── market_processor.py    # tracks latest state per symbol
+│   │   ├── market_processor.py    # tracks latest state per symbol
+│   │   └── movers.py              # equity gainers / losers / most active behind /movers
+│   │
+│   ├── bond_math/                 # Ghana fixed-income math (% a year, per 100 face)
+│   │   ├── __init__.py            # public API of the package
+│   │   ├── bills.py               # T-bills: simple-interest ACT/364 price <-> yield, risk
+│   │   ├── bonds.py               # coupon bonds: price <-> yield, accrued, duration, DV01
+│   │   ├── conventions.py         # day counts, coupon calendar, T+2 settlement date
+│   │   ├── invoice.py             # trade invoice: principal + accrued = total
+│   │   └── calculator.py          # bond page calculator behind /bond/{symbol}/analytics
 │   │
 │   ├── aggregation/
 │   │   ├── market_aggregator.py   # backfill + live OHLCV candles -> SQLite (market_data.db)
@@ -467,8 +477,11 @@ market-integration/
 │   │
 │   └── static/
 │       ├── search.js              # header search bar (autocomplete over /search) on /ticker and /stock
+│       ├── ticker.html            # live quote card UI, served at /ticker
 │       ├── stock.html             # single-stock page + range chart, served at /stock/{symbol}
-│       └── ticker.html            # live quote card UI, served at /ticker
+│       ├── fixed_income.html      # bills and bonds by GFIM segment, served at /fixed-income
+│       ├── yield_curve.html       # GoG yield curve vs. a past day, served at /yield-curve
+│       └── bond.html              # bill/bond page (simplified YAS), served at /bond/{symbol}
 │
 ├── data/
 │   ├── instruments.json           # instrument master seed (source of truth)
@@ -476,9 +489,14 @@ market-integration/
 │
 ├── docs/
 │   ├── data-formats.md            # GSE/GFIM report fields -> our models, data quirks
+│   ├── fixed-income-sources-and-conventions.md  # day counts, settlement, yield conventions behind bond_math/
 │   └── samples/                   # official daily reports for 28-Sep-2026 (xlsx + pdf)
 │
+├── tests/                         # pytest suite (pipeline, candles, bond math, gateway, ...)
+│
 ├── requirements.txt
+├── requirements-dev.txt           # test dependencies
+├── pytest.ini
 ├── .env.example
 ├── market_data.db                 # SQLite, created on first run (gitignored)
 └── README.md
