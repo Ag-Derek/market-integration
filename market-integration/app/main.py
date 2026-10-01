@@ -19,6 +19,8 @@ from fastapi.responses import (
 from app import config
 from app.aggregation.market_aggregator import MarketAggregator
 from app.aggregation.ranges import RANGES
+from app.bond_math import settlement_date
+from app.bond_math.calculator import calculate, quoted_yield, security_for
 from app.connectors.composite_connector import CompositeConnector
 from app.connectors.fixed_income_connector import MockFixedIncomeConnector
 from app.connectors.fixed_income_mock import MockFixedIncomeMarket
@@ -436,10 +438,86 @@ async def yield_curve_page():
     return (STATIC_DIR / "yield_curve.html").read_text(encoding="utf-8")
 
 
+@app.get("/bond/{symbol}/analytics")
+async def bond_analytics(
+    symbol: str,
+    settle: Optional[date] = None,
+    face: float = Query(1_000_000, gt=0),
+    price: Optional[float] = Query(None, gt=0),
+    yield_: Optional[float] = Query(None, alias="yield"),
+):
+    """The bond page's calculator (a simplified YAS; see
+    app/bond_math/calculator.py): give a clean `price` (per 100) or a
+    `yield` (% a year) and get the other, plus duration, convexity, DV01
+    and the invoice for `face` nominal. `settle` (YYYY-MM-DD) defaults to
+    T+2 on the GFIM calendar (T+0 if that isn't before maturity); with neither price nor yield, the yield is
+    the latest closing yield (else the bid/ask mid). 422 for a security
+    the v1 conventions don't price (corporates, GFSF and USD DDE bonds);
+    409 when there is no quote to start from."""
+    symbol = symbol.upper()
+    tick = processor.get_latest(symbol) if symbol in fixed_income_connector.symbols else None
+    if not isinstance(tick, FixedIncomeTick):
+        raise HTTPException(status_code=404, detail=f"No quote for bill or bond '{symbol}'")
+    try:
+        sec = security_for(tick, INSTRUMENTS.get(symbol))
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    trade_date = fixed_income_calendar.local_date(datetime.now(timezone.utc))
+    default_settle = settlement_date(trade_date, fixed_income_calendar)
+    if default_settle >= sec.maturity:
+        # A bill in its last days can't settle T+2; GFIM allows T+0 bilaterally.
+        default_settle = trade_date
+    if price is None and yield_ is None:
+        yield_ = quoted_yield(tick)
+        if yield_ is None:
+            raise HTTPException(status_code=409, detail=f"No quote yet for {symbol}; give a price or yield")
+    try:
+        calc = calculate(sec, settle or default_settle, face, price=price, yield_pct=yield_)
+    except (ValueError, ArithmeticError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    inv = calc.invoice
+    return {
+        "symbol": symbol,
+        "name": tick.name,
+        "kind": sec.kind,
+        "currency": tick.currency,
+        "maturity_date": sec.maturity.isoformat(),
+        "coupon": sec.bond.coupon if sec.bond else 0.0,
+        "frequency": sec.bond.frequency if sec.bond else 0,
+        "day_count": sec.day_count,
+        "trade_date": trade_date.isoformat(),
+        "default_settlement_date": default_settle.isoformat(),
+        "settlement_date": calc.settlement_date.isoformat(),
+        "face": calc.face,
+        "solved_for": calc.solved_for,
+        "clean_price": calc.clean_price,
+        "dirty_price": calc.dirty_price,
+        "yield": calc.yield_pct,
+        "previous_coupon_date": calc.previous_coupon.isoformat() if calc.previous_coupon else None,
+        "next_coupon_date": calc.next_coupon.isoformat() if calc.next_coupon else None,
+        "risk": {
+            "macaulay_duration": calc.macaulay_duration,
+            "modified_duration": calc.modified_duration,
+            "convexity": calc.convexity,
+            "dv01": calc.dv01,
+            "position_dv01": calc.position_dv01,
+        },
+        "invoice": {
+            "principal": inv.principal,
+            "accrued": inv.accrued,
+            "days_accrued": inv.days_accrued,
+            "total": inv.total,
+        },
+    }
+
+
 @app.get("/bond/{symbol}", response_class=HTMLResponse)
 async def bond_page(symbol: str):
-    """A bill or bond's page, opened from the Fixed Income tab. For now a
-    summary of its quote; the full detail page is #39."""
+    """A bill or bond's detail page (a simplified YAS), opened from the
+    Fixed Income tab: live quote, price/yield calculator, risk, invoice
+    and history."""
     if symbol.upper() not in fixed_income_connector.symbols:
         raise HTTPException(status_code=404, detail=f"Unknown bill or bond '{symbol.upper()}'")
     return (STATIC_DIR / "bond.html").read_text(encoding="utf-8")

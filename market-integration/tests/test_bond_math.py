@@ -19,6 +19,7 @@ import pytest
 from app.bond_math import (
     Bond,
     accrued_interest,
+    bill_convexity,
     bill_dv01,
     bill_invoice,
     bill_modified_duration,
@@ -236,6 +237,8 @@ def test_bill_risk_matches_finite_differences():
     assert bill_dv01(REPORT_DATE, maturity, y) == pytest.approx((down - up) / 2, rel=1e-6)
     assert bill_modified_duration(REPORT_DATE, maturity, y) == pytest.approx(
         (down - up) / (2 * h / 100) / mid, rel=1e-6)
+    assert bill_convexity(REPORT_DATE, maturity, y) == pytest.approx(
+        (up - 2 * mid + down) / (h / 100) ** 2 / mid, rel=1e-4)
 
 
 # ---------------------------------------------------------------- invoice and settlement
