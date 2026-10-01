@@ -49,11 +49,17 @@ DB_PATH: Path = Path(os.getenv("MARKET_DB_PATH", "market_data.db"))
 MOCK_INTERVAL_SECONDS: float = float(os.getenv("MOCK_INTERVAL_SECONDS", "0.5"))
 
 # Per-subscriber queue size on the MarketDataBuffer sitting between the
-# connector and its consumers (processor/gateway, aggregator). When a
-# subscriber falls behind and its queue fills up, the oldest buffered
-# tick for that subscriber is dropped to make room — see
-# app/queue/market_buffer.py.
+# connector and the live display branch (processor/gateway). When it
+# falls behind and its queue fills up, the oldest buffered tick is
+# dropped to make room — see app/queue/market_buffer.py.
 QUEUE_MAX_SIZE: int = int(os.getenv("QUEUE_MAX_SIZE", "200"))
+
+# Queue size for the branches that must see every tick (the candle
+# aggregator; alerts). When one is full anyway, the buffer pauses the
+# feed up to LOSSLESS_BLOCK_SECONDS for it to make room before dropping
+# the oldest tick (logged, counted in /metrics, candles flagged).
+LOSSLESS_QUEUE_MAX_SIZE: int = int(os.getenv("LOSSLESS_QUEUE_MAX_SIZE", "10000"))
+LOSSLESS_BLOCK_SECONDS: float = float(os.getenv("LOSSLESS_BLOCK_SECONDS", "0.5"))
 
 # Trading calendar: session hours, trading days and public holidays.
 MARKET_CALENDAR_PATH: Path = Path(os.getenv("MARKET_CALENDAR_PATH", str(CALENDAR_PATH)))

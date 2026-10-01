@@ -33,6 +33,13 @@ price (an unquoted security) makes no candle. Repo (sell/buy-back)
 ticks never touch candles: they are financing, not outright trades, so
 they go to a repo_trades table of their own, one row per bond per
 session.
+
+Lost ticks: the aggregator's buffer subscription is lossless (see
+app.queue.market_buffer), but if its queue still overflows the buffer
+hands each dropped tick to mark_dropped(). That flags the window the
+tick would have landed in, and the windows of the symbol's next tick
+(which absorbs the lost tick's volume), as possibly_incomplete -- in
+the database, /candles and the CSV export.
 """
 
 import asyncio
@@ -66,14 +73,20 @@ _CANDLE_COLUMNS = (
     "symbol", "interval", "window_start", "window_end",
     "open", "high", "low", "close", "volume", "tick_count",
     "yield_open", "yield_high", "yield_low", "yield_close",
-    "created_at",
+    "possibly_incomplete", "created_at",
 )
 _INSERT_CANDLES = (
     f"INSERT OR REPLACE INTO market_candles ({', '.join(_CANDLE_COLUMNS)}) "
     f"VALUES ({', '.join('?' * len(_CANDLE_COLUMNS))})"
 )
 # Added after the table first shipped; _init_db adds them to older databases.
-_YIELD_COLUMNS = ("yield_open", "yield_high", "yield_low", "yield_close")
+_ADDED_COLUMNS = {
+    "yield_open": "REAL",
+    "yield_high": "REAL",
+    "yield_low": "REAL",
+    "yield_close": "REAL",
+    "possibly_incomplete": "INTEGER NOT NULL DEFAULT 0",
+}
 
 
 @dataclass
@@ -89,6 +102,7 @@ class _WindowAggregate:
     yield_high: Optional[float] = None
     yield_low: Optional[float] = None
     yield_close: Optional[float] = None
+    possibly_incomplete: bool = False
 
     def update(self, price: float, yield_: Optional[float], volume_delta: int) -> None:
         self.high = max(self.high, price)
@@ -120,6 +134,7 @@ class _WindowAggregate:
             yield_high=self.yield_high,
             yield_low=self.yield_low,
             yield_close=self.yield_close,
+            possibly_incomplete=self.possibly_incomplete,
         )
 
 
@@ -164,6 +179,7 @@ def _to_row(c: Candle, created_at: str) -> tuple:
         c.yield_high,
         c.yield_low,
         c.yield_close,
+        int(c.possibly_incomplete),
         created_at,
     )
 
@@ -212,6 +228,10 @@ class MarketAggregator:
         # (symbol, session date) -> latest repo tick not yet written. Its
         # values are cumulative for the session, so the latest one wins.
         self._repos: dict[tuple[str, str], RepoTick] = {}
+        # Symbols whose last tick before the next one recorded was lost:
+        # that next tick's volume delta spans the gap.
+        self._gap_symbols: set[str] = set()
+        self._incomplete_candles = 0
         self._consume_task: Optional[asyncio.Task] = None
         self._flush_task: Optional[asyncio.Task] = None
         self._running = False
@@ -238,15 +258,16 @@ class MarketAggregator:
                     yield_high REAL,
                     yield_low REAL,
                     yield_close REAL,
+                    possibly_incomplete INTEGER NOT NULL DEFAULT 0,
                     created_at TEXT NOT NULL,
                     UNIQUE (symbol, interval, window_start)
                 )
                 """
             )
             existing = {row[1] for row in conn.execute("PRAGMA table_info(market_candles)")}
-            for column in _YIELD_COLUMNS:
+            for column, decl in _ADDED_COLUMNS.items():
                 if column not in existing:
-                    conn.execute(f"ALTER TABLE market_candles ADD COLUMN {column} REAL")
+                    conn.execute(f"ALTER TABLE market_candles ADD COLUMN {column} {decl}")
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS repo_trades (
@@ -281,6 +302,11 @@ class MarketAggregator:
         flush task has stopped or crashed."""
         tasks = (self._consume_task, self._flush_task)
         return all(task is not None and not task.done() for task in tasks)
+
+    @property
+    def incomplete_candles(self) -> int:
+        """Live candles flagged possibly_incomplete since startup."""
+        return self._incomplete_candles
 
     async def start(self) -> None:
         if self._running:
@@ -398,6 +424,7 @@ class MarketAggregator:
                 yield_high=r[9],
                 yield_low=r[10],
                 yield_close=r[11],
+                possibly_incomplete=bool(r[12]),
             )
             for r in rows
         }
@@ -414,7 +441,7 @@ class MarketAggregator:
     def _read_rows(self, symbol: str, interval: str, first: Optional[datetime]) -> list[tuple]:
         query = (
             "SELECT window_start, window_end, open, high, low, close, volume, tick_count, "
-            "yield_open, yield_high, yield_low, yield_close "
+            "yield_open, yield_high, yield_low, yield_close, possibly_incomplete "
             "FROM market_candles WHERE symbol = ? AND interval = ?"
         )
         params: list = [symbol, interval]
@@ -473,6 +500,35 @@ class MarketAggregator:
             logger.exception("Market aggregator consume loop crashed")
             raise
 
+    def mark_dropped(self, tick: Tick) -> None:
+        """The buffer lost `tick` before this aggregator read it (its
+        on_drop callback). Flag the window it would have landed in, and
+        the windows of the symbol's next recorded tick, as possibly
+        incomplete.
+
+        The buffer drops the oldest unread tick, so everything before it
+        has been recorded and nothing after it has: the windows open now
+        are exactly the ones the tick would have met."""
+        if isinstance(tick, RepoTick):
+            return  # session totals: the next repo tick supersedes it
+        if not validate_tick(tick):
+            return  # would have been rejected anyway
+        self._gap_symbols.add(tick.symbol)
+        price, _ = _mark(tick)
+        if price is None:
+            return
+        for interval in self._intervals:
+            window = self._windows.get((tick.symbol, interval))
+            # A later bucket would have opened a new window, which the
+            # next tick flags if it lands there too.
+            if window is not None and bucket_start(tick.timestamp, interval) <= window.window_start:
+                self._flag_incomplete(window)
+
+    def _flag_incomplete(self, window: _WindowAggregate) -> None:
+        if not window.possibly_incomplete:
+            window.possibly_incomplete = True
+            self._incomplete_candles += 1
+
     def _record_repo(self, tick: RepoTick) -> None:
         self._repos[(tick.symbol, _session_date(tick))] = tick
 
@@ -489,6 +545,8 @@ class MarketAggregator:
         price, yield_ = _mark(tick)
         if price is None:
             return  # an unquoted bill or bond: nothing to chart
+        after_gap = tick.symbol in self._gap_symbols
+        self._gap_symbols.discard(tick.symbol)
 
         for interval in self._intervals:
             key = (tick.symbol, interval)
@@ -516,6 +574,8 @@ class MarketAggregator:
                 )
             else:
                 window.update(price, yield_, delta)
+            if after_gap:
+                self._flag_incomplete(self._windows[key])
 
     async def _flush_loop(self) -> None:
         try:

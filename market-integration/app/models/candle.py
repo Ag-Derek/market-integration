@@ -50,6 +50,10 @@ class Candle(BaseModel):
     yield_high: Optional[float] = None
     yield_low: Optional[float] = None
     yield_close: Optional[float] = None
+    # True when the live feed lost a tick that belonged to this window
+    # (backpressure on the aggregator's buffer queue), so its high, low
+    # or volume may be off. Never set on provider history.
+    possibly_incomplete: bool = False
 
 
 def bucket_start(ts: datetime, interval: str) -> datetime:
@@ -71,11 +75,11 @@ def resample(candles: Iterable[Candle], interval: str) -> list[Candle]:
     # startup backfill (hundreds of thousands of input candles).
     out: list[Candle] = []
     symbol = None
-    acc = None  # [start, open, high, low, close, volume, tick_count]
+    acc = None  # [start, open, high, low, close, volume, tick_count, possibly_incomplete]
     yld = None  # [open, high, low, close], or None while no input had a yield
 
     def emit() -> None:
-        start, open_, high, low, close, volume, tick_count = acc
+        start, open_, high, low, close, volume, tick_count, possibly_incomplete = acc
         yield_open, yield_high, yield_low, yield_close = yld or (None,) * 4
         out.append(Candle(
             symbol=symbol,
@@ -92,6 +96,7 @@ def resample(candles: Iterable[Candle], interval: str) -> list[Candle]:
             yield_high=yield_high,
             yield_low=yield_low,
             yield_close=yield_close,
+            possibly_incomplete=possibly_incomplete,
         ))
 
     for c in candles:
@@ -104,11 +109,12 @@ def resample(candles: Iterable[Candle], interval: str) -> list[Candle]:
             acc[4] = c.close
             acc[5] += c.volume
             acc[6] += c.tick_count
+            acc[7] = acc[7] or c.possibly_incomplete
         else:
             if acc is not None:
                 emit()
             symbol = c.symbol
-            acc = [start, c.open, c.high, c.low, c.close, c.volume, c.tick_count]
+            acc = [start, c.open, c.high, c.low, c.close, c.volume, c.tick_count, c.possibly_incomplete]
             yld = None
         if c.yield_close is not None:
             if yld is None:
