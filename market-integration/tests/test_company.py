@@ -108,7 +108,7 @@ def test_calculated_figures(make_tick):
     company = Company(**FULL)
     quote = make_tick("MTNGH", vwap=6.0, price=6.0, day_low=5.9, day_high=6.1)
     figures = calculated_figures(company, quote)
-    assert figures["fiscal_year"] == 2025
+    assert figures["fiscal_years"]["eps"] == 2025
     assert figures["price"]["value"] == 6.0
     assert figures["market_cap"]["value"] == 6.0e10
     assert figures["pe_ratio"]["value"] == 15.0               # 6.0 / 0.40, latest year

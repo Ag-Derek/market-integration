@@ -14,7 +14,7 @@ app/connectors/market_connector.py.
 """
 
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -48,7 +48,10 @@ class MarketData(BaseModel):
     week52_high: float = Field(gt=0)
     week52_low: float = Field(gt=0)
 
-    market_cap: float = Field(gt=0)
+    # Price x shares outstanding, set in the pipeline from the company
+    # data (app/company/figures.py); None where shares outstanding
+    # aren't recorded. Connectors leave it None.
+    market_cap: Optional[float] = Field(default=None, gt=0)
     beta: float
     pe_ratio: float = Field(gt=0)
     eps: float

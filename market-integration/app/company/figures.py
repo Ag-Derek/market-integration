@@ -1,70 +1,202 @@
 """
-Figures calculated from the live quote and the maintained company data,
-for the description page. A placeholder set until DES 2 defines the
-page's calculated figures; it owns this module.
+Figures calculated for an equity's description page (#62): valuation
+from the price and the maintained financials, and performance from the
+stored daily candles (performance.py). Nothing here is maintained by
+hand; it all follows the price data.
 
-Each figure is {value, formula, inputs_as_of}: calculated values have
-no source of their own, so the dates of the inputs stand in for it.
-A figure is null when an input is missing, or when it would mix
-currencies (a company reporting in USD while trading in GHS).
+Valuation uses the GSE's official price, the session VWAP, as the quote
+cards headline it and as the GSE computes market capitalisation; with
+no live quote, the latest daily close stands in. Ratios use the latest
+fiscal year that has the input:
 
-  price            session VWAP, the GSE's official price (as the UI
-                   headlines it), in GHS
-  market_cap       price x shares outstanding
-  pe_ratio         price / EPS of the latest fiscal year (positive EPS only)
-  dividend_yield   latest dividend per share / price, in %
-  price_to_book    market cap / book value (total shareholders' equity)
+  market_cap        price x shares outstanding
+  pe_ratio          price / trailing EPS (latest fiscal year)
+  price_to_book     market cap / book value (total shareholders' equity)
+  dividend_yield    latest dividend per share / price, in %
+  return_on_equity  net income / book value, in %
+
+Each is {value, formula, inputs_as_of, reason}: calculated values have
+no source, so their inputs' dates stand in for one, and `reason` says
+why a value is null ("negative earnings" for a loss-making company's
+P/E, which the page shows as "n/a"). Ratios are never taken between
+different currencies: a company reporting in USD while trading in GHS
+gets nulls rather than a mixed figure.
 """
 
 from datetime import date, datetime
-from typing import Optional
+from typing import AsyncIterator, Callable, Optional, Sequence
 
+from app.company import performance
+from app.company.performance import Day
 from app.models.company import Company, FinancialYear
 from app.models.market_data import MarketData
+from app.models.tick import Tick
 
 QUOTE_CURRENCY = "GHS"
+INDEX_NAME = "GSE-CI (simulated)"
 
 
-def _figure(value: Optional[float], formula: str, **inputs: Optional["date | datetime"]) -> dict:
+def _figure(value: Optional[float], formula: str, reason: Optional[str] = None,
+            **inputs: Optional["date | datetime"]) -> dict:
     return {
         "value": None if value is None else round(value, 4),
         "formula": formula,
         "inputs_as_of": {name: as_of.isoformat() if as_of else None for name, as_of in inputs.items()},
+        "reason": None if value is not None else reason,
     }
 
 
-def calculated_figures(company: Optional[Company], quote: Optional[MarketData]) -> dict:
-    price = quote.vwap if quote is not None else None
-    priced_at = quote.timestamp if quote is not None else None
-    profile = company.profile if company is not None else None
-    shares = profile.shares_outstanding if profile is not None else None
-    latest: Optional[FinancialYear] = (
-        max(company.financials, key=lambda f: f.fiscal_year) if company and company.financials else None
-    )
-    # Ratios against the price only if the year is reported in its currency.
-    comparable = latest is not None and latest.currency == QUOTE_CURRENCY
+def market_cap(price: Optional[float], shares: Optional[int]) -> Optional[float]:
+    return round(price * shares, 2) if price is not None and shares else None
 
-    market_cap = price * shares.value if price is not None and shares and shares.value else None
-    eps = latest.eps if comparable else None
-    dps = latest.dividend_per_share if comparable else None
-    book = latest.book_value if comparable else None
+
+def with_market_cap(feed: AsyncIterator[Tick], shares_for: Callable[[str], Optional[int]]) -> AsyncIterator[Tick]:
+    """Set each equity tick's market_cap to VWAP x shares outstanding
+    (null where shares outstanding isn't known), before it reaches the
+    processor and the quote cards. Other ticks pass through."""
+    async def enriched():
+        async for tick in feed:
+            if isinstance(tick, MarketData):
+                cap = market_cap(tick.vwap, shares_for(tick.symbol))
+                if cap != tick.market_cap:
+                    tick = tick.model_copy(update={"market_cap": cap})
+            yield tick
+    return enriched()
+
+
+def _latest_with(financials: Sequence[FinancialYear], field: str) -> Optional[FinancialYear]:
+    """The latest fiscal year in the quote's currency that has `field`."""
+    years = [f for f in financials if f.currency == QUOTE_CURRENCY and getattr(f, field).value is not None]
+    return max(years, key=lambda f: f.fiscal_year) if years else None
+
+
+def _missing(field: str, financials: Sequence[FinancialYear]) -> str:
+    if any(getattr(f, field).value is not None for f in financials):
+        return f"{field.replace('_', ' ')} only reported in another currency"
+    return f"no {field.replace('_', ' ')} recorded"
+
+
+def dividends_paid(financials: Sequence[FinancialYear]) -> tuple[list[tuple[date, float]], bool]:
+    """(payment date, amount per share) for every recorded dividend in
+    the quote's currency, and whether any amount had to be estimated: a
+    year's dividend per share paid on several dates is split equally
+    between them, since only the year's total is recorded."""
+    paid, estimated = [], False
+    for f in financials:
+        dps, dates = f.dividend_per_share.value, f.dividend_payment_dates.value
+        if f.currency != QUOTE_CURRENCY or not dps or not dates:
+            continue
+        estimated = estimated or len(dates) > 1
+        paid += [(on, dps / len(dates)) for on in dates]
+    return paid, estimated
+
+
+def calculated_figures(
+    company: Optional[Company],
+    quote: Optional[MarketData],
+    daily: Sequence[Day] = (),
+    index: Sequence[Day] = (),
+    today: Optional[date] = None,
+) -> dict:
+    """Everything calculated for the description page. `daily` is the
+    symbol's daily candles and `index` the GSE-CI's, oldest first."""
+    today = today or (quote.timestamp.date() if quote else date.today())
+    financials = list(company.financials) if company else []
+    shares = company.profile.shares_outstanding if company else None
+
+    if quote is not None:
+        price, priced_at, basis = quote.vwap, quote.timestamp, "session VWAP (GSE closing price)"
+    elif daily:
+        price, priced_at, basis = daily[-1].close, daily[-1].on, "latest daily close (no live quote)"
+    else:
+        price, priced_at, basis = None, None, "no price"
+    no_price = "no price"
+
+    cap = market_cap(price, shares.value if shares else None)
+    cap_reason = no_price if price is None else "no shares outstanding recorded"
+
+    eps_year = _latest_with(financials, "eps")
+    eps = eps_year.eps.value if eps_year else None
+    if price is None:
+        pe, pe_reason = None, no_price
+    elif eps is None:
+        pe, pe_reason = None, _missing("eps", financials)
+    elif eps <= 0:
+        pe, pe_reason = None, "negative earnings"
+    else:
+        pe, pe_reason = price / eps, None
+
+    book_year = _latest_with(financials, "book_value")
+    book = book_year.book_value.value if book_year else None
+    if cap is None:
+        pb, pb_reason = None, cap_reason
+    elif book is None:
+        pb, pb_reason = None, _missing("book_value", financials)
+    elif book <= 0:
+        pb, pb_reason = None, "negative book value"
+    else:
+        pb, pb_reason = cap / book, None
+
+    dps_year = _latest_with(financials, "dividend_per_share")
+    dps = dps_year.dividend_per_share.value if dps_year else None
+    if price is None:
+        dy, dy_reason = None, no_price
+    elif dps is None:
+        dy, dy_reason = None, _missing("dividend_per_share", financials)
+    else:
+        dy, dy_reason = dps / price * 100, None
+
+    roe_year = next(
+        (f for f in sorted(financials, key=lambda f: -f.fiscal_year)
+         if f.net_income.value is not None and f.book_value.value is not None), None,
+    )
+    if roe_year is None:
+        roe, roe_reason = None, "no year with both net income and book value"
+    elif roe_year.book_value.value <= 0:
+        roe, roe_reason = None, "negative book value"
+    else:
+        roe, roe_reason = roe_year.net_income.value / roe_year.book_value.value * 100, None
+
+    dividends, estimated = dividends_paid(financials)
+    total_return = performance.total_return_12m(daily, today, dividends)
+    if total_return is not None:
+        total_return["dividends_recorded"] = bool(dividends)
+        total_return["dividend_amounts_estimated"] = estimated
+
+    beta = performance.beta(daily, index, today)
+    if beta is not None:
+        beta["index"] = INDEX_NAME
+
+    def as_of(year: Optional[FinancialYear], field: str):
+        return getattr(year, field).as_of if year else None
 
     return {
         "currency": QUOTE_CURRENCY,
-        "fiscal_year": latest.fiscal_year if latest else None,
-        "price": _figure(price, "session VWAP (GSE closing price)", price=priced_at),
-        "market_cap": _figure(market_cap, "price x shares outstanding",
+        "price": _figure(price, basis, no_price, price=priced_at),
+        "market_cap": _figure(cap, "price x shares outstanding", cap_reason,
                               price=priced_at, shares_outstanding=shares.as_of if shares else None),
-        "pe_ratio": _figure(
-            price / eps.value if price is not None and eps and eps.value and eps.value > 0 else None,
-            "price / EPS (latest fiscal year)", price=priced_at, eps=eps.as_of if eps else None),
-        "dividend_yield": _figure(
-            dps.value / price * 100 if price and dps and dps.value is not None else None,
-            "dividend per share / price x 100 (latest fiscal year)",
-            price=priced_at, dividend_per_share=dps.as_of if dps else None),
-        "price_to_book": _figure(
-            market_cap / book.value if market_cap is not None and book and book.value and book.value > 0 else None,
-            "market cap / book value (latest fiscal year)",
-            price=priced_at, shares_outstanding=shares.as_of if shares else None,
-            book_value=book.as_of if book else None),
+        "pe_ratio": _figure(pe, "price / trailing EPS", pe_reason,
+                            price=priced_at, eps=as_of(eps_year, "eps")),
+        "price_to_book": _figure(pb, "market cap / book value", pb_reason,
+                                 price=priced_at, shares_outstanding=shares.as_of if shares else None,
+                                 book_value=as_of(book_year, "book_value")),
+        "dividend_yield": _figure(dy, "dividend per share / price x 100", dy_reason,
+                                  price=priced_at, dividend_per_share=as_of(dps_year, "dividend_per_share")),
+        "return_on_equity": _figure(roe, "net income / book value x 100", roe_reason,
+                                    net_income=as_of(roe_year, "net_income"),
+                                    book_value=as_of(roe_year, "book_value")),
+        "fiscal_years": {
+            "eps": eps_year.fiscal_year if eps_year else None,
+            "book_value": book_year.fiscal_year if book_year else None,
+            "dividend_per_share": dps_year.fiscal_year if dps_year else None,
+            "return_on_equity": roe_year.fiscal_year if roe_year else None,
+        },
+        "performance": {
+            "basis": "daily closes (last trade of each day)",
+            "one_day": performance.one_day_change(daily),
+            "ytd": performance.ytd_change(daily, today),
+            "week52": performance.week52_range(daily, today),
+            "total_return_12m": total_return,
+        },
+        "beta": beta,
     }

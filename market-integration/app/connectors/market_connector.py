@@ -225,8 +225,6 @@ class MockMarketConnector(BaseMarketConnector):
                 "year_high": max(max(c.high for c in year_bars), *closes),
                 "week52_low": min(min(c.low for c in week52_bars), *closes),
                 "week52_high": max(max(c.high for c in week52_bars), *closes),
-                # Placeholder: no shares-outstanding data yet.
-                "market_cap": round(price * random.randint(100_000_000, 5_000_000_000), 0),
                 "beta": round(random.uniform(0.3, 1.2), 2),
                 "pe_ratio": pe_ratio,
                 "eps": round(price / pe_ratio, 2),
@@ -476,7 +474,6 @@ class MockMarketConnector(BaseMarketConnector):
             "year_low": profile["year_low"],
             "week52_high": profile["week52_high"],
             "week52_low": profile["week52_low"],
-            "market_cap": profile["market_cap"],
             "beta": profile["beta"],
             "pe_ratio": profile["pe_ratio"],
             "eps": profile["eps"],
