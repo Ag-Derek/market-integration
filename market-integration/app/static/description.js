@@ -1,8 +1,7 @@
 /*
  * The stock page's Description view (#64), Bloomberg DES-style: tabs
  * Profile, Issue Info, Ratios and Revenue & EPS over
- * GET /instruments/{symbol}/description. Profile and Issue Info are
- * built here; Ratios and Revenue & EPS are placeholders until DES 6.
+ * GET /instruments/{symbol}/description.
  *
  *   const des = Description.mount(root, {
  *     symbol: "MTNGH",
@@ -19,7 +18,8 @@
  * change, 52-week range, YTD, market cap, dividend yield and 12-month
  * total return move with every tick; the rest is as loaded. Anything
  * missing reads "Not available", with the reason on hover where the
- * API gives one. Styles itself with the page's colour variables.
+ * API gives one. On Ratios, P/E, price-to-book and dividend yield follow
+ * the live price too; Revenue & EPS charts the last five fiscal years. Styles itself with the page's colour variables.
  */
 (function () {
   "use strict";
@@ -35,6 +35,12 @@
   const PREVIEW_SENTENCES = 3;   // description shown before "More"...
   const MAX_UNFOLDED = 4;        // ...unless it's this short anyway
   const RETRY_MS = 3000;
+  const CHART_YEARS = 5;
+  // Bar colours: one series per chart, so colour only carries sign; a
+  // loss also sits below the zero line. Validated (dataviz) against the
+  // dark panel surface.
+  const BAR_UP = "#1AA486";
+  const BAR_DOWN = "#E5675A";
   const BOARDS = { main: "Main Market", gax: "Ghana Alternative Market (GAX)" };
   const KINDS = {
     ordinary: "Ordinary shares",
@@ -104,6 +110,24 @@
   .des-officers td { padding: 7px 8px 7px 0; border-bottom: 1px solid var(--line); color: var(--ink-soft); vertical-align: top; }
   .des-officers td:first-child { color: var(--ink); font-weight: 500; }
   .des-panel-foot { margin-top: 10px; }
+  .des-note { font-size: 12px; line-height: 1.55; color: var(--ink-soft); margin: 0 0 8px; }
+  .des-note:last-child { margin-bottom: 0; }
+  .des-bars-wrap { position: relative; }
+  .des-bars { display: block; width: 100%; height: 190px; }
+  .des-tip {
+    position: absolute; top: 4px; pointer-events: none; display: none; z-index: 2; white-space: nowrap;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px;
+    font-size: 11.5px; color: var(--ink-soft);
+  }
+  .des-tip b { color: var(--ink); font-weight: 600; }
+  .des-table-wrap { overflow-x: auto; }
+  .des-table { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  .des-table th, .des-table td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+  .des-table th:first-child, .des-table td:first-child { text-align: left; color: var(--ink-soft); font-weight: 500; }
+  .des-table thead th { color: var(--ink-faint); font-weight: 600; font-size: 11px; }
+  .des-table td { color: var(--ink); }
+  .des-table td.na { color: var(--ink-faint); }
+  .des-table td.neg { color: var(--red); }
   .des-related { margin: 0; padding: 0; list-style: none; }
   .des-related li { padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 12.5px; }
   .des-related li:last-child { border-bottom: 0; }
@@ -124,6 +148,25 @@
   // Dividends per share can run to three decimals (GH₵0.305).
   function fmtDps(n) {
     return "GH₵" + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 3 });
+  }
+  function currencySign(cur) {
+    return cur === "GHS" ? "GH₵" : cur === "USD" ? "US$" : cur + " ";
+  }
+  // Company-sized amounts: GH₵24.43B, −GH₵593.40M; `short` for axis ticks.
+  function fmtAmount(n, cur, short) {
+    const abs = Math.abs(n), sign = n < 0 ? "−" : "", c = currencySign(cur || "GHS");
+    // Ticks drop trailing zeros (GH₵2.5B, GH₵500M); values keep two places.
+    const fix = function (x) { return short ? String(Number(x.toFixed(1))) : x.toFixed(2); };
+    if (abs >= 1e12) return sign + c + fix(abs / 1e12) + "T";
+    if (abs >= 1e9) return sign + c + fix(abs / 1e9) + "B";
+    if (abs >= 1e6) return sign + c + fix(abs / 1e6) + "M";
+    if (abs >= 1e3) return sign + c + fix(abs / 1e3) + "K";
+    return sign + c + (short ? String(Number(abs.toFixed(2))) : abs.toFixed(2));
+  }
+  function fmtPerShare(n, cur, short) {
+    const abs = Math.abs(n);
+    return (n < 0 ? "−" : "") + currencySign(cur || "GHS") +
+      abs.toLocaleString(undefined, { minimumFractionDigits: short ? 0 : 2, maximumFractionDigits: short ? 2 : 3 });
   }
   function fmtBig(n) {
     const abs = Math.abs(n);
@@ -318,19 +361,18 @@
 
     function render() {
       if (!data) { message("Loading description…"); return; }
-      if (tab === "issue-info") { renderIssueInfo(); return; }
-      if (tab !== "profile") {
-        const label = TABS.filter(function (t) { return t.key === tab; })[0].label;
-        message(label + " is coming soon.");
-        return;
-      }
-      renderProfile();
+      if (tab === "issue-info") renderIssueInfo();
+      else if (tab === "ratios") renderRatios();
+      else if (tab === "revenue-eps") renderRevenueEps();
+      else renderProfile();
     }
 
     // -------------------------------------------------------- profile
 
     function renderProfile() {
       body.textContent = "";
+      ratios = null;
+      bars = [];
       const grid = el("div", "des-grid");
       body.appendChild(grid);
       live = {};
@@ -526,6 +568,8 @@
     function renderIssueInfo() {
       body.textContent = "";
       live = null;
+      ratios = null;
+      bars = [];
       const grid = el("div", "des-grid");
       body.appendChild(grid);
       const inst = data.instrument, p = data.profile;
@@ -567,6 +611,349 @@
         related.appendChild(el("p", "des-text na", "None listed"));
       }
       grid.appendChild(related);
+    }
+
+    // -------------------------------------------------------- ratios
+
+    let ratios = null;       // value cells the quote updates on the Ratios tab
+
+    function renderRatios() {
+      body.textContent = "";
+      live = null;
+      bars = [];
+      const grid = el("div", "des-grid");
+      body.appendChild(grid);
+      const c = data.calculated;
+
+      const s = panel("Ratios", "des-wide");
+      ratios = {
+        pe: row(s, "P/E"),
+        pb: row(s, "Price-to-book"),
+      };
+      const epsYear = c.fiscal_years.eps;
+      const eps = epsYear != null ? financialField(epsYear, "eps") : null;
+      setValue(row(s, "EPS (trailing 12 months)"), eps ? fmtPerShare(eps.value, currencyOf(epsYear)) : null, {
+        reason: "no eps recorded",
+        dir: eps ? dirOf(eps.value) : "",
+        subs: eps ? [basis("FY" + epsYear + " annual EPS", eps.as_of)] : [],
+        title: eps && eps.source ? "Source: " + eps.source : null,
+      });
+      ratios.dy = row(s, "Dividend yield");
+      const roe = c.return_on_equity;
+      setValue(row(s, "Return on equity"), roe.value == null ? null : fmtPct(roe.value), {
+        reason: roe.reason,
+        dir: roe.value == null ? "" : dirOf(roe.value),
+        subs: roe.value == null ? [] : [basis("FY" + c.fiscal_years.return_on_equity + " net income ÷ book value",
+          roe.inputs_as_of.net_income)],
+      });
+      grid.appendChild(s);
+
+      const how = panel("How these are calculated");
+      [
+        "Price is the session VWAP, the GSE's official closing price, and follows the live feed.",
+        "Each ratio uses the latest fiscal year that reports its input. Only annual results are " +
+          "recorded, so trailing EPS is the latest full year's EPS.",
+        "Book value is total shareholders' equity. P/E reads n/a after a loss-making year.",
+      ].forEach(function (t) { how.appendChild(el("p", "des-note", t)); });
+      grid.appendChild(how);
+      renderRatiosLive();
+    }
+
+    function basis(what, asOf) {
+      return what + (asOf ? " · financials as of " + fmtDate(asOf) : "");
+    }
+
+    function renderRatiosLive() {
+      if (!ratios || !data) return;
+      const c = data.calculated;
+      const price = quote ? quote.vwap : c.price.value;
+
+      const epsYear = c.fiscal_years.eps;
+      const eps = epsYear != null ? financialField(epsYear, "eps") : null;
+      if (eps && eps.value <= 0) {
+        setValue(ratios.pe, "n/a", { subs: [basis("Negative FY" + epsYear + " EPS", eps.as_of)] });
+      } else if (eps && price) {
+        setValue(ratios.pe, (price / eps.value).toFixed(2), { subs: [basis("Price ÷ FY" + epsYear + " EPS", eps.as_of)] });
+      } else {
+        setValue(ratios.pe, null, { reason: c.pe_ratio.reason });
+      }
+
+      const bookYear = c.fiscal_years.book_value;
+      const book = bookYear != null ? financialField(bookYear, "book_value") : null;
+      const cap = quote && quote.market_cap != null ? quote.market_cap : c.market_cap.value;
+      if (cap != null && book && book.value > 0) {
+        setValue(ratios.pb, (cap / book.value).toFixed(2), {
+          subs: [basis("Market cap ÷ FY" + bookYear + " book value", book.as_of)],
+        });
+      } else {
+        setValue(ratios.pb, null, { reason: c.price_to_book.reason });
+      }
+
+      const dpsYear = c.fiscal_years.dividend_per_share;
+      const dps = dpsYear != null ? financialField(dpsYear, "dividend_per_share") : null;
+      if (dps && price) {
+        setValue(ratios.dy, fmtPct(dps.value / price * 100), {
+          subs: [basis("FY" + dpsYear + " dividend " + fmtDps(dps.value) + " ÷ price", dps.as_of)],
+        });
+      } else {
+        setValue(ratios.dy, null, { reason: c.dividend_yield.reason });
+      }
+    }
+
+    // -------------------------------------------------------- revenue & eps
+
+    const MEASURES = [
+      { key: "revenue", label: "Revenue", fmt: fmtAmount },
+      { key: "net_income", label: "Net income", fmt: fmtAmount },
+      { key: "eps", label: "EPS", fmt: fmtPerShare },
+    ];
+    let bars = [];           // drawn bar charts, redrawn on resize
+
+    function currencyOf(year) {
+      const f = data.financials.filter(function (x) { return x.fiscal_year === year; })[0];
+      return f ? f.currency : "GHS";
+    }
+
+    function renderRevenueEps() {
+      body.textContent = "";
+      live = null;
+      ratios = null;
+      bars = [];
+      const grid = el("div", "des-grid");
+      body.appendChild(grid);
+
+      // The last five fiscal years, oldest first.
+      const years = data.financials.slice()
+        .sort(function (a, b) { return b.fiscal_year - a.fiscal_year; })
+        .slice(0, CHART_YEARS).reverse();
+      if (!years.length) {
+        const s = panel("Revenue & EPS", "des-full");
+        s.appendChild(el("p", "des-text na", NA + ": no financials recorded."));
+        grid.appendChild(s);
+        return;
+      }
+
+      // One currency per chart: years reported in another are table-only.
+      const currency = years[years.length - 1].currency;
+      const charted = years.filter(function (y) { return y.currency === currency; });
+
+      MEASURES.forEach(function (m) {
+        const s = panel(m.label + " (" + currency + (m.key === "eps" ? " per share" : "") + ")");
+        const wrap = el("div", "des-bars-wrap");
+        const canvas = el("canvas", "des-bars");
+        canvas.setAttribute("role", "img");
+        const tip = el("div", "des-tip");
+        wrap.appendChild(canvas);
+        wrap.appendChild(tip);
+        s.appendChild(wrap);
+        const points = charted.map(function (y) {
+          const v = y[m.key];
+          return { year: y.fiscal_year, value: v && v.value != null ? v.value : null };
+        });
+        canvas.setAttribute("aria-label", m.label + " by fiscal year: " + points.map(function (p) {
+          return "FY" + p.year + " " + (p.value == null ? "not available" : m.fmt(p.value, currency));
+        }).join(", "));
+        const chart = { canvas: canvas, tip: tip, points: points, fmt: m.fmt, currency: currency, hover: null };
+        canvas.addEventListener("pointermove", function (e) { hoverBar(chart, e); });
+        canvas.addEventListener("pointerdown", function (e) { hoverBar(chart, e); });
+        canvas.addEventListener("pointerleave", function () {
+          chart.hover = null;
+          tip.style.display = "none";
+          drawBars(chart);
+        });
+        bars.push(chart);
+        grid.appendChild(s);
+      });
+
+      // The same figures as a table, with each value's source on hover.
+      const t = panel("By fiscal year", "des-full");
+      const wrap = el("div", "des-table-wrap");
+      const table = el("table", "des-table");
+      const thead = el("thead");
+      const head = el("tr");
+      head.appendChild(el("th", null, ""));
+      years.forEach(function (y) {
+        head.appendChild(el("th", null, "FY" + y.fiscal_year + (y.currency !== currency ? " (" + y.currency + ")" : "")));
+      });
+      thead.appendChild(head);
+      table.appendChild(thead);
+      const tbody = el("tbody");
+      MEASURES.forEach(function (m) {
+        const tr = el("tr");
+        tr.appendChild(el("td", null, m.label));
+        years.forEach(function (y) {
+          const v = y[m.key];
+          const td = el("td");
+          if (v && v.value != null) {
+            td.textContent = m.fmt(v.value, y.currency);
+            if (v.value < 0) td.className = "neg";
+            td.title = "As of " + fmtDate(v.as_of) + (v.source ? "\nSource: " + v.source : "");
+          } else {
+            td.textContent = NA;
+            td.className = "na";
+          }
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      wrap.appendChild(table);
+      t.appendChild(wrap);
+      const notes = [];
+      if (years.length < CHART_YEARS) {
+        notes.push(years.length + " fiscal year" + (years.length === 1 ? "" : "s") + " recorded; up to " +
+          CHART_YEARS + " are shown.");
+      }
+      if (charted.length < years.length) notes.push("Years reported in another currency are in the table only.");
+      notes.push("Hover a figure for its source and date.");
+      const foot = el("div", "des-panel-foot");
+      notes.forEach(function (n) { foot.appendChild(el("p", "des-note", n)); });
+      t.appendChild(foot);
+      grid.appendChild(t);
+      requestAnimationFrame(function () { bars.forEach(drawBars); });
+    }
+
+    function niceStep(span, target) {
+      const raw = span / target;
+      const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+      const norm = raw / mag;
+      return (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10) * mag;
+    }
+
+    // Columns from a zero baseline: at most 24px wide, 4px rounded at the
+    // data end and square at the baseline; only the latest year labelled.
+    function drawBars(chart) {
+      const canvas = chart.canvas;
+      if (!canvas.isConnected) return;
+      const dpr = window.devicePixelRatio || 1;
+      const W = canvas.clientWidth, H = canvas.clientHeight || 190;
+      if (!W) return;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      const ctx = canvas.getContext("2d");
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, W, H);
+      const style = getComputedStyle(document.documentElement);
+      const ink = function (name, fallback) { return (style.getPropertyValue(name) || fallback).trim(); };
+      const axisInk = ink("--ink-faint", "#6F766D"), softInk = ink("--ink-soft", "#AEB6A9");
+      const gridInk = ink("--line", "#26362F");
+
+      const vals = chart.points.map(function (p) { return p.value; }).filter(function (v) { return v != null; });
+      let lo = Math.min.apply(null, [0].concat(vals)), hi = Math.max.apply(null, [0].concat(vals));
+      if (lo === hi) hi = 1;
+      const step = niceStep(hi - lo, 4);
+      lo = Math.floor(lo / step) * step;
+      hi = Math.ceil(hi / step) * step;
+      // Room under the deepest loss for its label, clear of the year labels.
+      if (lo < 0 && Math.min.apply(null, vals) - lo < (hi - lo) * 0.15) lo -= step;
+
+      const padL = 56, padR = 6, padT = 18, padB = 22;
+      const plotW = W - padL - padR, plotH = H - padT - padB;
+      const y = function (v) { return padT + (hi - v) / (hi - lo) * plotH; };
+      const slot = plotW / chart.points.length;
+      const barW = Math.max(4, Math.min(24, slot - 2));
+      chart.geometry = { padL: padL, slot: slot, W: W };
+
+      // Recessive grid and tick labels; the zero line a step stronger.
+      ctx.font = "10px ui-monospace, monospace";
+      ctx.textBaseline = "middle";
+      ctx.textAlign = "right";
+      for (let v = lo; v <= hi + step / 2; v += step) {
+        const tick = Math.abs(v) < step / 1e6 ? 0 : v;
+        const yy = Math.round(y(tick)) + 0.5;
+        ctx.strokeStyle = gridInk;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(padL, yy);
+        ctx.lineTo(W - padR, yy);
+        ctx.stroke();
+        ctx.fillStyle = axisInk;
+        ctx.fillText(chart.fmt(tick, chart.currency, true), padL - 6, yy);
+      }
+      const zero = Math.round(y(0)) + 0.5;
+      ctx.strokeStyle = axisInk;
+      ctx.beginPath();
+      ctx.moveTo(padL, zero);
+      ctx.lineTo(W - padR, zero);
+      ctx.stroke();
+
+      ctx.textAlign = "center";
+      ctx.textBaseline = "alphabetic";
+      chart.points.forEach(function (p, i) {
+        const cx = padL + slot * (i + 0.5);
+        ctx.fillStyle = chart.hover === i ? softInk : axisInk;
+        ctx.fillText("FY" + p.year, cx, H - 6);
+        if (p.value == null) {
+          ctx.fillText("n/a", cx, zero - 6);
+          return;
+        }
+        const top = y(Math.max(p.value, 0)), bottom = y(Math.min(p.value, 0));
+        const h = Math.max(1, bottom - top);
+        const r = Math.min(4, h / 2, barW / 2);
+        const x0 = cx - barW / 2;
+        ctx.globalAlpha = chart.hover == null || chart.hover === i ? 1 : 0.55;
+        ctx.fillStyle = p.value < 0 ? BAR_DOWN : BAR_UP;
+        ctx.beginPath();
+        if (p.value >= 0) {           // rounded top, square at the baseline
+          ctx.moveTo(x0, bottom);
+          ctx.lineTo(x0, top + r);
+          ctx.arcTo(x0, top, x0 + r, top, r);
+          ctx.lineTo(x0 + barW - r, top);
+          ctx.arcTo(x0 + barW, top, x0 + barW, top + r, r);
+          ctx.lineTo(x0 + barW, bottom);
+        } else {                      // rounded bottom, square at the baseline
+          ctx.moveTo(x0, top);
+          ctx.lineTo(x0, bottom - r);
+          ctx.arcTo(x0, bottom, x0 + r, bottom, r);
+          ctx.lineTo(x0 + barW - r, bottom);
+          ctx.arcTo(x0 + barW, bottom, x0 + barW, bottom - r, r);
+          ctx.lineTo(x0 + barW, top);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      });
+
+      // Direct label on the latest year's cap only; the tooltip and the
+      // table carry the rest. Kept inside the canvas at the right edge.
+      const lastI = chart.points.length - 1, last = chart.points[lastI];
+      if (last && last.value != null) {
+        const cx = padL + slot * (lastI + 0.5);
+        const label = chart.fmt(last.value, chart.currency);
+        ctx.font = "600 10.5px -apple-system, 'Segoe UI', Roboto, sans-serif";
+        ctx.fillStyle = softInk;
+        const half = ctx.measureText(label).width / 2;
+        const lx = Math.min(cx, W - padR - half);
+        ctx.textAlign = "center";
+        if (last.value >= 0) {
+          ctx.textBaseline = "bottom";
+          ctx.fillText(label, lx, y(last.value) - 3);
+        } else {
+          ctx.textBaseline = "top";
+          ctx.fillText(label, lx, y(last.value) + 3);
+        }
+      }
+    }
+
+    function hoverBar(chart, e) {
+      const g = chart.geometry;
+      if (!g) return;
+      const x = e.clientX - chart.canvas.getBoundingClientRect().left;
+      const i = Math.floor((x - g.padL) / g.slot);
+      if (i < 0 || i >= chart.points.length) {
+        if (chart.hover != null) { chart.hover = null; drawBars(chart); }
+        chart.tip.style.display = "none";
+        return;
+      }
+      if (chart.hover !== i) { chart.hover = i; drawBars(chart); }
+      const p = chart.points[i];
+      chart.tip.textContent = "";
+      chart.tip.appendChild(el("b", null, "FY" + p.year));
+      chart.tip.appendChild(document.createTextNode(" · " + (p.value == null ? NA : chart.fmt(p.value, chart.currency))));
+      chart.tip.style.display = "block";
+      const cx = g.padL + g.slot * (i + 0.5);
+      const w = chart.tip.offsetWidth;
+      chart.tip.style.left = Math.max(0, Math.min(g.W - w, cx - w / 2)) + "px";
     }
 
     // -------------------------------------------------------- live figures
@@ -698,7 +1085,9 @@
     let drawPending = false;
     function update(q) {
       quote = q;
-      if (!visible || tab !== "profile") return;
+      if (!visible) return;
+      if (tab === "ratios") { renderRatiosLive(); return; }
+      if (tab !== "profile") return;
       renderLive();
       // The chart only moves with the last point; redraw once a frame.
       if (!drawPending) {
@@ -708,7 +1097,12 @@
     }
 
     load();
-    return { show: show, hide: hide, update: update, resize: drawMini };
+    function resize() {
+      drawMini();
+      bars.forEach(drawBars);
+    }
+
+    return { show: show, hide: hide, update: update, resize: resize };
   }
 
   window.Description = { mount: mount, TABS: TABS.map(function (t) { return t.key; }) };
