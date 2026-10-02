@@ -52,6 +52,15 @@ def load_seed(path: Path = SEED_PATH) -> tuple[dict[str, Instrument], dict[str, 
         instruments[instrument.symbol] = instrument
         if mock_block is not None:
             mock[instrument.symbol] = mock_block
+    # Related securities link both ways, so each page can point to the other.
+    for instrument in instruments.values():
+        for other in instrument.related_symbols:
+            if other not in instruments:
+                raise ValueError(f"{path}: {instrument.symbol!r} is related to unknown symbol {other!r}")
+            if instrument.symbol not in instruments[other].related_symbols:
+                raise ValueError(
+                    f"{path}: {instrument.symbol!r} lists {other!r} as related, but not the other way round"
+                )
     return instruments, mock
 
 

@@ -15,6 +15,9 @@ InstrumentStatus = Literal["active", "suspended", "delisted"]
 # Finer-grained than asset_class for equities, so an ETF or preference
 # share can still be told apart from an ordinary share.
 EquityKind = Literal["ordinary", "preference", "depositary", "etf"]
+# The GSE board an equity is listed on: the Main Market or the Ghana
+# Alternative Market (GAX), as the GSE's listed-companies page groups them.
+Board = Literal["main", "gax"]
 # The sections of the GFIM daily trading report a fixed-income security
 # is listed under (sell/buy-back trades are a trade type across the GoG
 # segments, not a segment of their own). See docs/data-formats.md.
@@ -47,6 +50,11 @@ class Instrument(BaseModel):
     isin: Optional[str] = None
     status: InstrumentStatus = "active"
     kind: Optional[EquityKind] = None
+    board: Optional[Board] = None         # equities only; None where not known
+    # Other listed lines of the same issuer, e.g. AGA's depositary shares
+    # AADS, or SCB's preference shares SCB-PREF. Must be mutual: the seed
+    # is rejected unless each side lists the other (app/instruments/).
+    related_symbols: tuple[str, ...] = ()
 
     # Fixed income only (None for equities). For bills and bonds the
     # symbol is the ISIN and the name is the GFIM security description,
@@ -79,6 +87,14 @@ class Instrument(BaseModel):
         if not v or v != v.strip().upper():
             raise ValueError(f"symbol must be non-empty and upper-case, got {v!r}")
         return v
+
+    @model_validator(mode="after")
+    def _related_are_other_symbols(self) -> "Instrument":
+        if self.symbol in self.related_symbols:
+            raise ValueError(f"{self.symbol} lists itself in related_symbols")
+        if len(set(self.related_symbols)) != len(self.related_symbols):
+            raise ValueError(f"{self.symbol} lists a related symbol twice")
+        return self
 
     @field_validator("isin")
     @classmethod

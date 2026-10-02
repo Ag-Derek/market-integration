@@ -117,6 +117,33 @@ def test_bad_seed_entries_fail_loudly(tmp_path, bad, match):
         load_seed(_write_seed(tmp_path, [{**entry, **bad}]))
 
 
+def test_boards_follow_the_gse_listed_companies_page():
+    gax = {s for s in EQUITIES if INSTRUMENTS[s].board == "gax"}
+    assert gax == {"DIGICUT", "HORDS", "IIL", "MMH", "SAMBA"}
+    # AADS isn't in either of the page's tables, so its board isn't known.
+    assert {s for s in EQUITIES if INSTRUMENTS[s].board is None} == {"AADS"}
+    assert all(i.board is None for i in INSTRUMENTS.values() if i.asset_class != "equity")
+
+
+def test_related_securities_link_both_ways():
+    assert INSTRUMENTS["AGA"].related_symbols == ("AADS",) and INSTRUMENTS["AADS"].related_symbols == ("AGA",)
+    assert INSTRUMENTS["SCB"].related_symbols == ("SCB-PREF",) and INSTRUMENTS["SCB-PREF"].related_symbols == ("SCB",)
+    for i in INSTRUMENTS.values():
+        assert all(i.symbol in INSTRUMENTS[other].related_symbols for other in i.related_symbols)
+
+
+@pytest.mark.parametrize("entries,match", [
+    ([{"symbol": "AGA", "related_symbols": ["AADS"]}, {"symbol": "AADS"}], "not the other way round"),
+    ([{"symbol": "AGA", "related_symbols": ["NOPE"]}], "unknown symbol 'NOPE'"),
+    ([{"symbol": "AGA", "related_symbols": ["AGA"]}], "itself"),
+    ([{"symbol": "AGA", "board": "otc"}], "board"),
+])
+def test_bad_related_symbols_and_boards_are_rejected(tmp_path, entries, match):
+    base = {"name": "X", "asset_class": "equity", "sector": "Mining"}
+    with pytest.raises(ValueError, match=match):
+        load_seed(_write_seed(tmp_path, [{**base, **e} for e in entries]))
+
+
 def test_duplicate_symbols_in_seed_are_rejected(tmp_path):
     entry = {"symbol": "NEWCO", "name": "New Co PLC", "asset_class": "equity", "sector": "Banking"}
     with pytest.raises(ValueError, match="duplicate"):
@@ -207,7 +234,7 @@ def test_list_instruments(client):
     assert mtn == {
         "symbol": "MTNGH", "name": "Scancom PLC (MTN Ghana)", "asset_class": "equity",
         "sector": "Telecommunications", "currency": "GHS", "isin": "GHEMTN051541",
-        "status": "active", "kind": "ordinary",
+        "status": "active", "kind": "ordinary", "board": "main", "related_symbols": [],
         "issuer": None, "segment": None, "tenor": None, "maturity_date": None, "coupon_rate": None,
         "issue_date": None, "frequency": None, "day_count": None, "face_value": None,
     }
@@ -217,7 +244,8 @@ def test_list_instruments(client):
     assert bill == {
         "symbol": "GHGGOGI01883", "name": "GOG-BL-21/06/27-A7064-2012-0", "asset_class": "bill",
         "sector": "Government", "currency": "GHS", "isin": "GHGGOGI01883", "status": "active",
-        "kind": None, "issuer": "Government of Ghana", "segment": "treasury_bill",
+        "kind": None, "board": None, "related_symbols": [],
+        "issuer": "Government of Ghana", "segment": "treasury_bill",
         "tenor": "364-DAY BILL", "maturity_date": "2027-06-21", "coupon_rate": 0.0,
         "issue_date": "2026-06-22", "frequency": 0, "day_count": "ACT/364", "face_value": 100.0,
     }
@@ -247,7 +275,8 @@ def test_filter_instruments_by_asset_class_and_sector(client):
 def test_get_one_instrument(client):
     response = client.get("/instruments/scb-pref")
     assert response.status_code == 200
-    assert response.json()["kind"] == "preference"
+    body = response.json()
+    assert (body["kind"], body["board"], body["related_symbols"]) == ("preference", "main", ["SCB"])
 
 
 def test_suspended_instruments_are_listed_but_not_streamed(client):

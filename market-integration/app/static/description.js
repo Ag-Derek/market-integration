@@ -1,8 +1,8 @@
 /*
  * The stock page's Description view (#64), Bloomberg DES-style: tabs
  * Profile, Issue Info, Ratios and Revenue & EPS over
- * GET /instruments/{symbol}/description. Profile is built here; the
- * other tabs are placeholders until DES 5 and DES 6.
+ * GET /instruments/{symbol}/description. Profile and Issue Info are
+ * built here; Ratios and Revenue & EPS are placeholders until DES 6.
  *
  *   const des = Description.mount(root, {
  *     symbol: "MTNGH",
@@ -35,6 +35,13 @@
   const PREVIEW_SENTENCES = 3;   // description shown before "More"...
   const MAX_UNFOLDED = 4;        // ...unless it's this short anyway
   const RETRY_MS = 3000;
+  const BOARDS = { main: "Main Market", gax: "Ghana Alternative Market (GAX)" };
+  const KINDS = {
+    ordinary: "Ordinary shares",
+    preference: "Preference shares",
+    depositary: "Depositary shares",
+    etf: "Exchange-traded fund",
+  };
 
   const CSS = `
   .des-tabs { display: flex; gap: 2px; flex-wrap: wrap; border-bottom: 1px solid var(--line); margin: 0 0 16px; }
@@ -97,6 +104,11 @@
   .des-officers td { padding: 7px 8px 7px 0; border-bottom: 1px solid var(--line); color: var(--ink-soft); vertical-align: top; }
   .des-officers td:first-child { color: var(--ink); font-weight: 500; }
   .des-panel-foot { margin-top: 10px; }
+  .des-related { margin: 0; padding: 0; list-style: none; }
+  .des-related li { padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+  .des-related li:last-child { border-bottom: 0; }
+  .des-related .sym { font-family: ui-monospace, monospace; font-weight: 600; margin-right: 8px; }
+  .des-related .kind { display: block; font-size: 11px; color: var(--ink-faint); margin-top: 2px; }
   `;
 
   // ------------------------------------------------------------ format
@@ -306,6 +318,7 @@
 
     function render() {
       if (!data) { message("Loading description…"); return; }
+      if (tab === "issue-info") { renderIssueInfo(); return; }
       if (tab !== "profile") {
         const label = TABS.filter(function (t) { return t.key === tab; })[0].label;
         message(label + " is coming soon.");
@@ -506,6 +519,54 @@
     function financialField(year, field) {
       const f = data.financials.filter(function (x) { return x.fiscal_year === year; })[0];
       return f ? f[field] : null;
+    }
+
+    // -------------------------------------------------------- issue info
+
+    function renderIssueInfo() {
+      body.textContent = "";
+      live = null;
+      const grid = el("div", "des-grid");
+      body.appendChild(grid);
+      const inst = data.instrument, p = data.profile;
+
+      const listing = panel("Listing");
+      setValue(row(listing, "Listing date"), has(p.listing_date) ? fmtDate(p.listing_date.value) : null,
+        { sourced: p.listing_date });
+      setValue(row(listing, "Board"), BOARDS[inst.board] || null,
+        { title: inst.board ? "Source: GSE listed-companies page" : null });
+      setValue(row(listing, "Security type"), KINDS[inst.kind] || null);
+      setValue(row(listing, "ISIN"), inst.isin || null);
+      grid.appendChild(listing);
+
+      const shares = panel("Shares");
+      setValue(row(shares, "Shares outstanding"),
+        has(p.shares_outstanding) ? Number(p.shares_outstanding.value).toLocaleString() : null,
+        { sourced: p.shares_outstanding });
+      setValue(row(shares, "Registrar"), has(p.registrar) ? p.registrar.value : null, { sourced: p.registrar });
+      grid.appendChild(shares);
+
+      // Other listed lines of the issuer; each links back here (the
+      // instrument master requires the relation both ways).
+      const related = panel("Related securities");
+      if (data.related.length) {
+        const list = el("ul", "des-related");
+        data.related.forEach(function (r) {
+          const li = el("li");
+          const a = el("a", "des-link");
+          a.href = "/stock/" + encodeURIComponent(r.symbol) + "#description/issue-info";
+          a.appendChild(el("span", "sym", r.symbol));
+          a.appendChild(document.createTextNode(r.name));
+          li.appendChild(a);
+          li.appendChild(el("span", "kind", (KINDS[r.kind] || "Security type not available") +
+            (r.status !== "active" ? " · " + r.status : "")));
+          list.appendChild(li);
+        });
+        related.appendChild(list);
+      } else {
+        related.appendChild(el("p", "des-text na", "None listed"));
+      }
+      grid.appendChild(related);
     }
 
     // -------------------------------------------------------- live figures
