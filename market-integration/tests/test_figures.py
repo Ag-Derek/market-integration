@@ -179,6 +179,39 @@ def test_trailing_eps_skips_a_year_without_one(make_tick):
     assert f["pe_ratio"]["value"] == 20.0 and f["fiscal_years"]["eps"] == 2024
 
 
+# ---------------------------------------------------------------- dividends
+
+def _dividends(*years):
+    """FinancialYears from (fiscal year, dividend per share, payment dates)."""
+    return [
+        FinancialYear(fiscal_year=y, dividend_per_share=sourced(dps),
+                      **({"dividend_payment_dates": sourced(dates)} if dates else {}))
+        for y, dps, dates in years
+    ]
+
+
+def test_last_dividend_is_the_latest_year_that_paid_one():
+    years = _dividends((2023, 0.20, ["2024-04-10"]), (2024, 0.30, ["2025-04-10", "2026-11-01"]), (2025, 0.0, None))
+    last = calculated_figures(Company(symbol="GCB", financials=years), None, today=TODAY)["last_dividend"]
+    assert (last["fiscal_year"], last["dividend_per_share"]) == (2024, 0.30)   # 2025 paid nothing
+    assert (last["paid_on"], last["payable_on"]) == ("2025-04-10", "2026-11-01")
+    assert calculated_figures(None, None, today=TODAY)["last_dividend"] is None
+
+
+def test_dividend_growth_is_compound_over_up_to_five_years():
+    years = _dividends((2019, 0.10, None), (2021, 0.25, None), (2022, 0.0, None), (2025, 1.00, None))
+    g = calculated_figures(Company(symbol="GCB", financials=years), None, today=TODAY)["dividend_growth"]
+    # 2019 is more than five years before 2025, so growth runs from 2021: 0.25 -> 1.00 in 4 years.
+    assert (g["from_year"], g["to_year"], g["years"]) == (2021, 2025, 4)
+    assert g["value"] == pytest.approx((4 ** 0.25 - 1) * 100, abs=1e-4)
+
+
+def test_dividend_growth_needs_two_paying_years():
+    one = Company(symbol="GCB", financials=_dividends((2024, 0.0, None), (2025, 0.5, None)))
+    g = calculated_figures(one, None, today=TODAY)["dividend_growth"]
+    assert g["value"] is None and g["reason"] == "fewer than two years with a dividend recorded"
+
+
 def test_no_quote_falls_back_to_the_latest_close():
     f = calculated_figures(_company(eps=sourced(0.5)), None, daily=series([4.0, 5.0]), today=TODAY)
     assert f["price"]["value"] == 5.0 and "latest daily close" in f["price"]["formula"]

@@ -223,6 +223,26 @@
     font-weight: 500;
   }
 
+  .idline { font-size: 12px; color: var(--ink-faint); margin: 2px 0 0; min-height: 1em; }
+
+  /* Overview / Description switch */
+
+  .views { display: flex; gap: 6px; margin: 16px 0 0; }
+  .view-link {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    text-decoration: none;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    padding: 7px 14px;
+  }
+  .view-link:hover { color: var(--ink); background: var(--panel); }
+  .view-link[aria-current="page"] { color: var(--ink); background: var(--panel); border-color: var(--line); }
+  .view-link:focus-visible { outline: 2px solid var(--teal); outline-offset: 1px; }
+  #description { margin-top: 16px; }
+
   .price-row {
     display: flex;
     align-items: baseline;
@@ -465,6 +485,7 @@
       <span class="status" id="status" data-badge="disconnected"><span class="status-dot"></span><span id="statusText">Connecting…</span></span>
     </div>
     <h1 class="name"><span id="nameText">—</span><span class="symbol" id="symbolText"></span></h1>
+    <p class="idline" id="idline"></p>
     <div class="price-row">
       <span class="price num" id="price">—</span>
       <span class="price-caption" id="priceCaption">Last close</span>
@@ -476,6 +497,14 @@
     <div class="dividend" id="dividend"><span class="label">Dividend</span><span id="dividendText"></span></div>
   </section>
 
+  <nav class="views" aria-label="View">
+    <a class="view-link" id="viewOverview" href="#overview">Overview</a>
+    <a class="view-link" id="viewDescription" href="#description">Description</a>
+  </nav>
+
+  <div id="description" hidden></div>
+
+  <div id="overview">
   <section class="card chart-card">
     <div class="ranges" id="ranges" role="tablist" aria-label="Chart range"></div>
     <div class="chart-wrap" id="chartWrap">
@@ -513,6 +542,7 @@
       </div>
     </section>
   </div>
+  </div>
   </main>
   </div>
 
@@ -523,12 +553,13 @@
     chart plots individual trades. The status badge reflects the trading session and the feed's connection
     (<code>/market/status</code>), never price direction. Market cap is the price times shares outstanding, shown as —
     until shares outstanding are recorded for the company. Beta, PE, EPS, dividends and the target here are still generated
-    placeholders; the calculated versions are on <code>/instruments/{symbol}/description</code>.
+    placeholders; the calculated versions are on the Description view (<code>/instruments/{symbol}/description</code>).
   </footer>
 
 </div>
 
 <script src="/static/search.js"></script>
+<script src="/static/description.js"></script>
 <script>
 (function () {
   "use strict";
@@ -1223,6 +1254,7 @@
 
     renderQuote();
     drawSpark();
+    des.update(d);
     // The snapshot is already reflected in the fetched candles.
     if (!isSnapshot) applyTickToChart(d); else if (chart.range === "1D") drawChart();
   }
@@ -1258,6 +1290,11 @@
         const classes = msg.asset_classes || {};
         const symbols = msg.symbols.filter(function (s) { return (classes[s] || "equity") === "equity"; });
         wantSnapshotOnly = symbols.filter(function (s) { return s !== SYMBOL; });
+        // A suspended equity has a page (for its description) but no quotes.
+        if (symbols.indexOf(SYMBOL) === -1) {
+          $("exchange").textContent = "GSE · no live quotes";
+          $("asof").textContent = "No live quotes: " + SYMBOL + " isn't traded on the feed.";
+        }
         send("subscribe", symbols);
       } else if (msg.type === "snapshot") {
         Object.values(msg.data).forEach(function (d) { ingest(d, true); });
@@ -1296,12 +1333,55 @@
   let resizeTimer = null;
   window.addEventListener("resize", function () {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(function () { drawChart(); drawSpark(); }, 120);
+    resizeTimer = setTimeout(function () { drawChart(); drawSpark(); des.resize(); }, 120);
   });
 
   setInterval(renderAsOf, 1000);
 
   MarketSearch.mount($("search"));
+
+  // ---------------------------------------------------------------- views
+  // #overview (the default) or #description[/tab]; the quote header stays
+  // on top of both.
+
+  const des = Description.mount($("description"), {
+    symbol: SYMBOL,
+    header: $("idline"),
+    onFullChart: function () {
+      history.pushState(null, "", location.pathname + "#overview");
+      route();
+      selectRange("1Y");
+      $("chartWrap").scrollIntoView({ block: "nearest" });
+    },
+    onLoad: function (data) {
+      // No quote (e.g. suspended): name the company from the master.
+      if (!quote) {
+        $("nameText").textContent = data.instrument.name;
+        document.title = SYMBOL + " · " + data.instrument.name;
+      }
+    },
+  });
+
+  function route() {
+    const parts = location.hash.replace(/^#/, "").split("/");
+    const describing = parts[0] === "description";
+    $("overview").hidden = describing;
+    $("description").hidden = !describing;
+    if (describing) {
+      $("viewOverview").removeAttribute("aria-current");
+      $("viewDescription").setAttribute("aria-current", "page");
+      des.show(parts[1] || "profile");
+      if (quote) des.update(quote);
+    } else {
+      $("viewDescription").removeAttribute("aria-current");
+      $("viewOverview").setAttribute("aria-current", "page");
+      des.hide();
+      // Canvases hidden while describing have no size; draw them now.
+      requestAnimationFrame(function () { drawChart(); drawSpark(); });
+    }
+  }
+  window.addEventListener("hashchange", route);
+  route();
 
   function setSidebarCollapsed(collapsed) {
     $("layout").classList.toggle("collapsed", collapsed);
@@ -1310,7 +1390,7 @@
     toggle.innerHTML = collapsed ? "&rsaquo;" : "&lsaquo;";
     toggle.title = collapsed ? "Show the equities list" : "Collapse the list";
     // The charts are sized from their canvases, which just changed width.
-    requestAnimationFrame(function () { drawChart(); drawSpark(); });
+    requestAnimationFrame(function () { drawChart(); drawSpark(); des.resize(); });
   }
   let sidebarCollapsed = false;
   try { sidebarCollapsed = localStorage.getItem("sidebar.collapsed") === "1"; } catch (e) { /* storage unavailable */ }
