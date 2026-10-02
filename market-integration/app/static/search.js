@@ -8,7 +8,8 @@
  * Keyboard: "/" focuses, Up/Down move, Enter opens the highlighted (or
  * first) result, Shift+Enter pins it, Esc closes (a second Esc clears
  * and leaves the box). Equities open /stock/{symbol}, bills and bonds
- * /bond/{symbol}.
+ * /bond/{symbol}. The best-matching equity is followed by a row for its
+ * Description page (/stock/{symbol}#description).
  *
  * Filters: focusing the box opens a panel with two pills, Sector and
  * Movers (Tab reaches them), each opening a menu. Sector narrows the
@@ -32,7 +33,7 @@
   const BROWSE_LIMIT = 50;  // a whole sector, with nothing typed
   const WATCHLIST_KEY = "watchlist";
   const WATCHLIST_MAX = 6;
-  const BADGE = { equity: "Equity", bill: "Bill", bond: "Bond" };
+  const BADGE = { equity: "Equity", bill: "Bill", bond: "Bond", description: "DES" };
   const MOVERS = [
     { key: "gainers", label: "Top gainers", none: "No gainers" },
     { key: "losers", label: "Top losers", none: "No losers" },
@@ -115,6 +116,9 @@
   }
   .msearch-badge.bill { color: var(--gold); background: var(--gold-bg); }
   .msearch-badge.bond { color: var(--status-live, #5AA9E6); background: rgba(90, 169, 230, 0.12); }
+  .msearch-badge.description { color: var(--teal); background: rgba(62, 156, 130, 0.12); }
+  .msearch-opt.description .msearch-sym { color: var(--ink-soft); font-weight: 500; }
+  .msearch-opt.description .msearch-pin { visibility: hidden; }
   .msearch-px { font: 12px ui-monospace, monospace; font-variant-numeric: tabular-nums; color: var(--ink); text-align: right; }
   .msearch-px small { display: block; font-size: 10.5px; color: var(--ink-faint); }
   .msearch-px small.up { color: var(--green); }
@@ -168,7 +172,22 @@
   // ------------------------------------------------------------ component
 
   function detailUrl(r) {
+    if (r.asset_class === "description") return "/stock/" + encodeURIComponent(r.symbol) + "#description";
     return (r.asset_class === "equity" ? "/stock/" : "/bond/") + encodeURIComponent(r.symbol);
+  }
+
+  // A Description row right after the best-matching equity, so a search
+  // for a company also offers its profile page.
+  function withDescription(rows) {
+    const i = rows.findIndex(function (r) { return r.asset_class === "equity"; });
+    if (i === -1) return rows;
+    const des = {
+      symbol: rows[i].symbol,
+      name: "Description · profile, management, dividends",
+      asset_class: "description",
+      price: null,
+    };
+    return rows.slice(0, i + 1).concat([des], rows.slice(i + 1));
   }
 
   function fmtPrice(r) {
@@ -299,7 +318,7 @@
       const pinned = readWatchlist() || [];
       results.forEach(function (r, i) {
         const li = document.createElement("li");
-        li.className = "msearch-opt";
+        li.className = "msearch-opt" + (r.asset_class === "description" ? " description" : "");
         li.id = listId + "-" + i;
         li.setAttribute("role", "option");
         li.setAttribute("aria-selected", "false");
@@ -320,7 +339,7 @@
         // most active, % change for gainers/losers, else the change.
         const px = document.createElement("span");
         px.className = "msearch-px";
-        px.textContent = fmtPrice(r);
+        px.textContent = r.asset_class === "description" ? "" : fmtPrice(r);
         const sub = document.createElement("small");
         if (filters.mover === "active" && r.volume != null) {
           sub.textContent = Number(r.volume).toLocaleString() + " sh";
@@ -337,7 +356,10 @@
         pinBtn.type = "button";
         pinBtn.className = "msearch-pin";
         pinBtn.tabIndex = -1;
-        if (r.asset_class !== "equity") {
+        if (r.asset_class === "description") {
+          pinBtn.textContent = "+ Pin";   // hidden; keeps the columns and Shift+Enter's indexing
+          pinBtn.disabled = true;
+        } else if (r.asset_class !== "equity") {
           pinBtn.textContent = "+ Pin";
           pinBtn.disabled = true;
           pinBtn.title = "The watchlist holds equities for now";
@@ -412,7 +434,7 @@
         })
         .then(function (body) {
           if (mine !== seq) return;
-          results = body;
+          results = filters.mover ? body : withDescription(body);
           render(q);
         })
         .catch(function (err) {

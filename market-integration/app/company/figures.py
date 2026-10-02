@@ -14,6 +14,11 @@ fiscal year that has the input:
   price_to_book     market cap / book value (total shareholders' equity)
   dividend_yield    latest dividend per share / price, in %
   return_on_equity  net income / book value, in %
+  dividend_growth   compound annual growth of dividend per share over
+                    up to 5 fiscal years, in %
+
+plus the last cash dividend: the latest fiscal year's dividend per
+share and when it was (or will be) paid.
 
 Each is {value, formula, inputs_as_of, reason}: calculated values have
 no source, so their inputs' dates stand in for one, and `reason` says
@@ -89,6 +94,54 @@ def dividends_paid(financials: Sequence[FinancialYear]) -> tuple[list[tuple[date
         estimated = estimated or len(dates) > 1
         paid += [(on, dps / len(dates)) for on in dates]
     return paid, estimated
+
+
+def last_dividend(financials: Sequence[FinancialYear], today: date) -> Optional[dict]:
+    """The latest fiscal year that paid a cash dividend: its dividend per
+    share (the year's total; interim and final aren't recorded apart),
+    the last of its payment dates on or before `today` and the next one
+    after it. None if no year in the quote's currency paid one."""
+    years = [f for f in financials if f.currency == QUOTE_CURRENCY and f.dividend_per_share.value]
+    if not years:
+        return None
+    year = max(years, key=lambda f: f.fiscal_year)
+    dates = sorted(year.dividend_payment_dates.value or [])
+    paid = [d for d in dates if d <= today]
+    due = [d for d in dates if d > today]
+    return {
+        "fiscal_year": year.fiscal_year,
+        "dividend_per_share": year.dividend_per_share.value,
+        "paid_on": paid[-1].isoformat() if paid else None,
+        "payable_on": due[0].isoformat() if due else None,
+        "as_of": year.dividend_per_share.as_of.isoformat(),
+    }
+
+
+DIVIDEND_GROWTH_YEARS = 5
+
+
+def dividend_growth(financials: Sequence[FinancialYear]) -> dict:
+    """Compound annual growth of dividend per share, from the earliest
+    year that paid one in the DIVIDEND_GROWTH_YEARS before the latest
+    paying year, to that latest year. Shorter spans are allowed (and
+    reported in `years`); growth from no dividend isn't defined."""
+    paying = sorted(
+        (f for f in financials if f.currency == QUOTE_CURRENCY and f.dividend_per_share.value),
+        key=lambda f: f.fiscal_year,
+    )
+    formula = "(latest / earliest dividend per share) ^ (1 / years) - 1"
+    end = paying[-1] if paying else None
+    start = next((f for f in paying if end and end.fiscal_year - f.fiscal_year <= DIVIDEND_GROWTH_YEARS), None)
+    if end is None or start is end:
+        reason = "fewer than two years with a dividend recorded"
+        return {**_figure(None, formula, reason), "from_year": None, "to_year": None, "years": None}
+    years = end.fiscal_year - start.fiscal_year
+    growth = ((end.dividend_per_share.value / start.dividend_per_share.value) ** (1 / years) - 1) * 100
+    return {
+        **_figure(growth, formula, None,
+                  from_dividend=start.dividend_per_share.as_of, to_dividend=end.dividend_per_share.as_of),
+        "from_year": start.fiscal_year, "to_year": end.fiscal_year, "years": years,
+    }
 
 
 def calculated_figures(
@@ -185,6 +238,8 @@ def calculated_figures(
         "return_on_equity": _figure(roe, "net income / book value x 100", roe_reason,
                                     net_income=as_of(roe_year, "net_income"),
                                     book_value=as_of(roe_year, "book_value")),
+        "dividend_growth": dividend_growth(financials),
+        "last_dividend": last_dividend(financials, today),
         "fiscal_years": {
             "eps": eps_year.fiscal_year if eps_year else None,
             "book_value": book_year.fiscal_year if book_year else None,

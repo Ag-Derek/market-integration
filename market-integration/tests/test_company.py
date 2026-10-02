@@ -165,6 +165,8 @@ def test_description_returns_everything_in_one_response(client, seeded):
     assert price is not None  # MTNGH is in the live feed
     assert calc["market_cap"]["value"] == pytest.approx(price * 10_000_000_000, rel=1e-6)
     assert calc["pe_ratio"]["value"] == pytest.approx(price / 0.40, rel=1e-3)
+    assert calc["last_dividend"]["fiscal_year"] == 2025 and calc["last_dividend"]["dividend_per_share"] == 0.30
+    assert calc["dividend_growth"]["reason"] == "fewer than two years with a dividend recorded"
 
 
 def test_missing_fields_are_null_not_omitted(client, seeded):
@@ -184,6 +186,16 @@ def test_an_equity_with_no_entry_at_all_is_all_null(client, seeded):
     # A suspended equity has no quote, so nothing to calculate from.
     pbc = client.get("/instruments/PBC/description").json()
     assert pbc["calculated"]["price"]["value"] is None
+
+
+def test_stock_page_has_the_description_view_for_every_listed_equity(client):
+    page = client.get("/stock/MTNGH").text
+    assert '<script src="/static/description.js"></script>' in page and 'id="description"' in page
+    script = client.get("/static/description.js")
+    assert script.status_code == 200 and "javascript" in script.headers["content-type"]
+    # Suspended: not on the feed, but listed, so its description is reachable.
+    assert client.get("/stock/PBC").status_code == 200
+    assert client.get("/instruments/PBC/description").status_code == 200
 
 
 def test_unknown_symbols_and_non_equities_are_404(client):

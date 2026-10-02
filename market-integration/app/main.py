@@ -736,6 +736,12 @@ async def search_script():
     return FileResponse(STATIC_DIR / "search.js", media_type="text/javascript")
 
 
+@app.get("/static/description.js")
+async def description_script():
+    """The stock page's Description view (#64)."""
+    return FileResponse(STATIC_DIR / "description.js", media_type="text/javascript")
+
+
 @app.get("/stock")
 async def stock_page_default():
     return RedirectResponse(url=f"/stock/{equities.symbols[0]}")
@@ -744,10 +750,15 @@ async def stock_page_default():
 @app.get("/stock/{symbol}", response_class=HTMLResponse)
 async def stock_page(symbol: str):
     """Single-stock detail page: live quote over /ws/market plus a
-    range-selectable chart from /candles. The page reads the symbol from
-    its own URL."""
-    if symbol.upper() not in equities.symbols:  # bills and bonds get their own page (#39)
-        raise HTTPException(status_code=404, detail=f"Unknown symbol '{symbol.upper()}'")
+    range-selectable chart from /candles, and the Description view
+    (#description). The page reads the symbol from its own URL. Served
+    for every listed equity, including suspended ones the feed doesn't
+    carry, so their description is reachable."""
+    symbol = symbol.upper()
+    instrument = INSTRUMENTS.get(symbol)
+    listed = instrument is not None and instrument.asset_class == "equity"
+    if symbol not in equities.symbols and not listed:  # bills and bonds get their own page (#39)
+        raise HTTPException(status_code=404, detail=f"Unknown symbol '{symbol}'")
     return (STATIC_DIR / "stock.html").read_text(encoding="utf-8")
 
 
