@@ -315,9 +315,10 @@ async def instrument_detail(symbol: str):
 @app.get("/instruments/{symbol}/description")
 async def instrument_description(symbol: str):
     """Everything an equity's description page needs, in one response:
-    the instrument master entry, the company profile, officers (in
-    display order) and annual financials (newest first) we maintain,
-    and figures calculated from them and the live quote.
+    the instrument master entry and its related securities, the company
+    profile, officers (in display order) and annual financials (newest
+    first) we maintain, and figures calculated from them and the live
+    quote.
 
     Every maintained value is {value, source, as_of}; a field nobody has
     filled in yet is all null, never left out. Calculated figures carry
@@ -336,9 +337,12 @@ async def instrument_description(symbol: str):
     quote = processor.get_latest(symbol)
     now = datetime.now(timezone.utc)
     daily = days(await aggregator.get_candles(symbol, "1d", now - FIGURES_HISTORY))
+    related = [INSTRUMENTS[s] for s in instrument.related_symbols if s in INSTRUMENTS]
     return {
         "symbol": symbol,
         "instrument": instrument.model_dump(mode="json"),
+        # Other listed lines of the same issuer, for the Issue Info tab's links.
+        "related": [{"symbol": r.symbol, "name": r.name, "kind": r.kind, "status": r.status} for r in related],
         "profile": company.profile.model_dump(mode="json"),
         "officers": [o.model_dump(mode="json") for o in company.officers],
         "financials": [f.model_dump(mode="json") for f in company.financials],

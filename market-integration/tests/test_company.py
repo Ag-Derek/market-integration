@@ -149,7 +149,7 @@ def _all_sourced(obj, fields):
 def test_description_returns_everything_in_one_response(client, seeded):
     body = client.get("/instruments/mtngh/description").json()
 
-    assert set(body) == {"symbol", "instrument", "profile", "officers", "financials", "calculated"}
+    assert set(body) == {"symbol", "instrument", "related", "profile", "officers", "financials", "calculated"}
     assert body["instrument"]["isin"] == "GHEMTN051541"
     assert body["profile"]["employees"] == {"value": 1000, "source": "Test fixture", "as_of": "2025-12-31"}
     assert body["profile"]["listing_date"]["value"] == "2018-09-05"
@@ -196,6 +196,15 @@ def test_stock_page_has_the_description_view_for_every_listed_equity(client):
     # Suspended: not on the feed, but listed, so its description is reachable.
     assert client.get("/stock/PBC").status_code == 200
     assert client.get("/instruments/PBC/description").status_code == 200
+
+
+def test_description_names_related_securities_both_ways(client):
+    aga = client.get("/instruments/AGA/description").json()
+    aads = client.get("/instruments/AADS/description").json()
+    assert aga["related"] == [{"symbol": "AADS", "name": "AngloGold Ashanti Depositary Shares",
+                               "kind": "depositary", "status": "active"}]
+    assert [r["symbol"] for r in aads["related"]] == ["AGA"]
+    assert client.get("/instruments/MTNGH/description").json()["related"] == []
 
 
 def test_unknown_symbols_and_non_equities_are_404(client):

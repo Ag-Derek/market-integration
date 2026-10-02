@@ -8,6 +8,7 @@ table is derived data, so seed() also drops and recreates it -- a
 column added to Instrument needs no migration.
 """
 
+import json
 import sqlite3
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -16,7 +17,7 @@ from typing import Iterable, Optional
 from app.models.instrument import Instrument
 
 _COLUMNS = (
-    "symbol", "name", "asset_class", "kind", "sector", "currency", "isin", "status",
+    "symbol", "name", "asset_class", "kind", "board", "related_symbols", "sector", "currency", "isin", "status",
     "issuer", "segment", "tenor", "maturity_date", "coupon_rate",
     "issue_date", "frequency", "day_count", "face_value",
 )
@@ -27,6 +28,8 @@ _CREATE_TABLE = """
         name TEXT NOT NULL,
         asset_class TEXT NOT NULL,
         kind TEXT,
+        board TEXT,
+        related_symbols TEXT NOT NULL,     -- JSON list
         sector TEXT NOT NULL,
         currency TEXT NOT NULL,
         isin TEXT,
@@ -46,7 +49,15 @@ _CREATE_TABLE = """
 
 
 def _to_db(value):
+    if isinstance(value, tuple):  # related_symbols
+        return json.dumps(list(value))
     return value.isoformat() if isinstance(value, date) else value
+
+
+def _from_row(row) -> Instrument:
+    values = dict(zip(_COLUMNS, row))
+    values["related_symbols"] = tuple(json.loads(values["related_symbols"]))
+    return Instrument(**values)
 
 
 class InstrumentStore:
@@ -113,7 +124,7 @@ class InstrumentStore:
             rows = conn.execute(query, params).fetchall()
         finally:
             conn.close()
-        return [Instrument(**dict(zip(_COLUMNS, r))) for r in rows]
+        return [_from_row(r) for r in rows]
 
     def get(self, symbol: str) -> Optional[Instrument]:
         conn = self._connect()
@@ -123,4 +134,4 @@ class InstrumentStore:
             ).fetchone()
         finally:
             conn.close()
-        return Instrument(**dict(zip(_COLUMNS, row))) if row else None
+        return _from_row(row) if row else None
