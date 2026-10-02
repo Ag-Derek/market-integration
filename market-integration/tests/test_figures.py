@@ -208,11 +208,13 @@ def test_description_has_performance_and_beta_from_the_stored_candles(client):
     assert perf["one_day"]["to"] >= perf["one_day"]["from"]
     assert perf["week52"]["high"] >= perf["week52"]["low"] > 0
     assert perf["ytd"] is not None and perf["total_return_12m"] is not None
-    assert perf["total_return_12m"]["dividends_recorded"] is False  # none in the seed yet
+    assert perf["total_return_12m"]["dividends_recorded"] is True  # from the seed
     assert calc["beta"]["index"] == "GSE-CI (simulated)" and calc["beta"]["observations"] >= 30
-    # Nothing maintained yet, so valuation says why it's empty.
-    assert calc["market_cap"]["reason"] == "no shares outstanding recorded"
-    assert calc["pe_ratio"]["reason"] == "no eps recorded"
+    assert calc["market_cap"]["value"] > 0 and calc["pe_ratio"]["value"] > 0
+    # Nothing maintained for CAL, so valuation says why it's empty.
+    cal = client.get("/instruments/CAL/description").json()["calculated"]
+    assert cal["market_cap"]["reason"] == "no shares outstanding recorded"
+    assert cal["pe_ratio"]["reason"] == "no eps recorded"
 
 
 def test_simulated_gse_ci_endpoint(client):
@@ -223,12 +225,11 @@ def test_simulated_gse_ci_endpoint(client):
     assert [p["date"] for p in body["series"]] == sorted(p["date"] for p in body["series"])
 
 
-def test_quote_cards_get_calculated_market_cap_not_a_placeholder(client, monkeypatch):
+def test_quote_cards_get_calculated_market_cap_not_a_placeholder(client):
     from app import main
 
-    assert main.processor.get_latest("GCB").market_cap is None  # no shares recorded
-    shares = Company(symbol="MTNGH", profile={"shares_outstanding": sourced(12_000_000_000)})
-    monkeypatch.setitem(main.COMPANIES, "MTNGH", shares)
+    assert main.processor.get_latest("CAL").market_cap is None  # no shares recorded
+    shares = main.COMPANIES["MTNGH"].profile.shares_outstanding.value  # from the seed
 
     def priced():
         q = main.processor.get_latest("MTNGH")
@@ -238,4 +239,4 @@ def test_quote_cards_get_calculated_market_cap_not_a_placeholder(client, monkeyp
     while (quote := priced()) is None and time.monotonic() < deadline:
         time.sleep(0.1)
     assert quote is not None, "no MTNGH tick carried a market cap"
-    assert quote.market_cap == pytest.approx(quote.vwap * 12_000_000_000)
+    assert quote.market_cap == pytest.approx(quote.vwap * shares)
