@@ -80,7 +80,7 @@ SNAPSHOT = {
     "buffer": {"received": 10, "capacity": 200, "subscribers": {
         "processor": {"mode": "queue", "depth": 4, "dropped": 2},
     }},
-    "websocket": {"clients": 3, "subscriptions": 7},
+    "websocket": {"clients": 3, "subscriptions": 7, "conflated": 0},
     "validation": {"processor": {"passed": 8, "rejected": 2, "by_rule": {"stale": 2}}},
     "aggregator": {"flushes": 5, "last_flush_at": "2026-10-01T12:00:00+00:00",
                    "last_flush_seconds": 0.012, "last_flush_rows": 40, "incomplete_candles": 0},

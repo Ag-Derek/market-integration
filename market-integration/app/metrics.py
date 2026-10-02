@@ -65,6 +65,7 @@ def collect(
         "websocket": {
             "clients": gateway.client_count,
             "subscriptions": gateway.subscription_count,
+            "conflated": gateway.conflated_count,
         },
         "validation": {name: counter.snapshot() for name, counter in validators.items()},
         "aggregator": {
@@ -162,6 +163,9 @@ def to_prometheus(snapshot: dict) -> str:
     out.metric("market_websocket_clients", "gauge", "Connected WebSocket clients.", [(None, ws["clients"])])
     out.metric("market_websocket_subscriptions", "gauge",
                "Symbol subscriptions across all WebSocket clients.", [(None, ws["subscriptions"])])
+    out.metric("market_websocket_conflated_ticks_total", "counter",
+               "Ticks skipped for a slow client because a newer one for the symbol replaced them.",
+               [(None, ws["conflated"])])
 
     validation = snapshot["validation"]
     out.metric("market_validation_ticks_total", "counter",

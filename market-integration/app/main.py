@@ -25,6 +25,7 @@ from app.bond_math.calculator import calculate, quoted_yield, security_for
 from app.connectors.composite_connector import CompositeConnector
 from app.connectors.fixed_income_connector import MockFixedIncomeConnector
 from app.connectors.fixed_income_mock import MockFixedIncomeMarket
+from app.connectors.load_connector import LoadConnector
 from app.connectors.market_connector import MockMarketConnector
 from app.connectors.supervisor import SupervisedConnector
 from app.gateways.websocket_gateway import WebSocketGateway
@@ -64,11 +65,23 @@ fixed_income_calendar = calendar.with_hours(
     hours_source="GFIM Rules 2022, Rule 12: trading 09:00-16:00 GMT",
 )
 
-equities = MockMarketConnector(
-    symbols=config.SYMBOLS,
-    interval_seconds=config.MOCK_INTERVAL_SECONDS,
-    calendar=calendar,
-)
+if config.FEED_MODE == "load":
+    # Synthetic equities at a fixed rate, for load tests and benchmarks.
+    equities = LoadConnector(
+        instruments=config.LOAD_INSTRUMENTS,
+        ticks_per_second=config.LOAD_TICKS_PER_SECOND,
+        ticks_per_instrument=config.LOAD_TICKS_PER_INSTRUMENT,
+        burst_multiplier=config.LOAD_BURST_MULTIPLIER,
+        burst_seconds=config.LOAD_BURST_SECONDS,
+        burst_after=config.LOAD_BURST_AFTER_SECONDS,
+        burst_every=config.LOAD_BURST_EVERY_SECONDS,
+    )
+else:
+    equities = MockMarketConnector(
+        symbols=config.SYMBOLS,
+        interval_seconds=config.MOCK_INTERVAL_SECONDS,
+        calendar=calendar,
+    )
 
 # Fixed income (GFIM): the mock market behind both the tick stream and
 # the GFIM-style daily report endpoints.

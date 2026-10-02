@@ -417,6 +417,21 @@ the server is running:
 </html>
 ```
 
+### Load testing and benchmarks
+
+`FEED_MODE=load` replaces the GSE equities mock with synthetic
+instruments at a fixed tick rate, with optional bursts (the `LOAD_*`
+settings in `.env.example`). To measure how far the service goes, run
+
+```bash
+python -m bench.benchmark
+```
+
+from the `market-integration` folder. It steps through tick rates
+against the real service with simulated WebSocket clients, and writes
+the results, including the maximum sustained rate and what fails
+first, to `docs/benchmarks.md`. See that file for targets and method.
+
 ## Stopping the service
 
 Press `Ctrl+C` in the terminal running Uvicorn. The connector's
@@ -505,12 +520,17 @@ market-integration/
 ├── docs/
 │   ├── data-formats.md            # GSE/GFIM report fields -> our models, data quirks
 │   ├── fixed-income-sources-and-conventions.md  # day counts, settlement, yield conventions behind bond_math/
+│   ├── benchmarks.md              # throughput targets, latest results, history
 │   └── samples/                   # official daily reports for 28-Sep-2026 (xlsx + pdf)
+│
+├── bench/
+│   ├── benchmark.py               # one-command throughput benchmark -> docs/benchmarks.md
+│   └── profile_hot_path.py        # per-tick cost by stage + cProfile of the pipeline
 │
 ├── tests/                         # pytest suite (pipeline, candles, bond math, gateway, ...)
 │
 ├── requirements.txt
-├── requirements-dev.txt           # test dependencies
+├── requirements-dev.txt           # test and benchmark dependencies
 ├── pytest.ini
 ├── .env.example
 ├── market_data.db                 # SQLite, created on first run (gitignored)

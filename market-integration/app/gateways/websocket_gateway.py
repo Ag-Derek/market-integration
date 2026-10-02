@@ -112,10 +112,17 @@ class WebSocketGateway:
         self._status = status
         self._clients: dict[WebSocket, _Client] = {}
         self._subscribers: dict[str, set[_Client]] = {}
+        self._conflated_closed = 0  # conflated ticks of clients since gone
 
     @property
     def client_count(self) -> int:
         return len(self._clients)
+
+    @property
+    def conflated_count(self) -> int:
+        """Ticks never sent because a newer one for the same symbol
+        replaced them in a slow client's outbox, across all clients ever."""
+        return self._conflated_closed + sum(c.conflated for c in self._clients.values())
 
     @property
     def subscription_count(self) -> int:
@@ -159,6 +166,7 @@ class WebSocketGateway:
         client = self._clients.pop(websocket, None)
         if client is None:
             return
+        self._conflated_closed += client.conflated
         self._drop(client)
         if client.sender is not None and client.sender is not asyncio.current_task():
             client.sender.cancel()

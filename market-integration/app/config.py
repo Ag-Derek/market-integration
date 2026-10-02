@@ -5,7 +5,7 @@ so nothing provider-specific is hardcoded once a real connector exists.
 
 import os
 from pathlib import Path
-from typing import get_args
+from typing import Optional, get_args
 
 from dotenv import load_dotenv
 
@@ -47,6 +47,29 @@ DB_PATH: Path = Path(os.getenv("MARKET_DB_PATH", "market_data.db"))
 
 # How often the mock connector emits an update, in seconds
 MOCK_INTERVAL_SECONDS: float = float(os.getenv("MOCK_INTERVAL_SECONDS", "0.5"))
+
+# "mock" (default): the calibrated GSE equities mock. "load": synthetic
+# equities at a fixed tick rate instead, for load tests and the
+# benchmark (app/connectors/load_connector.py, bench/benchmark.py).
+FEED_MODE: str = os.getenv("FEED_MODE", "mock").strip().lower()
+if FEED_MODE not in ("mock", "load"):
+    raise ValueError(f"FEED_MODE must be 'mock' or 'load', got {FEED_MODE!r}")
+
+# Load mode only. LOAD_TICKS_PER_SECOND is the overall rate; leave it
+# empty to use LOAD_TICKS_PER_INSTRUMENT x LOAD_INSTRUMENTS instead.
+# Bursts multiply the rate by LOAD_BURST_MULTIPLIER for
+# LOAD_BURST_SECONDS, starting LOAD_BURST_AFTER_SECONDS into the stream
+# and, if LOAD_BURST_EVERY_SECONDS is set, repeating that often
+# (LOAD_BURST_SECONDS=0: no bursts).
+LOAD_INSTRUMENTS: int = int(os.getenv("LOAD_INSTRUMENTS", "100"))
+LOAD_TICKS_PER_SECOND: Optional[float] = (
+    float(os.environ["LOAD_TICKS_PER_SECOND"]) if os.getenv("LOAD_TICKS_PER_SECOND", "").strip() else None
+)
+LOAD_TICKS_PER_INSTRUMENT: float = float(os.getenv("LOAD_TICKS_PER_INSTRUMENT", "1"))
+LOAD_BURST_MULTIPLIER: float = float(os.getenv("LOAD_BURST_MULTIPLIER", "10"))
+LOAD_BURST_SECONDS: float = float(os.getenv("LOAD_BURST_SECONDS", "0"))
+LOAD_BURST_AFTER_SECONDS: float = float(os.getenv("LOAD_BURST_AFTER_SECONDS", "30"))
+LOAD_BURST_EVERY_SECONDS: float = float(os.getenv("LOAD_BURST_EVERY_SECONDS", "0"))
 
 # Per-subscriber queue size on the MarketDataBuffer sitting between the
 # connector and the live display branch (processor/gateway). When it
