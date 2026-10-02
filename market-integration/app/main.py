@@ -22,6 +22,9 @@ from app.aggregation.market_aggregator import MarketAggregator
 from app.aggregation.ranges import RANGES
 from app.bond_math import settlement_date
 from app.bond_math.calculator import calculate, quoted_yield, security_for
+from app.company import COMPANIES
+from app.company.figures import calculated_figures
+from app.company.store import CompanyStore
 from app.connectors.composite_connector import CompositeConnector
 from app.connectors.fixed_income_connector import MockFixedIncomeConnector
 from app.connectors.fixed_income_mock import MockFixedIncomeMarket
@@ -38,6 +41,7 @@ from app.models.fixed_income import (
     FixedIncomeTick,
     GovernmentYieldCurve, ReportSection,
 )
+from app.models.company import Company
 from app.models.instrument import AssetClass, Instrument
 from app.models.market_data import MarketData
 from app.processors.market_processor import MarketProcessor
@@ -187,6 +191,9 @@ gateway = WebSocketGateway(
 instrument_store = InstrumentStore(config.DB_PATH)
 # The search bar's index, over the same instruments the store is seeded with.
 instrument_search = InstrumentSearch(INSTRUMENTS.values())
+# Company profiles, officers and financials for description pages;
+# re-seeded from data/company_profiles.json on every startup.
+company_store = CompanyStore(config.DB_PATH)
 
 # The buffer decouples ingestion (connector) from its downstream
 # consumers, each getting an independent bounded queue: drop-oldest for
@@ -290,6 +297,38 @@ async def instrument_detail(symbol: str):
     if instrument is None:
         raise HTTPException(status_code=404, detail=f"Unknown instrument '{symbol.upper()}'")
     return instrument
+
+
+@app.get("/instruments/{symbol}/description")
+async def instrument_description(symbol: str):
+    """Everything an equity's description page needs, in one response:
+    the instrument master entry, the company profile, officers (in
+    display order) and annual financials (newest first) we maintain,
+    and figures calculated from them and the live quote.
+
+    Every maintained value is {value, source, as_of}; a field nobody has
+    filled in yet is all null, never left out. Calculated figures carry
+    their formula and their inputs' dates instead of a source; see
+    app/company/figures.py. 404 for unknown symbols and for bills and
+    bonds."""
+    symbol = symbol.upper()
+    instrument = await asyncio.to_thread(instrument_store.get, symbol)
+    if instrument is None:
+        raise HTTPException(status_code=404, detail=f"Unknown instrument '{symbol}'")
+    if instrument.asset_class != "equity":
+        raise HTTPException(
+            status_code=404, detail=f"'{symbol}' is a {instrument.asset_class}; description pages are for equities"
+        )
+    company = await asyncio.to_thread(company_store.get, symbol) or Company(symbol=symbol)
+    quote = processor.get_latest(symbol)
+    return {
+        "symbol": symbol,
+        "instrument": instrument.model_dump(mode="json"),
+        "profile": company.profile.model_dump(mode="json"),
+        "officers": [o.model_dump(mode="json") for o in company.officers],
+        "financials": [f.model_dump(mode="json") for f in company.financials],
+        "calculated": calculated_figures(company, quote if isinstance(quote, MarketData) else None),
+    }
 
 
 def _last_price(symbol: str) -> tuple[Optional[float], Optional[float]]:
@@ -699,6 +738,7 @@ async def status_loop() -> None:
 async def startup():
     global consumer_task, status_task
     await asyncio.to_thread(instrument_store.seed, INSTRUMENTS.values())
+    await asyncio.to_thread(company_store.seed, COMPANIES.values())
     await connector.connect()
     # Before any live ticks flow, so history is in place (and open
     # windows seeded) by the time the aggregator starts recording.
