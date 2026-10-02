@@ -3,6 +3,7 @@ import csv
 import io
 import logging
 import sqlite3
+import time as time_module
 from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Literal, Optional
@@ -23,7 +24,9 @@ from app.aggregation.ranges import RANGES
 from app.bond_math import settlement_date
 from app.bond_math.calculator import calculate, quoted_yield, security_for
 from app.company import COMPANIES
-from app.company.figures import calculated_figures
+from app.company.figures import INDEX_NAME, calculated_figures, with_market_cap
+from app.company.index import BASE_LEVEL, simulated_gse_ci
+from app.company.performance import Day, days
 from app.company.store import CompanyStore
 from app.connectors.composite_connector import CompositeConnector
 from app.connectors.fixed_income_connector import MockFixedIncomeConnector
@@ -210,6 +213,16 @@ buffer = MarketDataBuffer(
 # a WebSocket client. A dropped tick here only delays a price update.
 validated_feed = ValidatingStream(buffer.subscribe("processor"), name="processor")
 
+
+def _shares_outstanding(symbol: str) -> Optional[int]:
+    company = COMPANIES.get(symbol)
+    return company.profile.shares_outstanding.value if company else None
+
+
+# Market cap (VWAP x shares outstanding) set on each equity tick, so the
+# quote cards and snapshots carry the calculated figure.
+priced_feed = with_market_cap(validated_feed, _shares_outstanding)
+
 # OHLCV persistence: a separate branch off the buffer, so a slow database
 # write can never delay real-time delivery. Validates independently.
 # Lossless: a lost tick can mean a wrong high, low or volume, so if one
@@ -321,13 +334,53 @@ async def instrument_description(symbol: str):
         )
     company = await asyncio.to_thread(company_store.get, symbol) or Company(symbol=symbol)
     quote = processor.get_latest(symbol)
+    now = datetime.now(timezone.utc)
+    daily = days(await aggregator.get_candles(symbol, "1d", now - FIGURES_HISTORY))
     return {
         "symbol": symbol,
         "instrument": instrument.model_dump(mode="json"),
         "profile": company.profile.model_dump(mode="json"),
         "officers": [o.model_dump(mode="json") for o in company.officers],
         "financials": [f.model_dump(mode="json") for f in company.financials],
-        "calculated": calculated_figures(company, quote if isinstance(quote, MarketData) else None),
+        "calculated": calculated_figures(
+            company, quote if isinstance(quote, MarketData) else None,
+            daily=daily, index=await gse_ci(), today=now.date(),
+        ),
+    }
+
+
+# Daily history the figures need: a year for the 52-week range, total
+# return and beta, plus slack for the reference close before it.
+FIGURES_HISTORY = timedelta(days=400)
+INDEX_TTL_SECONDS = 60
+_index_cache: Optional[tuple[float, list[Day]]] = None
+
+
+async def gse_ci() -> list[Day]:
+    """The simulated GSE-CI over FIGURES_HISTORY, from every equity's
+    daily candles; rebuilt at most once a minute."""
+    global _index_cache
+    if _index_cache is not None and time_module.monotonic() - _index_cache[0] < INDEX_TTL_SECONDS:
+        return _index_cache[1]
+    start = datetime.now(timezone.utc) - FIGURES_HISTORY
+    constituents = {s: days(await aggregator.get_candles(s, "1d", start)) for s in equities.symbols}
+    series = simulated_gse_ci(constituents)
+    _index_cache = (time_module.monotonic(), series)
+    return series
+
+
+@app.get("/indices/gse-ci")
+async def gse_ci_series():
+    """The simulated GSE Composite Index used for beta: daily levels
+    from every equity's daily closes, equal-weighted, from 1,000. A
+    stand-in until the feed carries the published index; see
+    app/company/index.py."""
+    series = await gse_ci()
+    return {
+        "name": INDEX_NAME,
+        "method": "equal-weighted daily close-to-close returns of every listed equity, chained",
+        "base_level": BASE_LEVEL,
+        "series": [{"date": d.on.isoformat(), "level": d.close} for d in series],
     }
 
 
@@ -714,7 +767,7 @@ async def consumer_loop() -> None:
     asyncio's default "Task exception was never retrieved" handler fires.
     """
     try:
-        await processor.consume(validated_feed, on_processed=gateway.broadcast)
+        await processor.consume(priced_feed, on_processed=gateway.broadcast)
     except asyncio.CancelledError:
         raise
     except Exception:

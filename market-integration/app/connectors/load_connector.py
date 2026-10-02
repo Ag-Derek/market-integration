@@ -162,7 +162,6 @@ class LoadConnector(BaseMarketConnector):
             year_low=round(s["previous_close"] * 0.5, 2),
             week52_high=round(s["previous_close"] * 2, 2),
             week52_low=round(s["previous_close"] * 0.5, 2),
-            market_cap=1_000_000_000.0,
             beta=1.0,
             pe_ratio=10.0,
             eps=round(price / 10, 4),

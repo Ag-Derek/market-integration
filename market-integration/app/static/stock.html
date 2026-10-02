@@ -521,8 +521,9 @@
     by the mock connector on startup and extended live as ticks arrive. As on the GSE, the headline price is the
     session's volume-weighted average (the closing price) and its change is against the previous VWAP close; the
     chart plots individual trades. The status badge reflects the trading session and the feed's connection
-    (<code>/market/status</code>), never price direction. Market cap, beta, PE, EPS, dividends and the target are generated placeholders,
-    there is no real GSE fundamentals data behind them yet.
+    (<code>/market/status</code>), never price direction. Market cap is the price times shares outstanding, shown as —
+    until shares outstanding are recorded for the company. Beta, PE, EPS, dividends and the target here are still generated
+    placeholders; the calculated versions are on <code>/instruments/{symbol}/description</code>.
   </footer>
 
 </div>
@@ -724,7 +725,8 @@
     statEls.volume.textContent = traded ? fmtNum(d.volume) : "No trades today";
     statEls.valueTraded.textContent = fmtMoney(d.value_traded);
     statEls.avgVolume.textContent = fmtNum(d.avg_volume);
-    statEls.marketCap.textContent = fmtLarge(d.market_cap);
+    // Price x shares outstanding; null until shares outstanding are recorded.
+    statEls.marketCap.textContent = d.market_cap != null ? fmtLarge(d.market_cap) : "—";
     statEls.beta.textContent = d.beta.toFixed(2);
     statEls.pe.textContent = d.pe_ratio.toFixed(2);
     statEls.eps.textContent = d.eps.toFixed(2);

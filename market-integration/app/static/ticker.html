@@ -427,8 +427,8 @@
     Live over <code>/ws/market</code>, the same feed the rest of the pipeline uses. Prices follow the GSE: the headline
     price is the session's volume-weighted average (the GSE closing price) and the change is measured against the
     previous VWAP close; the chart plots individual trades. The status badge reflects the trading session and the
-    feed's connection (<code>/market/status</code>), never price direction. Market cap and other fundamentals are generated
-    placeholders, there is no real GSE fundamentals data behind them yet.
+    feed's connection (<code>/market/status</code>), never price direction. Market cap is the price times shares
+    outstanding, shown as — until shares outstanding are recorded for the company.
   </footer>
 
 </div>
@@ -782,7 +782,8 @@
     p.stats.previousClose.value.textContent = fmtMoney(d.previous_close);
     p.stats.dayRange.value.textContent = traded ? fmtMoney(d.day_low) + " – " + fmtMoney(d.day_high) : "—";
     p.stats.sharesTraded.value.textContent = traded ? fmtNum(d.volume) : "No trades today";
-    p.stats.marketCap.value.textContent = fmtLarge(d.market_cap);
+    // Price x shares outstanding; null until shares outstanding are recorded.
+    p.stats.marketCap.value.textContent = d.market_cap != null ? fmtLarge(d.market_cap) : "—";
 
     drawChart(sym);
   }
