@@ -4,3 +4,6 @@ __pycache__/
 .pytest_cache/
 market_data.db
 .env
+
+# Raw benchmark output (the summary lives in docs/benchmarks.md)
+bench/results/
