@@ -341,6 +341,7 @@ Uvicorn running on http://127.0.0.1:8000
 | `http://127.0.0.1:8000/metrics`   | Pipeline metrics in Prometheus text format (scrape it directly); `?format=json` for the same as JSON. Ticks received; dropped ticks and queue depth per buffer subscriber; WebSocket clients and subscriptions; ticks passed/rejected by each validating consumer, and rejections by rule (`crossed_book`, `stale`, `matured`, …); the aggregator's flush count and last flush time, duration and rows; each feed's up/reconnect state |
 | `http://127.0.0.1:8000/instruments` | Instrument master as JSON. Optional `?asset_class=equity\|bill\|bond` and `?sector=Banking` (case-insensitive) filters |
 | `http://127.0.0.1:8000/instruments/{symbol}` | One instrument's reference data (e.g. `/instruments/MTNGH`); 404 if unknown |
+| `http://127.0.0.1:8000/instruments/{symbol}/description` | Everything an equity's description page needs: instrument, company profile, officers, annual financials (from `data/company_profiles.json`, every value as `{value, source, as_of}`, null when not filled in) and figures calculated from them and the live quote (market cap, P/E, dividend yield, P/B, each with its formula). 404 for unknown symbols and for bills and bonds |
 | `http://127.0.0.1:8000/search?q=gc` | Typeahead for the search bar: `symbol`, `name`, `asset_class`, `price` and `change` (null until quoted). Matches symbol, name, ISIN, tenor, issuer and maturity date (`?q=2027`), ignoring case and punctuation (`?q=fan milk`); ranked exact symbol, symbol prefix, name word prefix, then substring. Optional `limit` (1–50, default 10), `asset_class` and `sector` (case-insensitive; with an empty `q` it lists the whole sector) |
 | `http://127.0.0.1:8000/sectors` | Every sector in the instrument master with its instrument count, for the search bar's Sector filter |
 | `http://127.0.0.1:8000/movers?type=gainers` | Today's movers among equities: `type` is `gainers` or `losers` (by % change, VWAP vs previous close) or `active` (by shares traded). Optional `limit` (1–50, default 10), `sector`, and `q` to search within the list |
@@ -452,6 +453,7 @@ market-integration/
 │   ├── __init__.py
 │   ├── main.py                    # FastAPI app, wires everything together
 │   ├── config.py                  # env-driven settings
+│   ├── company/                   # company profiles for description pages: seed, SQLite store, calculated figures
 │   ├── metrics.py                 # /metrics snapshot + Prometheus rendering
 │   │
 │   ├── models/
@@ -515,6 +517,7 @@ market-integration/
 │
 ├── data/
 │   ├── instruments.json           # instrument master seed (source of truth)
+│   ├── company_profiles.json      # maintained company profiles, officers, financials (each value sourced)
 │   └── market_calendar.json       # GSE session hours + Ghana public holidays
 │
 ├── docs/
