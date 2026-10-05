@@ -1,4 +1,4 @@
-"""Per-client WebSocket subscriptions (#13).
+"""Per-client WebSocket subscriptions (#13), throttled and conflated (#20).
 
 Most tests drive WebSocketGateway directly with fake sockets, so they
 control exactly which ticks are broadcast and when a client is slow. The
@@ -39,8 +39,12 @@ class FakeSocket:
     def of_type(self, kind):
         return [m for m in self.sent if m["type"] == kind]
 
+    def quotes(self):
+        """Every quote received, flattened out of the "ticks" batches."""
+        return [q for m in self.of_type("ticks") for q in m["data"]]
+
     def tick_symbols(self):
-        return [m["data"]["symbol"] for m in self.of_type("tick")]
+        return [q["symbol"] for q in self.quotes()]
 
 
 async def _settle():
@@ -49,9 +53,10 @@ async def _settle():
         await asyncio.sleep(0)
 
 
-def _gateway(latest=None):
+def _gateway(latest=None, send_interval=0.0):
     latest = latest or {}
-    return WebSocketGateway(SYMBOLS, snapshot=lambda syms: {s: latest[s] for s in syms if s in latest})
+    return WebSocketGateway(SYMBOLS, snapshot=lambda syms: {s: latest[s] for s in syms if s in latest},
+                            send_interval=send_interval)
 
 
 async def _connect(gateway, socket=None):
@@ -209,7 +214,7 @@ async def test_disconnect_removes_the_client_from_every_symbol(make_tick):
     assert gateway.client_count == 1
     assert (gateway.subscribers("MTNGH"), gateway.subscribers("GCB")) == (1, 0)
     assert client.sender.done()
-    assert socket.of_type("tick") == []
+    assert socket.of_type("ticks") == []
     assert other.tick_symbols() == ["MTNGH"]
     await gateway.disconnect(socket)  # idempotent
 
@@ -245,19 +250,87 @@ async def test_a_slow_client_holds_up_neither_the_feed_nor_other_clients(make_ti
         await gateway.broadcast(make_tick("GCB", price=40.0))
         await _settle()
 
-    # The fast client got every tick, in order.
-    assert [m["data"]["price"] for m in fast.of_type("tick") if m["data"]["symbol"] == "MTNGH"] == prices
+    # The fast client (no send interval here) got every tick, in order.
+    assert [q["price"] for q in fast.quotes() if q["symbol"] == "MTNGH"] == prices
     # The slow one has nothing yet, and at most one tick per symbol waiting.
-    assert slow.of_type("tick") == []
+    assert slow.of_type("ticks") == []
     assert set(slow_client.pending) <= {("equity", "MTNGH"), ("equity", "GCB")}
     assert slow_client.conflated > 0
 
     gate.set()
     await _settle()
-    # Once it catches up it gets the current price, not a backlog.
-    mtn = [m["data"]["price"] for m in slow.of_type("tick") if m["data"]["symbol"] == "MTNGH"]
-    assert mtn[-1] == prices[-1]
-    assert len(slow.of_type("tick")) <= 3
+    # Once it catches up it gets the current price, not a backlog: one
+    # batch with the latest quote per symbol.
+    assert len(slow.of_type("ticks")) == 1
+    assert {q["symbol"]: q["price"] for q in slow.quotes()} == {"MTNGH": prices[-1], "GCB": 40.0}
+
+
+# ---------------------------------------------------------------- throttling (#20)
+
+async def test_ticks_are_batched_and_sent_at_most_once_per_interval(make_tick):
+    interval = 0.05
+    gateway = _gateway(send_interval=interval)
+    socket, client = await _connect(gateway)
+    _subscribe(gateway, client, "MTNGH", "GCB")
+    await _settle()
+
+    # A burst far faster than the interval: two symbols as fast as the
+    # loop goes for 0.3 s (thousands of ticks).
+    start, n = time.monotonic(), 0
+    while time.monotonic() - start < 0.3:
+        await gateway.broadcast(make_tick("MTNGH", price=6.00 + n))
+        await gateway.broadcast(make_tick("GCB", price=40.0 + n))
+        n += 1
+        await asyncio.sleep(0)
+    await asyncio.sleep(interval * 2)  # time for the last batch
+    elapsed = time.monotonic() - start
+
+    batches = socket.of_type("ticks")
+    # Bounded by time, not by tick count: one batch per interval, plus the
+    # first, which goes at once.
+    assert 2 <= len(batches) <= elapsed / interval + 1
+    assert 2 * n > 10 * len(batches)
+    # Each batch carries at most one quote per symbol...
+    for batch in batches:
+        symbols = [q["symbol"] for q in batch["data"]]
+        assert len(symbols) == len(set(symbols))
+    # ...and the last one ends on the current prices.
+    latest = {q["symbol"]: q["price"] for q in socket.quotes()}
+    assert latest == {"MTNGH": 6.00 + n - 1, "GCB": 40.0 + n - 1}
+    assert gateway.ticks_sent == len(socket.quotes())
+    assert client.conflated == 2 * n - gateway.ticks_sent
+
+
+async def test_control_messages_do_not_wait_for_the_interval(make_tick):
+    latest = {"CAL": make_tick("CAL", price=0.7)}
+    gateway = _gateway(latest, send_interval=10)  # a batch every 10 s
+    socket, client = await _connect(gateway)
+    _subscribe(gateway, client, "MTNGH")
+    await gateway.broadcast(make_tick("MTNGH", price=6.0))
+    await _settle()
+    assert len(socket.of_type("ticks")) == 1   # the first batch goes at once
+
+    await gateway.broadcast(make_tick("MTNGH", price=6.1))   # held for ~10 s
+    _subscribe(gateway, client, "CAL")
+    await gateway.broadcast_status({"status": "open"})
+    await _settle()
+    # The ack, snapshot and status went out; the tick is still held.
+    assert socket.of_type("subscribed")[-1]["symbols"] == ["CAL"]
+    assert socket.of_type("snapshot")[-1]["data"]["CAL"]["price"] == 0.7
+    assert len(socket.of_type("status")) == 1
+    assert len(socket.of_type("ticks")) == 1
+    assert client.pending  # still waiting for the interval
+
+
+async def test_a_snapshot_still_comes_before_ticks_for_its_symbols(make_tick):
+    gateway = _gateway({"GCB": make_tick("GCB", price=40.0)}, send_interval=0.02)
+    socket, client = await _connect(gateway)
+    _subscribe(gateway, client, "GCB")
+    await gateway.broadcast(make_tick("GCB", price=40.5))
+    await asyncio.sleep(0.05)
+
+    kinds = [m["type"] for m in socket.sent]
+    assert kinds.index("snapshot") < kinds.index("ticks")
 
 
 # ---------------------------------------------------------------- through the app
@@ -280,8 +353,8 @@ def test_live_feed_sends_only_subscribed_symbols(client):
             msg = ws.receive_json()
             if msg["type"] == "status":  # periodic, to every client
                 continue
-            assert msg["type"] == "tick"
-            ticks.append(msg["data"]["symbol"])
+            assert msg["type"] == "ticks"
+            ticks += [q["symbol"] for q in msg["data"]]
     assert set(ticks) <= set(wanted)
     assert len(config.SYMBOLS) > len(wanted)  # there were other symbols to leak
 

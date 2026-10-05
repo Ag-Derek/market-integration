@@ -990,8 +990,9 @@
         setMarket(msg);
       } else if (msg.type === "snapshot") {
         Object.values(msg.data).forEach(ingest);
-      } else if (msg.type === "tick") {
-        ingest(msg.data);
+      } else if (msg.type === "ticks") {
+        // The latest quote per changed symbol, at most a few times a second.
+        msg.data.forEach(ingest);
       } else if (msg.type === "error") {
         console.warn("market feed:", msg.message);
       }

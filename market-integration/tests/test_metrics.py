@@ -55,6 +55,8 @@ async def test_buffer_reports_received_ticks_and_queue_depth_per_subscriber(make
     assert buffer.queue_depths == {"slow": 3, "latest": 2}  # two symbols unread
     assert buffer.dropped_counts["slow"] == 2
     assert buffer.subscriber_modes == {"slow": "queue", "latest": "latest"}
+    # Five ticks over two symbols, never read: three were overwritten.
+    assert buffer.conflated_counts == {"latest": 3}
 
 
 async def test_aggregator_records_its_last_flush(make_tick, tmp_path):
@@ -79,8 +81,10 @@ async def test_aggregator_records_its_last_flush(make_tick, tmp_path):
 SNAPSHOT = {
     "buffer": {"received": 10, "capacity": 200, "subscribers": {
         "processor": {"mode": "queue", "depth": 4, "dropped": 2},
+        "display": {"mode": "latest", "depth": 1, "dropped": 0, "conflated": 6},
     }},
-    "websocket": {"clients": 3, "subscriptions": 7, "conflated": 0},
+    "websocket": {"clients": 3, "subscriptions": 7, "conflated": 0, "send_interval_seconds": 0.25,
+                  "messages_sent": 20, "tick_messages_sent": 12, "ticks_sent": 30},
     "validation": {"processor": {"passed": 8, "rejected": 2, "by_rule": {"stale": 2}}},
     "aggregator": {"flushes": 5, "last_flush_at": "2026-10-01T12:00:00+00:00",
                    "last_flush_seconds": 0.012, "last_flush_rows": 40, "incomplete_candles": 0},
@@ -95,7 +99,11 @@ def test_prometheus_exposition():
     assert "# TYPE market_buffer_dropped_ticks_total counter" in lines
     assert 'market_buffer_dropped_ticks_total{subscriber="processor"} 2' in lines
     assert 'market_buffer_queue_depth{subscriber="processor",mode="queue"} 4' in lines
+    assert 'market_buffer_conflated_ticks_total{subscriber="display"} 6' in lines
+    assert not any(line.startswith('market_buffer_conflated_ticks_total{subscriber="processor"}') for line in lines)
     assert "market_websocket_clients 3" in lines
+    assert "market_websocket_tick_messages_sent_total 12" in lines
+    assert "market_websocket_ticks_sent_total 30" in lines
     assert 'market_validation_rejections_total{consumer="processor",rule="stale"} 2' in lines
     assert 'market_validation_ticks_total{consumer="processor",result="passed"} 8' in lines
     assert "market_aggregator_last_flush_duration_seconds 0.012" in lines

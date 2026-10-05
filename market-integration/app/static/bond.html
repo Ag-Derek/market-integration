@@ -1042,8 +1042,11 @@
       } else if (msg.type === "snapshot") {
         const t = msg.data[SYMBOL];
         if (t && t.tick_type === "fixed_income") ingest(t, true);
-      } else if (msg.type === "tick" && msg.data.symbol === SYMBOL && msg.data.tick_type === "fixed_income") {
-        ingest(msg.data, false);
+      } else if (msg.type === "ticks") {
+        // The latest quote per changed symbol, at most a few times a second.
+        msg.data.forEach(function (t) {
+          if (t.symbol === SYMBOL && t.tick_type === "fixed_income") ingest(t, false);
+        });
       }
     };
     ws.onclose = function () {

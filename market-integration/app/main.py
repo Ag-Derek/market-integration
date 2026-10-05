@@ -187,6 +187,9 @@ gateway = WebSocketGateway(
     },
     status=current_status,
     asset_class=asset_class,
+    # One batched message per client at most this often, whatever the
+    # tick rate (#20).
+    send_interval=config.WS_SEND_INTERVAL_MS / 1000,
 )
 
 # Queryable copy of the instrument master; re-seeded from
@@ -199,9 +202,9 @@ instrument_search = InstrumentSearch(INSTRUMENTS.values())
 company_store = CompanyStore(config.DB_PATH)
 
 # The buffer decouples ingestion (connector) from its downstream
-# consumers, each getting an independent bounded queue: drop-oldest for
-# the live display, lossless (bigger, and briefly blocking the feed when
-# full) for branches that must see every tick. See queue/market_buffer.py.
+# consumers: conflated (latest tick per symbol) for the live display,
+# lossless queues (blocking the feed briefly when full) for branches that
+# must see every tick. See queue/market_buffer.py.
 buffer = MarketDataBuffer(
     connector.stream(),
     maxsize=config.QUEUE_MAX_SIZE,
@@ -209,9 +212,11 @@ buffer = MarketDataBuffer(
     block_timeout=config.LOSSLESS_BLOCK_SECONDS,
 )
 
-# Real-time delivery: every tick, validated so a bad tick never reaches
-# a WebSocket client. A dropped tick here only delays a price update.
-validated_feed = ValidatingStream(buffer.subscribe("processor"), name="processor")
+# Real-time delivery: the latest tick per symbol, conflated (#20). Screens
+# and quote APIs only show the current price, so ticks superseded before
+# the processor reads them are skipped rather than queued: a burst never
+# backs up this branch. Validated so a bad tick never reaches a client.
+validated_feed = ValidatingStream(buffer.subscribe_latest("processor"), name="processor")
 
 
 def _shares_outstanding(symbol: str) -> Optional[int]:
@@ -223,8 +228,9 @@ def _shares_outstanding(symbol: str) -> Optional[int]:
 # quote cards and snapshots carry the calculated figure.
 priced_feed = with_market_cap(validated_feed, _shares_outstanding)
 
-# OHLCV persistence: a separate branch off the buffer, so a slow database
-# write can never delay real-time delivery. Validates independently.
+# OHLCV persistence: a separate branch off the buffer, unconflated, so a
+# slow database write can never delay real-time delivery and every tick
+# reaches the candles. Validates independently.
 # Lossless: a lost tick can mean a wrong high, low or volume, so if one
 # is dropped anyway the candles it touched are flagged. (The alert
 # engine, when it lands, subscribes the same way.)
