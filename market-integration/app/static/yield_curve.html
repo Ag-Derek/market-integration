@@ -726,8 +726,8 @@
         hadWelcome = true;
       } else if (msg.type === "status") {
         setMarket(msg);
-      } else if (msg.type === "tick") {
-        if (msg.data.tick_type === "fixed_income") scheduleRefresh();
+      } else if (msg.type === "ticks") {
+        if (msg.data.some(function (t) { return t.tick_type === "fixed_income"; })) scheduleRefresh();
       } else if (msg.type === "error") {
         console.warn("market feed:", msg.message);
       }

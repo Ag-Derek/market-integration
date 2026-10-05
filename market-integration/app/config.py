@@ -71,11 +71,18 @@ LOAD_BURST_SECONDS: float = float(os.getenv("LOAD_BURST_SECONDS", "0"))
 LOAD_BURST_AFTER_SECONDS: float = float(os.getenv("LOAD_BURST_AFTER_SECONDS", "30"))
 LOAD_BURST_EVERY_SECONDS: float = float(os.getenv("LOAD_BURST_EVERY_SECONDS", "0"))
 
-# Per-subscriber queue size on the MarketDataBuffer sitting between the
-# connector and the live display branch (processor/gateway). When it
-# falls behind and its queue fills up, the oldest buffered tick is
-# dropped to make room — see app/queue/market_buffer.py.
+# Per-subscriber queue size on the MarketDataBuffer for plain
+# subscribe() consumers, which drop the oldest tick when they fall
+# behind (app/queue/market_buffer.py). The live display branch
+# (processor/gateway) is conflated instead, latest tick per symbol, so it
+# has no queue.
 QUEUE_MAX_SIZE: int = int(os.getenv("QUEUE_MAX_SIZE", "200"))
+
+# How often, at most, each WebSocket client is sent its subscribed
+# symbols' latest ticks, in milliseconds: one batched message per
+# interval, whatever the tick rate (#20). 0 sends as soon as there is
+# something new (still batched).
+WS_SEND_INTERVAL_MS: float = float(os.getenv("WS_SEND_INTERVAL_MS", "250"))
 
 # Queue size for the branches that must see every tick (the candle
 # aggregator; alerts). When one is full anyway, the buffer pauses the

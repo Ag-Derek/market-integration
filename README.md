@@ -382,7 +382,7 @@ messages are JSON:
 | client → server | `{"action": "unsubscribe", "symbols": ["GCB"]}` | Stop receiving them. |
 | server → client | `{"type": "subscribed" \| "unsubscribed", "symbols": [...], "subscriptions": [...]}` | Confirmation: what changed, and everything you're now subscribed to. |
 | server → client | `{"type": "snapshot", "data": {"MTNGH": {...}}}` | Current quotes for the symbols you just subscribed to. |
-| server → client | `{"type": "tick", "data": {...}}` | A new quote for a subscribed symbol. `timestamp` is when the feed published it; `last_trade_at` is when the symbol last traded, which for a thin name can be days ago. |
+| server → client | `{"type": "ticks", "data": [{...}, ...]}` | The latest quote for each subscribed symbol that changed since the last one, batched: at most one of these per `WS_SEND_INTERVAL_MS` (250 ms by default), however fast the feed runs. In each quote, `timestamp` is when the feed published it; `last_trade_at` is when the symbol last traded, which for a thin name can be days ago. |
 | server → client | `{"type": "status", "status": "open", "badge": "live", ...}` | Every few seconds, to every client: the same body as `/market/status`. If these stop arriving, treat the connection as lost. |
 | server → client | `{"type": "error", "code": "bad_json" \| "bad_request" \| "unknown_symbols", "message": "...", "symbols": [...]}` | Your message couldn't be used. Unknown symbols are listed; the valid ones in the same request still apply. |
 
@@ -391,9 +391,14 @@ connection (Disconnected when the socket drops or status updates stop).
 It never depends on price direction. Feed freshness is judged on the
 connector's heartbeat, not on the last trade.
 
-A slow client never holds up the feed or other clients. It skips
-intermediate prices and always catches up to the latest one for each
-symbol (see `app/gateways/websocket_gateway.py`).
+Updates are throttled and conflated: nobody can read more than a few
+prices a second per instrument, so between two `ticks` messages a newer
+quote for a symbol replaces the older one, and a client gets a bounded
+number of messages a second at any tick rate. A slow client never holds
+up the feed or other clients either; it skips intermediate prices and
+always catches up to the latest one for each symbol (see
+`app/gateways/websocket_gateway.py`). Candles still see every tick: the
+aggregator reads the feed unconflated.
 
 To try it, save this as `test-client.html` and open it in a browser while
 the server is running:

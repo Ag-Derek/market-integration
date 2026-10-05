@@ -14,8 +14,11 @@ loss, so alert on
 
     increase(market_buffer_dropped_ticks_total{subscriber="aggregator"}[5m]) > 0
 
-Drops on the drop-oldest display branch ("processor") are expected
-under load.
+The display branch ("processor") is conflated: it skips ticks a newer
+one replaced before it read them, which is expected and counted as
+"conflated", not "dropped". So is the WebSocket gateway's per-client
+conflation, and its send counters show what clients actually get: at
+most one batched tick message per client per send interval (#20).
 """
 
 from datetime import datetime
@@ -38,6 +41,7 @@ def collect(
 ) -> dict:
     depths = buffer.queue_depths
     dropped = buffer.dropped_counts
+    conflated = buffer.conflated_counts
     # Queue size, high-water mark and time the feed waited on it, for
     # subscribe() subscribers (conflated ones have no queue).
     queued = {
@@ -57,6 +61,7 @@ def collect(
                     "mode": mode,
                     "depth": depths.get(name, 0),
                     "dropped": dropped.get(name, 0),
+                    **({"conflated": conflated[name]} if name in conflated else {}),
                     **queued.get(name, {}),
                 }
                 for name, mode in buffer.subscriber_modes.items()
@@ -66,6 +71,10 @@ def collect(
             "clients": gateway.client_count,
             "subscriptions": gateway.subscription_count,
             "conflated": gateway.conflated_count,
+            "send_interval_seconds": gateway.send_interval,
+            "messages_sent": gateway.messages_sent,
+            "tick_messages_sent": gateway.tick_messages_sent,
+            "ticks_sent": gateway.ticks_sent,
         },
         "validation": {name: counter.snapshot() for name, counter in validators.items()},
         "aggregator": {
@@ -149,6 +158,9 @@ def to_prometheus(snapshot: dict) -> str:
     out.metric("market_buffer_queue_depth", "gauge",
                "Ticks waiting to be read, per subscriber (symbols with an unread tick, for conflated ones).",
                [({"subscriber": n, "mode": s["mode"]}, s["depth"]) for n, s in subscribers.items()])
+    out.metric("market_buffer_conflated_ticks_total", "counter",
+               "Ticks a conflated subscriber skipped because a newer one for the symbol replaced them.",
+               [({"subscriber": n}, s["conflated"]) for n, s in subscribers.items() if "conflated" in s])
     out.metric("market_buffer_queue_peak_depth", "gauge",
                "Most ticks ever waiting in a subscriber's queue at once since startup.",
                [({"subscriber": n}, s["peak_depth"]) for n, s in queued.items()])
@@ -164,8 +176,15 @@ def to_prometheus(snapshot: dict) -> str:
     out.metric("market_websocket_subscriptions", "gauge",
                "Symbol subscriptions across all WebSocket clients.", [(None, ws["subscriptions"])])
     out.metric("market_websocket_conflated_ticks_total", "counter",
-               "Ticks skipped for a slow client because a newer one for the symbol replaced them.",
+               "Ticks never sent because a newer one for the symbol replaced them before the client's next batch.",
                [(None, ws["conflated"])])
+    out.metric("market_websocket_messages_sent_total", "counter",
+               "WebSocket messages sent to clients, of any type.", [(None, ws["messages_sent"])])
+    out.metric("market_websocket_tick_messages_sent_total", "counter",
+               "Batched tick messages sent: at most one per client per send interval.",
+               [(None, ws["tick_messages_sent"])])
+    out.metric("market_websocket_ticks_sent_total", "counter",
+               "Quotes sent inside tick messages.", [(None, ws["ticks_sent"])])
 
     validation = snapshot["validation"]
     out.metric("market_validation_ticks_total", "counter",

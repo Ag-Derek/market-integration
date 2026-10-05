@@ -12,20 +12,25 @@ bottleneck) subscribed to every load instrument, lets it settle, then
 measures --windows consecutive windows of --duration seconds, each for:
 
   * ticks in per second    -- /metrics buffer.received, over the window
-  * latency, p50 / p99      -- client receive time minus the tick's
+  * latency, p50 / p99      -- client receive time minus each quote's
                                timestamp (set when the connector built
                                it): connector -> buffer -> validator ->
-                               processor -> gateway -> socket -> client
-  * delivery                -- ticks each client got, against the rate
-                               (the gateway skips ticks a slow client
-                               can't take: conflation)
+                               processor -> gateway -> socket -> client.
+                               Includes the wait for the client's next
+                               batch: up to one send interval, by design
+  * messages per client     -- batched "ticks" messages each client got
+                               per second, and quotes per message: the
+                               gateway sends at most one per send
+                               interval whatever the rate (#20)
   * dropped ticks           -- per buffer subscriber, buffer.dropped_counts
   * validator rejections    -- by consumer and rule
   * server CPU and memory   -- psutil, sampled every 0.5 s
 
 A step holds if ingest keeps up (>= 95% of the rate), nothing is
-dropped, rejected or skipped by the gateway for a slow client
-(conflation), and p99 latency is within --latency-budget. The sweep
+dropped or rejected, each client gets at most one tick message per
+--send-interval-ms, and p99 latency is within the send interval plus
+--latency-budget. Conflation (ticks superseded before they were sent)
+is reported but expected: it is what keeps the messages bounded. The sweep
 stops after two failing steps in a row, then bisects --refine times
 between the last step that held and the first that failed. The highest
 rate with every step below it holding is the maximum sustained rate;
@@ -159,7 +164,7 @@ async def _client(port: int, symbols: list[str], start_at: float, end_at: float,
     async with websockets.connect(uri, max_size=None, ping_interval=None, open_timeout=30) as ws:
         await ws.recv()  # welcome
         await ws.send(json.dumps({"action": "subscribe", "symbols": symbols}))
-        received = 0
+        quotes = 0
         while True:
             remaining = end_at - time.time()
             if remaining <= 0:
@@ -169,21 +174,22 @@ async def _client(port: int, symbols: list[str], start_at: float, end_at: float,
             except asyncio.TimeoutError:
                 break
             now = time.time()
-            if now < start_at or not message.startswith('{"type":"tick"'):
+            if now < start_at or not message.startswith('{"type":"ticks"'):
                 continue
-            # Only the timestamp is needed: find it rather than parse the
-            # whole message, so the client stays cheap.
-            i = message.find('"timestamp":"') + 13
-            sent = datetime.fromisoformat(message[i:message.index('"', i)]).timestamp()
-            received += 1
-            out["seen"] += 1
-            _reservoir(out["samples"], (now, (now - sent) * 1000), out["seen"])
-        out["per_client"].append(received)
+            # A few batches a second per client, so parsing them is cheap.
+            batch = json.loads(message)["data"]
+            out["messages"].append((now, len(batch)))
+            for quote in batch:
+                sent = datetime.fromisoformat(quote["timestamp"]).timestamp()
+                quotes += 1
+                out["seen"] += 1
+                _reservoir(out["samples"], (now, (now - sent) * 1000), out["seen"])
+        out["per_client"].append(quotes)
 
 
 def client_worker(spec: dict) -> dict:
     """One process's share of the clients (run by multiprocessing)."""
-    out = {"samples": [], "seen": 0, "per_client": [], "errors": []}
+    out = {"samples": [], "seen": 0, "per_client": [], "messages": [], "errors": []}
     _raise_priority(psutil.Process())
 
     async def run():
@@ -280,12 +286,22 @@ def _run_clients(pool, port, clients, workers, symbols, start_at, end_at):
 
 
 def _merge(worker_results: list[dict]) -> dict:
-    samples, per_client, errors = [], [], []
+    samples, per_client, messages, errors = [], [], [], []
     for r in worker_results:
         samples += r["samples"]
         per_client += r["per_client"]
+        messages += r["messages"]
         errors += r["errors"]
-    return {"samples": samples, "per_client": per_client, "errors": errors}
+    return {"samples": samples, "per_client": per_client, "messages": messages, "errors": errors}
+
+
+def _message_rate(messages: list, lo: float, hi: float, clients: int) -> tuple[Optional[float], Optional[float]]:
+    """Tick messages per client per second between lo and hi, and quotes
+    per message."""
+    window = [n for t, n in messages if lo <= t < hi]
+    if not window or not clients or hi <= lo:
+        return None, None
+    return len(window) / clients / (hi - lo), sum(window) / len(window)
 
 
 def run_step(pool, rate: float, args, workdir: Path) -> dict:
@@ -294,7 +310,8 @@ def run_step(pool, rate: float, args, workdir: Path) -> dict:
     it holds if most windows do. One noisy window (the aggregator's
     once-a-minute database flush, another program) can't decide it,
     but the worst window is reported too."""
-    env = {"FEED_MODE": "load", "LOAD_INSTRUMENTS": args.instruments, "LOAD_TICKS_PER_SECOND": rate}
+    env = {"FEED_MODE": "load", "LOAD_INSTRUMENTS": args.instruments, "LOAD_TICKS_PER_SECOND": rate,
+           "WS_SEND_INTERVAL_MS": args.send_interval_ms}
     symbols = [f"LOAD{n:04d}" for n in range(1, args.instruments + 1)]
     with Server(args.port, env, workdir) as server:
         _Sampler(server.process.pid)  # raises its priority before warm-up
@@ -316,9 +333,12 @@ def run_step(pool, rate: float, args, workdir: Path) -> dict:
         delta = _delta(snapshots[i], snapshots[i + 1])
         latencies = [lat for t, lat in clients["samples"] if lo <= t < hi]
         cpu = sampler.cpu[cpu_marks[i]:cpu_marks[i + 1]]
+        per_client, per_message = _message_rate(clients["messages"], lo, hi, args.clients)
         window = {
             "rate": rate,
             "ticks_in_per_second": delta["received"] / args.duration,
+            "messages_per_client_per_second": per_client,
+            "quotes_per_message": per_message,
             "latency_p50_ms": _percentile(latencies, 50),
             "latency_p99_ms": _percentile(latencies, 99),
             "dropped": delta["dropped"],
@@ -354,6 +374,8 @@ def run_step(pool, rate: float, args, workdir: Path) -> dict:
                                     default=None),
         "delivered": (sum(clients["per_client"]) / len(clients["per_client"]) / expected)
                      if clients["per_client"] else 0.0,
+        "messages_per_client_per_second": median("messages_per_client_per_second"),
+        "quotes_per_message": median("quotes_per_message"),
         "dropped": total("dropped"),
         "conflated": sum(w["conflated"] for w in windows),
         "rejected": total("rejected"),
@@ -388,7 +410,19 @@ def _max_sustained(steps: list[dict]) -> Optional[float]:
 
 
 # The checks a window must pass, in the order things break.
-CHECKS = ("ingest", "dropped", "rejected", "latency", "conflated", "clients")
+CHECKS = ("ingest", "dropped", "rejected", "latency", "messages", "clients")
+
+
+def _latency_budget(args) -> float:
+    """p99 budget in ms: the pipeline's own, plus up to one send interval
+    a quote may wait for its client's next batch."""
+    return args.latency_budget + args.send_interval_ms
+
+
+def _max_messages(args) -> float:
+    """Tick messages a client may get per second: one per send interval,
+    with a little slack for timer jitter."""
+    return 1000 / args.send_interval_ms * 1.1 + 0.5 if args.send_interval_ms > 0 else float("inf")
 
 
 def _checks(window: dict, args) -> list[str]:
@@ -400,10 +434,10 @@ def _checks(window: dict, args) -> list[str]:
         failed.append("dropped")
     if any(window["rejected"].values()):
         failed.append("rejected")
-    if window["latency_p99_ms"] is None or window["latency_p99_ms"] > args.latency_budget:
+    if window["latency_p99_ms"] is None or window["latency_p99_ms"] > _latency_budget(args):
         failed.append("latency")
-    if window["conflated"]:
-        failed.append("conflated")
+    if (window["messages_per_client_per_second"] or 0) > _max_messages(args):
+        failed.append("messages")
     if window["client_errors"]:
         failed.append("clients")
     return failed
@@ -417,9 +451,10 @@ def _describe(check: str, step: dict, args) -> str:
     if check == "rejected":
         return "validator rejected ticks"
     if check == "latency":
-        return f"p99 latency over {args.latency_budget:g} ms"
-    if check == "conflated":
-        return f"gateway skipped {step['conflated']:,} ticks for slow clients (conflation)"
+        return f"p99 latency over {_latency_budget(args):g} ms"
+    if check == "messages":
+        return (f"clients got {step['messages_per_client_per_second']:.1f} tick messages/s, "
+                f"over one per {args.send_interval_ms:g} ms")
     return "client connections failed"
 
 
@@ -429,7 +464,7 @@ def run_burst(pool, args, workdir: Path) -> dict:
     lead, tail = 20.0, 15.0
     env = {"FEED_MODE": "load", "LOAD_INSTRUMENTS": args.instruments, "LOAD_TICKS_PER_SECOND": args.burst_base,
            "LOAD_BURST_MULTIPLIER": args.burst_multiplier, "LOAD_BURST_SECONDS": args.burst_seconds,
-           "LOAD_BURST_AFTER_SECONDS": lead}
+           "LOAD_BURST_AFTER_SECONDS": lead, "WS_SEND_INTERVAL_MS": args.send_interval_ms}
     symbols = [f"LOAD{n:04d}" for n in range(1, args.instruments + 1)]
     with Server(args.port, env, workdir) as server:
         # The stream starts during startup, before /health says healthy,
@@ -462,9 +497,12 @@ def run_burst(pool, args, workdir: Path) -> dict:
         window = [(t, m) for t, m in series if lo <= t <= hi]
         d = _delta(window[0][1], window[-1][1]) if len(window) >= 2 else None
         seconds = window[-1][0] - window[0][0] if len(window) >= 2 else 0
+        per_client, per_message = _message_rate(clients["messages"], lo, hi, args.clients)
         return {
             "phase": name,
             "seconds": seconds,
+            "messages_per_client_per_second": per_client,
+            "quotes_per_message": per_message,
             "ticks_in_per_second": d["received"] / seconds if d and seconds else None,
             "latency_p50_ms": _percentile(lat, 50),
             "latency_p99_ms": _percentile(lat, 99),
@@ -509,8 +547,11 @@ def render(results: dict) -> str:
         f"Run {meta['date']} on commit `{meta['commit']}`: {meta['machine']}. "
         f"{meta['instruments']} instruments, {meta['clients']} WebSocket clients each subscribed to all of them, "
         f"{meta['windows']} windows of {meta['duration']:g} s per rate after {meta['warmup']:g} s warm-up; "
-        f"p99 budget {meta['latency_budget']:g} ms. Figures are the median window's; a rate holds if most "
-        "windows pass every check. Delivered is ticks each client got against the target rate.",
+        f"clients batched every {meta.get('send_interval_ms', 0):g} ms; p99 budget "
+        f"{meta['latency_budget'] + meta.get('send_interval_ms', 0):g} ms ({meta['latency_budget']:g} ms pipeline "
+        "+ one send interval). Figures are the median window's; a rate holds if most windows pass every check. "
+        "Msgs/s is batched tick messages per client per second; conflated is ticks superseded before a "
+        "client's next batch, which is expected.",
         "",
     ]
     if meta.get("power_warning"):
@@ -525,15 +566,16 @@ def render(results: dict) -> str:
         "",
         "#### Rate sweep",
         "",
-        "| Target ticks/s | Ticks in/s | p50 ms | p99 ms | p99 worst window | Delivered | Dropped | Conflated "
-        "| Rejected | CPU avg / max | Memory | Windows held | Holds? |",
-        "|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|:---|",
+        "| Target ticks/s | Ticks in/s | p50 ms | p99 ms | p99 worst window | Msgs/s per client "
+        "| Quotes per msg | Dropped | Conflated | Rejected | CPU avg / max | Memory | Windows held | Holds? |",
+        "|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|:---|",
     ]
     for s in results["steps"]:
         lines.append(
             f"| {_fmt(s['rate'])} | {_fmt(s['ticks_in_per_second'])} | {_fmt(s['latency_p50_ms'], '.1f')} "
             f"| {_fmt(s['latency_p99_ms'], '.1f')} | {_fmt(s['latency_p99_worst_ms'], '.1f')} "
-            f"| {s['delivered']:.0%} | {_fmt(sum(s['dropped'].values()))} "
+            f"| {_fmt(s.get('messages_per_client_per_second'), '.1f')} | {_fmt(s.get('quotes_per_message'), '.0f')} "
+            f"| {_fmt(sum(s['dropped'].values()))} "
             f"| {_fmt(s['conflated'])} | {_fmt(sum(s['rejected'].values()))} "
             f"| {_fmt(s['cpu_avg'], '.0f')}% / {_fmt(s['cpu_max'], '.0f')}% | {_fmt(s['rss_max_mb'], '.0f')} MB "
             f"| {s['windows_held']}/{s['windows']} "
@@ -558,13 +600,14 @@ def render(results: dict) -> str:
         if not burst["detected"]:
             lines += ["The burst was not detected in the ingest series (see raw JSON).", ""]
         lines += [
-            "| Phase | Seconds | Ticks in/s | p50 ms | p99 ms | Dropped | Conflated | Rejected |",
-            "|:---|---:|---:|---:|---:|---:|---:|---:|",
+            "| Phase | Seconds | Ticks in/s | p50 ms | p99 ms | Msgs/s per client | Dropped | Conflated | Rejected |",
+            "|:---|---:|---:|---:|---:|---:|---:|---:|---:|",
         ]
         for p in burst["phases"]:
             lines.append(
                 f"| {p['phase']} | {_fmt(p['seconds'], '.0f')} | {_fmt(p['ticks_in_per_second'])} "
                 f"| {_fmt(p['latency_p50_ms'], '.1f')} | {_fmt(p['latency_p99_ms'], '.1f')} "
+                f"| {_fmt(p.get('messages_per_client_per_second'), '.1f')} "
                 f"| {_fmt(p['dropped'])} | {_fmt(p['conflated'])} | {_fmt(p['rejected'])} |"
             )
         lines += ["", f"Peak ingest {_fmt(burst['peak_ticks_in_per_second'])} ticks/s; "
@@ -586,10 +629,12 @@ def render(results: dict) -> str:
         lines += [
             f"| **Total** | | | **{total:.1f}** | |",
             "",
-            f"That is a ceiling of about {_fmt(1e6 / total)} ticks/s on one core before any network I/O. "
-            f"The in-process pipeline (no sockets) ran {_fmt(pipe['unprofiled']['ticks_per_second'])} ticks/s; "
-            f"its clients were sent {_fmt(pipe['unprofiled']['messages_sent'])} of "
-            f"{_fmt(pipe['ticks'] * pipe['clients'])} possible messages (the rest conflated).",
+            f"Counting serialization once per tick and client, as if nothing were conflated, that is a "
+            f"ceiling of about {_fmt(1e6 / total)} ticks/s on one core before any network I/O; with batching "
+            f"those last two rows run once per symbol per send interval instead. The in-process pipeline "
+            f"(no sockets) ran {_fmt(pipe['unprofiled']['ticks_per_second'])} ticks/s; its "
+            f"{pipe['clients']} clients were sent {_fmt(pipe['unprofiled'].get('tick_messages_sent'))} batched "
+            f"tick messages for {_fmt(pipe['ticks'])} ticks.",
             "",
             "Top functions by own time under cProfile:",
             "",
@@ -638,7 +683,10 @@ def main() -> None:
     parser.add_argument("--windows", type=int, default=3,
                         help="windows per rate; 3 x 20 s spans one aggregator flush (every 60 s)")
     parser.add_argument("--warmup", type=float, default=5)
-    parser.add_argument("--latency-budget", type=float, default=100, help="p99 ms (default: %(default)s)")
+    parser.add_argument("--latency-budget", type=float, default=100,
+                        help="p99 ms for the pipeline, on top of one send interval (default: %(default)s)")
+    parser.add_argument("--send-interval-ms", type=float, default=250,
+                        help="the server's WS_SEND_INTERVAL_MS (default: %(default)s)")
     parser.add_argument("--refine", type=int, default=3,
                         help="bisection steps between the last rate that held and the first that failed")
     parser.add_argument("--burst-base", type=float, default=100)
@@ -665,6 +713,7 @@ def main() -> None:
             "instruments": args.instruments, "clients": args.clients, "duration": args.duration,
             "windows": args.windows,
             "warmup": args.warmup, "latency_budget": args.latency_budget, "target_rate": args.target_rate,
+            "send_interval_ms": args.send_interval_ms,
             "power_warning": power_state(),
         },
         "steps": [],
@@ -680,7 +729,8 @@ def main() -> None:
             step = run_step(pool, rate, args, workdir)
             results["steps"].append(step)
             print(f"  in {step['ticks_in_per_second']:,.0f}/s, p99 {_fmt(step['latency_p99_ms'], '.1f')} ms, "
-                  f"delivered {step['delivered']:.0%}, cpu {_fmt(step['cpu_avg'], '.0f')}% "
+                  f"{_fmt(step['messages_per_client_per_second'], '.1f')} msgs/s per client, "
+                  f"cpu {_fmt(step['cpu_avg'], '.0f')}% "
                   f"-> {'holds' if not step['failures'] else '; '.join(step['failures'])}", flush=True)
             failing_in_a_row = failing_in_a_row + 1 if step["failures"] else 0
             if failing_in_a_row == 2:

@@ -212,8 +212,10 @@ def test_an_older_database_gains_the_possibly_incomplete_column(tmp_path):
 def test_the_app_subscribes_the_aggregator_losslessly(client):
     from app.main import buffer
 
+    # The aggregator sees every tick; the display branch is conflated (#20).
+    assert buffer.subscriber_modes == {"processor": "latest", "aggregator": "lossless"}
     policies = {s["subscriber"]: s["policy"] for s in buffer.stats()}
-    assert policies == {"processor": "drop_oldest", "aggregator": "lossless"}
+    assert policies == {"aggregator": "lossless"}
 
 
 def test_metrics_reports_drops_per_subscriber_and_incomplete_candles(client):
@@ -226,7 +228,7 @@ def test_metrics_reports_drops_per_subscriber_and_incomplete_candles(client):
     assert any(line.startswith('market_buffer_queue_depth{subscriber="aggregator",mode="lossless"} ')
                for line in lines)
     assert 'market_buffer_queue_capacity{subscriber="aggregator"} 10000' in lines
-    assert 'market_buffer_queue_capacity{subscriber="processor"} 200' in lines
+    assert any(line.startswith('market_buffer_conflated_ticks_total{subscriber="processor"} ') for line in lines)
     for name in ("market_buffer_queue_peak_depth", "market_buffer_blocked_seconds_total"):
         assert any(line.startswith(f'{name}{{subscriber="aggregator"}} ') for line in lines)
     assert any(line.startswith("market_aggregator_incomplete_candles_total ") for line in lines)

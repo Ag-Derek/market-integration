@@ -51,7 +51,9 @@ modes:
                              about "what's the price right now" (a
                              gateway/dashboard), as opposed to
                              "processor" reads if it needs to see every
-                             tick, use subscribe() instead.
+                             tick, use subscribe() instead. The app's
+                             display branch (processor -> WebSocket
+                             gateway) reads this way (#20).
 
 Usage:
 
@@ -61,11 +63,10 @@ Usage:
     buffer = MarketDataBuffer(connector.stream(), maxsize=200)
     await buffer.start()
 
-    processor_feed = buffer.subscribe("processor")        # every tick, may drop
-    candle_feed = buffer.subscribe("aggregator", lossless=True)
-    gateway_feed = buffer.subscribe_latest("gateway")      # latest per symbol
+    candle_feed = buffer.subscribe("aggregator", lossless=True)  # every tick
+    display_feed = buffer.subscribe_latest("processor")          # latest per symbol
 
-    async for tick in gateway_feed:
+    async for tick in display_feed:
         ...
 
     await buffer.stop()
@@ -115,12 +116,13 @@ class _ConflatedSubscriber:
     its quote), plus an event to wake the consumer when something new
     has landed."""
 
-    __slots__ = ("latest", "pending", "event")
+    __slots__ = ("latest", "pending", "event", "conflated")
 
     def __init__(self):
         self.latest: dict[tuple[str, str], Tick] = {}
         self.pending: set[tuple[str, str]] = set()
         self.event = asyncio.Event()
+        self.conflated = 0  # ticks overwritten by a newer one before they were read
 
 
 class MarketDataBuffer:
@@ -225,6 +227,13 @@ class MarketDataBuffer:
             }
             for name, sub in self._subscribers.items()
         ]
+
+    @property
+    def conflated_counts(self) -> dict[str, int]:
+        """How many ticks each subscribe_latest() subscriber never read
+        because a newer one for the same symbol replaced them: expected,
+        and the point of conflation, not a loss."""
+        return {name: sub.conflated for name, sub in self._conflated.items()}
 
     @property
     def maxsize(self) -> int:
@@ -354,6 +363,8 @@ class MarketDataBuffer:
         # this is what makes conflation immune to backpressure: storage
         # per subscriber is bounded by symbol count, never by feed rate.
         key = (tick.tick_type, tick.symbol)
+        if key in sub.pending:
+            sub.conflated += 1
         sub.latest[key] = tick
         sub.pending.add(key)
         sub.event.set()
