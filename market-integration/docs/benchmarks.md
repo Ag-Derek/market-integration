@@ -83,6 +83,29 @@ Not run yet: run `python -m bench.benchmark`, plugged in, to fill this in.
 Written by hand after each significant run; the numbers above are the
 latest.
 
+### 2026-10-06, frame-batched rendering in the browser (#22; laptop on battery)
+
+The fixed income monitor filtered to "GOG" (139 rows on screen),
+`FI_BURST_RATE=10` (every bill and bond quoted 10 times a second,
+~630 quotes/s reaching the page in 4 batches/s), Chrome headless with
+its CPU throttled 4x to stand in for a mid-range machine, 15 s windows.
+
+| Page | fps | Worst frame | Long tasks (>50 ms) | Main-thread CPU |
+|:---|---:|---:|---:|---:|
+| Before: every quote repainted its row at once, flashes restarted by forcing a layout, totals re-summed per quote | 38.5 | 433 ms | 58 | 59% |
+| After: state updated per quote, changed cells painted once per frame, class-toggle flashes, running totals | 59.3 | 50–69 ms | 1–2 | 25% |
+
+Burst mode re-quotes unchanged values, so most of the old cost was
+repainting cells that hadn't changed. For a harder case, a mocked feed
+moved every security's yield, price, volume and trades in every batch
+(4 a second): the old page crashed the tab; the new one held 39–45 fps.
+Tracing that case showed the first version of the new page still
+dropping to ~2 fps because of the 1.2 s CSS background-flash animations:
+the browser restyles and repaints every animating cell on every frame,
+which with the whole table moving cost far more than the script. The
+flash is now a static tint toggled by class and cleared by one shared
+sweep, two style changes per flash. See `app/static/render.js`.
+
 ### 2026-10-05, throttled and conflated delivery (#20; laptop on battery, quick run)
 
 `python -m bench.benchmark --quick --rates 100,1000,2000`, 100

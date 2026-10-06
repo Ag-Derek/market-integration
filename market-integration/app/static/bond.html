@@ -391,6 +391,7 @@
 
 </div>
 
+<script src="/static/render.js"></script>
 <script>
 (function () {
   "use strict";
@@ -440,41 +441,42 @@
 
   // ---------------------------------------------------------------- header
 
+  // Paints the quote from `quote`, writing only what changed (#22).
   function renderQuote() {
     const t = quote;
-    document.title = t.name + " · " + SYMBOL;
-    $("name").textContent = t.name;
-    $("isin").textContent = SYMBOL;
-    $("segment").textContent = (SEGMENTS[t.segment] || t.segment) + " · " + t.currency;
-    if (t.exchange_label) $("simBadge").textContent = t.exchange_label;
-    $("faceCcy").textContent = t.currency;
+    if (document.title !== t.name + " · " + SYMBOL) document.title = t.name + " · " + SYMBOL;
+    Render.text($("name"), t.name);
+    Render.text($("isin"), SYMBOL);
+    Render.text($("segment"), (SEGMENTS[t.segment] || t.segment) + " · " + t.currency);
+    if (t.exchange_label) Render.text($("simBadge"), t.exchange_label);
+    Render.text($("faceCcy"), t.currency);
     renderTerms();
 
     function side(key) {
       const y = t[key + "_yield"], p = t[key + "_price"];
-      $(key + "Yield").textContent = y != null ? pct(y) : p != null ? fixed(p, 4) : "—";
-      $(key + "Price").textContent = y != null && p != null ? "Price " + fixed(p, 4) : "";
+      Render.text($(key + "Yield"), y != null ? pct(y) : p != null ? fixed(p, 4) : "—");
+      Render.text($(key + "Price"), y != null && p != null ? "Price " + fixed(p, 4) : "");
       $(key + "Side").disabled = !calc.enabled || (y == null && p == null);
     }
     side("bid");
     side("ask");
 
     if (t.closing_yield != null) {
-      $("closeYield").textContent = pct(t.closing_yield);
-      $("closePrice").textContent = t.closing_price != null ? "Price " + fixed(t.closing_price, 4) : "";
+      Render.text($("closeYield"), pct(t.closing_yield));
+      Render.text($("closePrice"), t.closing_price != null ? "Price " + fixed(t.closing_price, 4) : "");
       const chg = $("closeChg");
       if (t.opening_yield != null) {
         const bp = (t.closing_yield - t.opening_yield) * 100;
         const dir = bp > 0.05 ? "up" : bp < -0.05 ? "down" : "flat";
-        chg.className = "side-chg num " + dir;
-        chg.textContent = (bp >= 0 ? "+" : "−") + Math.abs(bp).toFixed(1) + "bp";
+        Render.cls(chg, "side-chg num " + dir);
+        Render.text(chg, (bp >= 0 ? "+" : "−") + Math.abs(bp).toFixed(1) + "bp");
       } else {
-        chg.textContent = "";
+        Render.text(chg, "");
       }
     } else {
-      $("closeYield").textContent = t.closing_price != null ? fixed(t.closing_price, 4) : "—";
-      $("closePrice").textContent = "";
-      $("closeChg").textContent = "";
+      Render.text($("closeYield"), t.closing_price != null ? fixed(t.closing_price, 4) : "—");
+      Render.text($("closePrice"), "");
+      Render.text($("closeChg"), "");
     }
     renderAsOf();
   }
@@ -847,7 +849,7 @@
     } else {
       return;
     }
-    renderChartState();
+    chartDirty = true;
   }
 
   function axisLabel(ts) {
@@ -873,16 +875,11 @@
   }
 
   function drawChart() {
-    const canvas = $("chart");
-    const dpr = window.devicePixelRatio || 1;
-    const W = canvas.clientWidth, H = canvas.clientHeight || 320;
     chart.geometry = null;
-    if (!W) return;
-    canvas.width = W * dpr;
-    canvas.height = H * dpr;
-    const ctx = canvas.getContext("2d");
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, W, H);
+    // Resized only when its size changed (render.js).
+    const surface = Render.canvas($("chart"), 320);
+    if (!surface) return;
+    const ctx = surface.ctx, W = surface.w, H = surface.h;
     const pts = points();
     if (pts.length < 2) return;
 
@@ -1017,12 +1014,23 @@
 
   // ---------------------------------------------------------------- feed
 
+  // A quote updates state at once; the page is painted on the next frame
+  // (#22), the chart with the latest point, however many quotes came in.
   function ingest(t, isSnapshot) {
     quote = t;
-    renderQuote();
     onQuoteForCalc();
     if (!isSnapshot) applyTickToChart(t);
+    schedulePaint();
   }
+
+  let chartDirty = false;
+  const schedulePaint = Render.batch(function () {
+    if (quote) renderQuote();
+    if (chartDirty) {
+      chartDirty = false;
+      renderChartState();
+    }
+  });
 
   let hadConnection = false;
   function connect() {

@@ -558,6 +558,7 @@
 
 </div>
 
+<script src="/static/render.js"></script>
 <script src="/static/search.js"></script>
 <script src="/static/description.js"></script>
 <script>
@@ -720,59 +721,60 @@
     });
   }
 
+  // Paints the quote from `quote`, writing only what changed (#22).
   function renderQuote() {
     const d = quote;
     if (!d) return;
 
-    $("exchange").textContent = d.exchange_label;
-    $("nameText").textContent = d.name;
-    document.title = d.symbol + " · " + d.name;
+    Render.text($("exchange"), d.exchange_label);
+    Render.text($("nameText"), d.name);
+    if (document.title !== d.symbol + " · " + d.name) document.title = d.symbol + " · " + d.name;
     // Headline is the GSE's official price, the session VWAP, and its
     // change vs the previous VWAP close; the last trade is in the stats.
-    $("price").textContent = fmtMoney(d.vwap);
+    Render.text($("price"), fmtMoney(d.vwap));
 
     const dir = direction(d.change);
-    $("change").textContent = changeText(d.change, d.previous_close);
-    $("change").className = "change-pill num " + dir;
+    Render.text($("change"), changeText(d.change, d.previous_close));
+    Render.cls($("change"), "change-pill num " + dir);
     const traded = d.volume > 0;
     $("noTrades").classList.toggle("show", !traded);
     renderAsOf();
 
     if (d.dividend_announcement) {
       $("dividend").style.display = "block";
-      $("dividendText").textContent = d.dividend_announcement;
+      Render.text($("dividendText"), d.dividend_announcement);
     } else {
       $("dividend").style.display = "none";
     }
 
-    statEls.previousClose.textContent = fmtPrice(d.previous_close);
-    statEls.lastTrade.textContent = fmtPrice(d.price);
+    Render.text(statEls.previousClose, fmtPrice(d.previous_close));
+    Render.text(statEls.lastTrade, fmtPrice(d.price));
     // The report's opening price is a reference price (the previous
     // VWAP), so it is there even on a no-trade day; a day range isn't.
-    statEls.open.textContent = fmtPrice(d.open);
-    statEls.dayRange.textContent = traded ? fmtPrice(d.day_low) + " – " + fmtPrice(d.day_high) : "—";
-    statEls.yearRange.textContent = fmtPrice(d.year_low) + " – " + fmtPrice(d.year_high);
-    statEls.week52.textContent = fmtPrice(d.week52_low) + " – " + fmtPrice(d.week52_high);
-    statEls.volume.textContent = traded ? fmtNum(d.volume) : "No trades today";
-    statEls.valueTraded.textContent = fmtMoney(d.value_traded);
-    statEls.avgVolume.textContent = fmtNum(d.avg_volume);
+    Render.text(statEls.open, fmtPrice(d.open));
+    Render.text(statEls.dayRange, traded ? fmtPrice(d.day_low) + " – " + fmtPrice(d.day_high) : "—");
+    Render.text(statEls.yearRange, fmtPrice(d.year_low) + " – " + fmtPrice(d.year_high));
+    Render.text(statEls.week52, fmtPrice(d.week52_low) + " – " + fmtPrice(d.week52_high));
+    Render.text(statEls.volume, traded ? fmtNum(d.volume) : "No trades today");
+    Render.text(statEls.valueTraded, fmtMoney(d.value_traded));
+    Render.text(statEls.avgVolume, fmtNum(d.avg_volume));
     // Price x shares outstanding; null until shares outstanding are recorded.
-    statEls.marketCap.textContent = d.market_cap != null ? fmtLarge(d.market_cap) : "—";
-    statEls.beta.textContent = d.beta.toFixed(2);
-    statEls.pe.textContent = d.pe_ratio.toFixed(2);
-    statEls.eps.textContent = d.eps.toFixed(2);
-    statEls.earnings.textContent = fmtDate(d.earnings_date);
-    statEls.dividend.textContent = d.forward_dividend > 0
+    Render.text(statEls.marketCap, d.market_cap != null ? fmtLarge(d.market_cap) : "—");
+    Render.text(statEls.beta, d.beta.toFixed(2));
+    Render.text(statEls.pe, d.pe_ratio.toFixed(2));
+    Render.text(statEls.eps, d.eps.toFixed(2));
+    Render.text(statEls.earnings, fmtDate(d.earnings_date));
+    Render.text(statEls.dividend, d.forward_dividend > 0
       ? d.forward_dividend.toFixed(2) + " (" + d.forward_dividend_yield.toFixed(2) + "%)"
-      : "N/A";
-    statEls.exDividend.textContent = d.forward_dividend > 0 ? fmtDate(d.ex_dividend_date) : "N/A";
-    statEls.target.textContent = fmtPrice(d.target_est);
+      : "N/A");
+    Render.text(statEls.exDividend, d.forward_dividend > 0 ? fmtDate(d.ex_dividend_date) : "N/A");
+    Render.text(statEls.target, fmtPrice(d.target_est));
 
     // Thin GSE names often quote one side only, or neither.
-    $("bid").textContent = d.bid == null ? "—" : fmtPrice(d.bid);
-    $("bidSize").textContent = d.bid == null ? "" : "× " + fmtNum(d.bid_size);
-    $("ask").textContent = d.ask == null ? "—" : fmtPrice(d.ask);
-    $("askSize").textContent = d.ask == null ? "" : "× " + fmtNum(d.ask_size);
+    Render.text($("bid"), d.bid == null ? "—" : fmtPrice(d.bid));
+    Render.text($("bidSize"), d.bid == null ? "" : "× " + fmtNum(d.bid_size));
+    Render.text($("ask"), d.ask == null ? "—" : fmtPrice(d.ask));
+    Render.text($("askSize"), d.ask == null ? "" : "× " + fmtNum(d.ask_size));
   }
 
   // ---------------------------------------------------------- market status
@@ -951,6 +953,8 @@
 
   // Fold a live tick into the newest candle, or open a new one once the
   // tick crosses into the next bucket, so the chart moves between fetches.
+  // Only the data changes here; the chart is drawn on the next frame
+  // (paintFrame), with the latest point, however many ticks came in.
   // Candles are built from trades (`price`), not the VWAP.
   function applyTickToChart(d) {
     if (!chart.candles.length || !chart.interval) return;
@@ -978,8 +982,7 @@
     } else {
       return;
     }
-    drawChart();
-    renderRangeChange();
+    chartDirty = true;
   }
 
   function niceStep(span, target) {
@@ -989,17 +992,9 @@
     return (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10) * mag;
   }
 
+  // Resizes the canvas only when its size changed (render.js).
   function setupCanvas(canvas, fallbackHeight) {
-    const dpr = window.devicePixelRatio || 1;
-    const w = canvas.clientWidth;
-    const h = canvas.clientHeight || fallbackHeight;
-    if (!w) return null;
-    canvas.width = w * dpr;
-    canvas.height = h * dpr;
-    const ctx = canvas.getContext("2d");
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, w, h);
-    return { ctx: ctx, w: w, h: h };
+    return Render.canvas(canvas, fallbackHeight);
   }
 
   function drawChart() {
@@ -1252,12 +1247,25 @@
     spark.push({ t: receivedAt, price: d.price });
     if (spark.length > SPARK_LIMIT) spark.shift();
 
+    // The snapshot is already reflected in the fetched candles.
+    if (!isSnapshot) applyTickToChart(d); else if (chart.range === "1D") chartDirty = true;
+    schedulePaint();
+  }
+
+  // One paint per animation frame for whatever arrived since the last:
+  // the quote, the live-tick sparkline, the chart (if a tick moved it)
+  // and the Description view's live figures.
+  let chartDirty = false;
+  const schedulePaint = Render.batch(function () {
     renderQuote();
     drawSpark();
-    des.update(d);
-    // The snapshot is already reflected in the fetched candles.
-    if (!isSnapshot) applyTickToChart(d); else if (chart.range === "1D") drawChart();
-  }
+    if (chartDirty) {
+      chartDirty = false;
+      drawChart();
+      renderRangeChange();
+    }
+    if (quote) des.update(quote);
+  });
 
   let hadConnection = false;
   function connect() {
