@@ -8,7 +8,7 @@ from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Literal, Optional
 
-from fastapi import FastAPI, HTTPException, Query, WebSocket
+from fastapi import Depends, FastAPI, HTTPException, Query, WebSocket
 from fastapi.responses import (
     FileResponse,
     HTMLResponse,
@@ -17,6 +17,7 @@ from fastapi.responses import (
     RedirectResponse,
     StreamingResponse,
 )
+from pydantic import BaseModel, ConfigDict
 
 from app import config, metrics
 from app.aggregation.market_aggregator import MarketAggregator
@@ -35,6 +36,7 @@ from app.connectors.load_connector import LoadConnector
 from app.connectors.market_connector import MockMarketConnector
 from app.connectors.supervisor import SupervisedConnector
 from app.gateways.websocket_gateway import WebSocketGateway
+from app.identity import current_user_id
 from app.instruments import INSTRUMENTS
 from app.instruments.search import InstrumentSearch
 from app.instruments.store import InstrumentStore
@@ -53,6 +55,8 @@ from app.queue.market_buffer import MarketDataBuffer
 from app.session.calendar import load_calendar
 from app.session.status import market_status
 from app.validation.market_validator import ValidatingStream
+from app.watchlists import DEFAULT_WATCHLIST, MAX_PINS, WatchlistError, validate as validate_watchlist
+from app.watchlists.store import WatchlistStore
 
 logger = logging.getLogger(__name__)
 
@@ -200,6 +204,9 @@ instrument_search = InstrumentSearch(INSTRUMENTS.values())
 # Company profiles, officers and financials for description pages;
 # re-seeded from data/company_profiles.json on every startup.
 company_store = CompanyStore(config.DB_PATH)
+# Each user's pinned equities (#26). User data: kept across restarts,
+# never re-seeded.
+watchlist_store = WatchlistStore(config.DB_PATH)
 
 # The buffer decouples ingestion (connector) from its downstream
 # consumers: conflated (latest tick per symbol) for the live display,
@@ -297,6 +304,47 @@ async def health():
             "metrics": metrics.summary(pipeline_metrics()),
         },
     )
+
+
+class WatchlistUpdate(BaseModel):
+    """PUT /watchlists/me: the whole list, in order."""
+    model_config = ConfigDict(extra="forbid")
+
+    symbols: list[str]
+
+
+def _watchlist_body(user_id: str, saved: Optional[dict]) -> dict:
+    return {
+        "user_id": user_id,
+        "symbols": saved["symbols"] if saved else list(DEFAULT_WATCHLIST),
+        # A user who has never saved one sees the default until they do.
+        "is_default": saved is None,
+        "updated_at": saved["updated_at"] if saved else None,
+        "max_pins": MAX_PINS,
+    }
+
+
+@app.get("/watchlists/me")
+async def get_my_watchlist(user_id: str = Depends(current_user_id)):
+    """The requesting user's pinned equities, in order (#26): the saved
+    list, or the default for a user who hasn't saved one. The user is
+    the X-User-Id header or the anonymous-ID cookie, issued here on a
+    first visit (app/identity.py)."""
+    saved = await asyncio.to_thread(watchlist_store.get, user_id)
+    return _watchlist_body(user_id, saved)
+
+
+@app.put("/watchlists/me")
+async def put_my_watchlist(update: WatchlistUpdate, user_id: str = Depends(current_user_id)):
+    """Replace the requesting user's watchlist with `symbols`, in that
+    order. 422 for unknown symbols, bills and bonds, duplicates or more
+    than max_pins, naming the offending symbols; nothing is saved then."""
+    try:
+        symbols = validate_watchlist(update.symbols)
+    except WatchlistError as e:
+        raise HTTPException(status_code=422, detail={"message": str(e), "symbols": e.symbols})
+    saved = await asyncio.to_thread(watchlist_store.put, user_id, symbols)
+    return _watchlist_body(user_id, saved)
 
 
 @app.get("/instruments", response_model=list[Instrument])

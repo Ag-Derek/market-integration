@@ -84,6 +84,14 @@ QUEUE_MAX_SIZE: int = int(os.getenv("QUEUE_MAX_SIZE", "200"))
 # something new (still batched).
 WS_SEND_INTERVAL_MS: float = float(os.getenv("WS_SEND_INTERVAL_MS", "250"))
 
+# Watchlists (#26): the most equities a user may pin, and the list a new
+# user starts with (comma separated, in order). Checked against the
+# instrument master at startup (app/watchlists/).
+WATCHLIST_MAX_PINS: int = int(os.getenv("WATCHLIST_MAX_PINS", "12"))
+WATCHLIST_DEFAULT: list[str] = [
+    s.strip().upper() for s in os.getenv("WATCHLIST_DEFAULT", "MTNGH,GCB,SCB,EGH,GOIL,CAL").split(",") if s.strip()
+]
+
 # Queue size for the branches that must see every tick (the candle
 # aggregator; alerts). When one is full anyway, the buffer pauses the
 # feed up to LOSSLESS_BLOCK_SECONDS for it to make room before dropping
