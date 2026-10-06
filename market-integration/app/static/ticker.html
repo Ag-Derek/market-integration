@@ -88,7 +88,7 @@
 
   .layout {
     display: grid;
-    grid-template-columns: 124px minmax(0, 1fr);
+    grid-template-columns: 136px minmax(0, 1fr);
     gap: 20px;
     align-items: start;
   }
@@ -138,17 +138,20 @@
   }
   .sidebar-toggle:hover { color: var(--ink); border-color: var(--ink-faint); }
   .sidebar-note { font-size: 11px; color: var(--ink-faint); margin: 0 6px 8px; line-height: 1.4; }
-  .picker-list { display: flex; flex-direction: column; gap: 2px; }
-  .picker-count { font-size: 11px; color: var(--ink-faint); margin: 8px 6px 2px; }
+  .watch-list { display: flex; flex-direction: column; gap: 2px; }
+  .watch-count { font-size: 11px; color: var(--ink-faint); margin: 8px 6px 2px; }
+  .watch-count.full { color: var(--gold); }
 
   .layout.collapsed .sidebar { padding: 7px 7px; overflow: hidden; }
   .layout.collapsed .sidebar-head { padding: 0; justify-content: center; }
   .layout.collapsed .sidebar-title,
   .layout.collapsed .sidebar-note,
-  .layout.collapsed .picker-list,
-  .layout.collapsed .picker-count { display: none; }
+  .layout.collapsed .watch-list,
+  .layout.collapsed .watch-count { display: none; }
 
-  .picker-chip {
+  /* The watchlist, in order: a symbol and its day change; click to find
+     its card. */
+  .watch-item {
     font-family: ui-monospace, monospace;
     font-size: 12.5px;
     font-weight: 500;
@@ -159,29 +162,21 @@
     padding: 6px 8px;
     cursor: pointer;
     display: flex;
-    align-items: center;
-    gap: 8px;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px;
     text-align: left;
   }
-  .picker-chip:hover { color: var(--ink); background: var(--panel-strong); }
-
-  .picker-chip .dot {
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: var(--line);
-  }
-
-  .picker-chip.open {
-    color: var(--bg);
-    background: var(--teal);
-    border-color: var(--teal);
-  }
-  .picker-chip.open .dot { background: var(--bg); }
+  .watch-item:hover { color: var(--ink); background: var(--panel-strong); }
+  .watch-item:focus-visible { outline: 2px solid var(--teal); outline-offset: 1px; }
+  .watch-item .chg { font-size: 11px; color: var(--ink-faint); }
+  .watch-item .chg.up { color: var(--green); }
+  .watch-item .chg.down { color: var(--red); }
 
   @media (max-width: 760px) {
     .layout, .layout.collapsed { grid-template-columns: minmax(0, 1fr); }
     .sidebar { position: static; max-height: none; }
-    .picker-list { flex-direction: row; flex-wrap: wrap; }
+    .watch-list { flex-direction: row; flex-wrap: wrap; }
     .layout.collapsed .sidebar-head { justify-content: space-between; padding: 0 0 0 6px; }
     .layout.collapsed .sidebar-title { display: inline; }
   }
@@ -200,18 +195,21 @@
 
   /* Grid */
 
+  /* 1 to 12 cards: the script sets data-cols (1-3) by how many there
+     are; narrower screens drop to 2 columns, then 1. */
   .grid {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 16px;
     align-items: stretch;
   }
-
-  @media (max-width: 900px) {
-    .grid { grid-template-columns: repeat(2, 1fr) !important; }
+  .grid[data-cols="1"] { grid-template-columns: minmax(0, 1fr); }
+  .grid[data-cols="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 1080px) {
+    .grid[data-cols="3"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
   @media (max-width: 620px) {
-    .grid { grid-template-columns: 1fr !important; }
+    .grid[data-cols] { grid-template-columns: minmax(0, 1fr); }
   }
 
   .empty-state {
@@ -223,6 +221,12 @@
     border: 1px dashed var(--line);
     border-radius: 10px;
   }
+  .empty-state p { margin: 0 0 14px; }
+  .empty-state button {
+    font: inherit; font-size: 13px; font-weight: 600; color: var(--bg); background: var(--teal);
+    border: 0; border-radius: 7px; padding: 8px 14px; cursor: pointer;
+  }
+  .empty-state button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
   /* Pane */
 
@@ -256,13 +260,41 @@
   }
   .pane-close:hover { color: var(--ink); border-color: var(--ink-faint); }
 
+  /* Reordering: a handle to drag the card by (or to focus and move with
+     the arrow keys), and a bar where it will land. */
+  .pane-handle {
+    position: absolute;
+    top: 10px; right: 38px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--ink-faint);
+    width: 22px; height: 22px;
+    border-radius: 6px;
+    font-size: 13px;
+    line-height: 1;
+    cursor: grab;
+    touch-action: none;
+  }
+  .pane-handle:hover { color: var(--ink); border-color: var(--line); }
+  .pane-handle:focus-visible, .pane-close:focus-visible { outline: 2px solid var(--teal); outline-offset: 1px; }
+  .pane.dragging { opacity: 0.45; }
+  .pane.drop-before { box-shadow: -3px 0 0 var(--teal); }
+  .pane.drop-after { box-shadow: 3px 0 0 var(--teal); }
+  .grid[data-cols="1"] .pane.drop-before { box-shadow: 0 -3px 0 var(--teal); }
+  .grid[data-cols="1"] .pane.drop-after { box-shadow: 0 3px 0 var(--teal); }
+  /* Briefly outlined when picked in the sidebar. */
+  @keyframes located { from { border-color: var(--teal); } to { border-color: var(--line); } }
+  .pane.located { animation: located 1.2s ease-out; }
+  .pane.off-feed .pane-price-row, .pane.off-feed .pane-chart-wrap, .pane.off-feed .pane-stats,
+  .pane.off-feed .pane-status { display: none; }
+
   .pane-exchange-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
     font-size: 11px;
     color: var(--ink-faint);
-    margin: 0 40px 10px 0;
+    margin: 0 64px 10px 0;
   }
 
   /* Market status badge: session and connection state only. */
@@ -405,20 +437,23 @@
   </div>
 
   <div class="layout" id="layout">
-    <aside class="sidebar" aria-label="Equities">
+    <aside class="sidebar" aria-label="Watchlist">
       <div class="sidebar-head">
-        <span class="sidebar-title">Equities</span>
-        <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-controls="pickerList" aria-expanded="true" title="Collapse the list">&lsaquo;</button>
+        <span class="sidebar-title">Watchlist</span>
+        <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-controls="watchList" aria-expanded="true" title="Collapse the list">&lsaquo;</button>
       </div>
-      <p class="sidebar-note">Click to open or close a view.</p>
-      <div class="picker-list" id="pickerList"></div>
-      <div class="picker-count" id="pickerCount"></div>
+      <p class="sidebar-note">Search to pin. Drag a card's ⠿ to reorder.</p>
+      <div class="watch-list" id="watchList"></div>
+      <div class="watch-count" id="watchCount"></div>
     </aside>
 
     <main>
-      <div class="cap-note" id="capNote">That's the most views at once, close one to open another.</div>
-      <div class="grid" id="grid">
-        <div class="empty-state">Nothing open. Pick a symbol on the left, or search and pin one.</div>
+      <div class="cap-note" id="capNote" role="status"></div>
+      <div class="grid" id="grid" data-cols="1">
+        <div class="empty-state" id="empty" hidden>
+          <p>Search for a ticker to pin it.</p>
+          <button type="button" id="emptySearch">Search</button>
+        </div>
       </div>
     </main>
   </div>
@@ -428,7 +463,8 @@
     price is the session's volume-weighted average (the GSE closing price) and the change is measured against the
     previous VWAP close; the chart plots individual trades. The status badge reflects the trading session and the
     feed's connection (<code>/market/status</code>), never price direction. Market cap is the price times shares
-    outstanding, shown as — until shares outstanding are recorded for the company.
+    outstanding, shown as — until shares outstanding are recorded for the company. The cards are your watchlist,
+    saved for this browser: pin from the search bar, unpin with ✕, drag ⠿ to reorder (<code>/watchlists/me</code>).
   </footer>
 
 </div>
@@ -450,15 +486,14 @@
   const history = {};     // symbol -> [{t, price}], candle closes once loaded
   const historyStep = {}; // symbol -> candle interval in ms (set once 1D history loads)
   const historySeq = {};  // symbol -> request counter, so a stale fetch is ignored
-  const knownSymbols = []; // insertion-ordered list of every symbol ever seen
-  const openSymbols = new Set();
   const paneEls = {};     // symbol -> cached DOM refs for its pane
 
   const el = {
     layout: document.getElementById("layout"),
     sidebarToggle: document.getElementById("sidebarToggle"),
-    pickerList: document.getElementById("pickerList"),
-    pickerCount: document.getElementById("pickerCount"),
+    watchList: document.getElementById("watchList"),
+    watchCount: document.getElementById("watchCount"),
+    empty: document.getElementById("empty"),
     capNote: document.getElementById("capNote"),
     grid: document.getElementById("grid"),
   };
@@ -531,7 +566,7 @@
 
   function renderStatus(sym) {
     const p = paneEls[sym];
-    if (!p) return;
+    if (!p || !onFeed(sym)) return;
     const badge = badgeState();
     if (p.status.dataset.badge !== badge) p.status.dataset.badge = badge;
     Render.text(p.statusText, badgeText(badge));
@@ -542,90 +577,237 @@
   function setMarket(status) {
     market = status;
     marketAt = Date.now();
-    openSymbols.forEach(renderStatus);
+    pins.forEach(renderStatus);
   }
 
-  function showCapNote() {
-    el.capNote.classList.add("show");
-    clearTimeout(showCapNote._t);
-    showCapNote._t = setTimeout(function () { el.capNote.classList.remove("show"); }, 2500);
-  }
+  // ---------------------------------------------------------- watchlist (#27)
+  // The cards are the user's watchlist (#26): exactly their pins, in their
+  // order, saved on the server. Pin from the search bar, unpin with a
+  // card's ✕, reorder by dragging a card's handle (or focusing it and
+  // using the arrow keys). Only pinned symbols the feed carries are
+  // subscribed; a pin it doesn't carry (a suspended equity) still gets a
+  // card, without quotes.
 
-  // The open views are the watchlist, saved on the server per user
-  // (PUT /watchlists/me, shared with the search bar's "+ Pin" on every
-  // page) so they survive a reload and a server restart. In the order
-  // they were opened; pins this feed doesn't carry (a suspended name)
-  // are kept, after them.
-  let offFeedPins = [];
+  const pins = [];                // the watchlist, in order
+  const feedSymbols = new Set();  // what /ws/market carries, from its welcome
+  const names = {};               // symbol -> name, for cards without quotes
+  const watchItems = {};          // symbol -> its sidebar entry
   let saveTimer = null;
+  let noteTimer = null;
+
+  function pinned(sym) { return pins.indexOf(sym) !== -1; }
+  function onFeed(sym) { return feedSymbols.has(sym); }
+
+  function showNote(text) {
+    el.capNote.textContent = text;
+    el.capNote.classList.add("show");
+    clearTimeout(noteTimer);
+    noteTimer = setTimeout(function () { el.capNote.classList.remove("show"); }, 4000);
+  }
+
+  function fullText() {
+    return "Your watchlist is full: " + maxPanes + " pins. Unpin one (✕ on its card) to add another.";
+  }
+
+  // Saved a moment after the last change, so a burst of clicks or a drag
+  // is one PUT of the whole list.
   function saveWatchlist() {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(function () {
-      MarketSearch.saveWatchlist(Array.from(openSymbols).concat(offFeedPins)).catch(function (err) {
-        console.warn("watchlist not saved:", err.message);
+      MarketSearch.saveWatchlist(pins.slice()).catch(function (err) {
+        showNote("Your watchlist couldn't be saved: " + err.message);
       });
     }, SAVE_DELAY_MS);
   }
 
-  function capacity() { return maxPanes - offFeedPins.length; }
-
-  function gridColumns(n) { return n <= 3 ? n : n === 4 ? 2 : 3; }
-
-  // The feed only sends quotes for subscribed symbols, so each open pane
-  // is a subscription: opening one subscribes, closing it unsubscribes.
-  function togglePane(sym) {
-    if (openSymbols.has(sym)) {
-      openSymbols.delete(sym);
-      send("unsubscribe", [sym]);
-      buildGrid();
-    } else if (openSymbols.size >= capacity()) {
-      showCapNote();
-      return;
-    } else {
-      openSymbols.add(sym);
-      send("subscribe", [sym]);
-      loadHistory(sym);
-      buildGrid();
-    }
-    saveWatchlist();
-  }
-
-  // "+ Pin" in the search bar: open the view here and now.
-  function pinFromSearch(sym) {
-    if (openSymbols.has(sym)) return "Already pinned";
-    if (knownSymbols.indexOf(sym) === -1) return "Not in the feed";
-    if (openSymbols.size >= capacity()) {
-      showCapNote();
+  function pin(sym) {
+    if (pinned(sym)) return "Already pinned";
+    if (pins.length >= maxPanes) {
+      showNote(fullText());
       return "Watchlist full";
     }
-    togglePane(sym);
+    pins.push(sym);
+    if (onFeed(sym)) {
+      send("subscribe", [sym]);
+      loadHistory(sym);
+    }
+    syncGrid();
+    saveWatchlist();
     return "Pinned";
   }
 
-  function buildPicker() {
-    el.pickerList.innerHTML = "";
-    knownSymbols.forEach(function (sym) {
-      const chip = document.createElement("button");
-      chip.type = "button";
-      chip.className = "picker-chip" + (openSymbols.has(sym) ? " open" : "");
-      chip.setAttribute("aria-pressed", openSymbols.has(sym) ? "true" : "false");
-      const dot = document.createElement("span");
-      dot.className = "dot";
-      chip.appendChild(dot);
-      chip.appendChild(document.createTextNode(sym));
-      chip.addEventListener("click", function () { togglePane(sym); });
-      el.pickerList.appendChild(chip);
-    });
-    el.pickerCount.textContent = openSymbols.size + " / " + capacity() + " open";
+  function unpin(sym) {
+    const i = pins.indexOf(sym);
+    if (i === -1) return;
+    pins.splice(i, 1);
+    if (onFeed(sym)) send("unsubscribe", [sym]);
+    syncGrid();
+    saveWatchlist();
   }
+
+  // Moves `sym` to position `to` (clamped) in the watchlist.
+  function move(sym, to) {
+    const from = pins.indexOf(sym);
+    to = Math.max(0, Math.min(pins.length - 1, to));
+    if (from === -1 || from === to) return;
+    pins.splice(from, 1);
+    pins.splice(to, 0, sym);
+    syncGrid();
+    saveWatchlist();
+  }
+
+  // "+ Pin" in the search bar: the card appears here at once.
+  function pinFromSearch(sym) { return pin(sym); }
+
+  // 1 to 3 columns on a wide screen, by how many cards there are; the
+  // CSS narrows it on smaller ones.
+  function gridColumns(n) { return n <= 3 ? Math.max(n, 1) : n === 4 ? 2 : 3; }
+
+  // Puts the grid in step with `pins`: removes unpinned cards, creates new
+  // ones, and moves the rest into order (appendChild moves a node), so a
+  // card and its chart survive a reorder.
+  function syncGrid() {
+    Object.keys(paneEls).forEach(function (sym) {
+      if (!pinned(sym)) {
+        paneEls[sym].root.remove();
+        delete paneEls[sym];
+      }
+    });
+    el.empty.hidden = pins.length > 0;
+    pins.forEach(function (sym) {
+      let p = paneEls[sym];
+      if (!p) {
+        p = paneEls[sym] = createPane(sym);
+        if (onFeed(sym)) {
+          renderStatus(sym);
+          if (state[sym]) updatePane(sym);
+        } else {
+          renderOffFeed(sym);
+        }
+      }
+      el.grid.appendChild(p.root);
+    });
+    el.grid.dataset.cols = String(gridColumns(pins.length));
+    buildWatchList();
+    // Column widths may have changed: redraw the charts at their new size.
+    requestAnimationFrame(function () { pins.forEach(drawChart); });
+  }
+
+  function buildWatchList() {
+    el.watchList.innerHTML = "";
+    Object.keys(watchItems).forEach(function (k) { delete watchItems[k]; });
+    pins.forEach(function (sym) {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "watch-item";
+      item.title = "Show " + sym;
+      const label = document.createElement("span");
+      label.textContent = sym;
+      const chg = document.createElement("span");
+      chg.className = "chg num";
+      item.appendChild(label);
+      item.appendChild(chg);
+      item.addEventListener("click", function () {
+        const p = paneEls[sym];
+        if (!p) return;
+        p.root.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        p.root.classList.remove("located");
+        requestAnimationFrame(function () { p.root.classList.add("located"); });
+      });
+      el.watchList.appendChild(item);
+      watchItems[sym] = { item: item, chg: chg };
+      if (state[sym]) paintWatchItem(sym);
+    });
+    const full = pins.length >= maxPanes;
+    el.watchCount.textContent = pins.length + " / " + maxPanes + " pinned" + (full ? " · full" : "");
+    el.watchCount.classList.toggle("full", full);
+  }
+
+  function paintWatchItem(sym) {
+    const w = watchItems[sym], d = state[sym];
+    if (!w || !d) return;
+    const pct = d.previous_close ? (d.change / d.previous_close) * 100 : 0;
+    Render.text(w.chg, (pct > 0 ? "+" : pct < 0 ? "−" : "") + Math.abs(pct).toFixed(2) + "%");
+    Render.cls(w.chg, "chg num " + (pct > 0 ? "up" : pct < 0 ? "down" : ""));
+  }
+
+  // A pinned equity the feed doesn't carry: named from the instrument
+  // master, and said plainly that there are no quotes.
+  function renderOffFeed(sym) {
+    const p = paneEls[sym];
+    if (!p) return;
+    p.root.classList.add("off-feed");
+    Render.text(p.exchangeLabel, "Not on the live feed");
+    Render.text(p.asOf, "No live quotes: suspended, or not carried by this feed.");
+    if (names[sym]) {
+      Render.text(p.nameText, names[sym]);
+      return;
+    }
+    fetch("/instruments/" + encodeURIComponent(sym))
+      .then(function (res) { return res.ok ? res.json() : null; })
+      .then(function (inst) {
+        if (!inst) return;
+        names[sym] = inst.name + (inst.status !== "active" ? " (" + inst.status + ")" : "");
+        if (paneEls[sym]) Render.text(paneEls[sym].nameText, names[sym]);
+      })
+      .catch(function () { /* the symbol stays as the name */ });
+  }
+
+  // ---------------------------------------------------------- reordering
+  // Drag a card by its handle; the drop lands before or after the card
+  // under the pointer, by which half of it the pointer is over. The
+  // handle also takes the arrow keys, for keyboards (and touch screens,
+  // which HTML drag and drop doesn't serve).
+
+  let dragSym = null;
+  let dropMark = null;   // {pane, after} the indicator is on
+
+  function clearDropMark() {
+    if (dropMark) dropMark.pane.classList.remove("drop-before", "drop-after");
+    dropMark = null;
+  }
+
+  function dropTarget(e) {
+    const paneEl = e.target.closest && e.target.closest(".pane");
+    if (!paneEl || !paneEl.dataset.symbol || paneEl.dataset.symbol === dragSym) return null;
+    const r = paneEl.getBoundingClientRect();
+    // One column: above or below the middle; several: left or right of it.
+    const oneColumn = el.grid.dataset.cols === "1" || getComputedStyle(el.grid).gridTemplateColumns.split(" ").length === 1;
+    const after = oneColumn ? e.clientY > r.top + r.height / 2 : e.clientX > r.left + r.width / 2;
+    return { pane: paneEl, after: after };
+  }
+
+  el.grid.addEventListener("dragover", function (e) {
+    if (!dragSym) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    const t = dropTarget(e);
+    if (!t) return;
+    if (!dropMark || dropMark.pane !== t.pane || dropMark.after !== t.after) {
+      clearDropMark();
+      t.pane.classList.add(t.after ? "drop-after" : "drop-before");
+      dropMark = t;
+    }
+  });
+
+  el.grid.addEventListener("drop", function (e) {
+    if (!dragSym) return;
+    e.preventDefault();
+    const t = dropMark || dropTarget(e);
+    clearDropMark();
+    if (!t) return;
+    const without = pins.filter(function (s) { return s !== dragSym; });
+    const at = without.indexOf(t.pane.dataset.symbol) + (t.after ? 1 : 0);
+    move(dragSym, at);
+  });
 
   function setSidebarCollapsed(collapsed) {
     el.layout.classList.toggle("collapsed", collapsed);
     el.sidebarToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
     el.sidebarToggle.innerHTML = collapsed ? "&rsaquo;" : "&lsaquo;";
-    el.sidebarToggle.title = collapsed ? "Show the equities list" : "Collapse the list";
+    el.sidebarToggle.title = collapsed ? "Show the watchlist" : "Collapse the list";
     // Charts are sized from their canvas, which just changed width.
-    requestAnimationFrame(function () { openSymbols.forEach(drawChart); });
+    requestAnimationFrame(function () { pins.forEach(drawChart); });
   }
 
   function statEl(label) {
@@ -644,12 +826,51 @@
   function createPane(sym) {
     const root = document.createElement("div");
     root.className = "pane";
+    root.dataset.symbol = sym;
+
+    // Drag handle: makes the card draggable only while it's held, so text
+    // and links in the card behave as usual.
+    const handle = document.createElement("button");
+    handle.type = "button";
+    handle.className = "pane-handle";
+    handle.textContent = "⠿";
+    handle.title = "Drag to reorder, or use the arrow keys";
+    handle.setAttribute("aria-label", "Move " + sym + " (arrow keys)");
+    handle.addEventListener("pointerdown", function () { root.draggable = true; });
+    handle.addEventListener("pointerup", function () { root.draggable = false; });
+    handle.addEventListener("keydown", function (e) {
+      const i = pins.indexOf(sym);
+      let to = null;
+      if (e.key === "ArrowLeft" || e.key === "ArrowUp") to = i - 1;
+      else if (e.key === "ArrowRight" || e.key === "ArrowDown") to = i + 1;
+      else if (e.key === "Home") to = 0;
+      else if (e.key === "End") to = pins.length - 1;
+      if (to === null) return;
+      e.preventDefault();
+      move(sym, to);
+      handle.focus();
+    });
+    root.appendChild(handle);
+    root.addEventListener("dragstart", function (e) {
+      dragSym = sym;
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", sym);
+      root.classList.add("dragging");
+    });
+    root.addEventListener("dragend", function () {
+      dragSym = null;
+      root.draggable = false;
+      root.classList.remove("dragging");
+      clearDropMark();
+    });
 
     const close = document.createElement("button");
+    close.type = "button";
     close.className = "pane-close";
     close.textContent = "×";
-    close.title = "Close";
-    close.addEventListener("click", function () { togglePane(sym); });
+    close.title = "Unpin " + sym;
+    close.setAttribute("aria-label", "Unpin " + sym);
+    close.addEventListener("click", function () { unpin(sym); });
     root.appendChild(close);
 
     const exchangeRow = document.createElement("div");
@@ -667,6 +888,7 @@
     name.className = "pane-name";
     name.href = "/stock/" + encodeURIComponent(sym);
     name.title = "Open " + sym + " detail page";
+    name.draggable = false;
     const nameText = document.createElement("span");
     nameText.className = "name-text";
     nameText.textContent = "—";
@@ -743,30 +965,6 @@
     };
   }
 
-  function buildGrid() {
-    el.grid.innerHTML = "";
-    Object.keys(paneEls).forEach(function (k) { delete paneEls[k]; });
-
-    if (openSymbols.size === 0) {
-      const empty = document.createElement("div");
-      empty.className = "empty-state";
-      empty.textContent = "Nothing open. Pick a symbol on the left, or search and pin one.";
-      el.grid.appendChild(empty);
-    } else {
-      el.grid.style.gridTemplateColumns = "repeat(" + gridColumns(openSymbols.size) + ", 1fr)";
-      // In watchlist order.
-      openSymbols.forEach(function (sym) {
-        const pane = createPane(sym);
-        el.grid.appendChild(pane.root);
-        paneEls[sym] = pane;
-        renderStatus(sym);
-        if (state[sym]) updatePane(sym);
-      });
-    }
-
-    buildPicker();
-  }
-
   // Paints a pane from its state, writing only what changed (#22). Runs
   // once per animation frame for the panes whose symbol had news.
   function updatePane(sym) {
@@ -803,6 +1001,7 @@
     Render.text(p.stats.marketCap.value, d.market_cap != null ? fmtLarge(d.market_cap) : "—");
 
     drawChart(sym);
+    paintWatchItem(sym);
   }
 
   // Quotes land in `state` as they arrive; each pane with news is
@@ -912,13 +1111,13 @@
         history[sym] = body.candles.map(function (c) {
           return { t: Date.parse(c.time), price: c.close };
         });
-        if (openSymbols.has(sym)) drawChart(sym);
+        if (pinned(sym)) drawChart(sym);
       })
       .catch(function (err) {
         if (err.permanent) return;
         setTimeout(function () {
           // Only while the pane is still open and no newer request has started.
-          if (seq === historySeq[sym] && openSymbols.has(sym)) loadHistory(sym);
+          if (seq === historySeq[sym] && pinned(sym)) loadHistory(sym);
         }, 3000);
       });
   }
@@ -945,7 +1144,7 @@
   }
 
   function ingest(d) {
-    if (!openSymbols.has(d.symbol)) return;  // e.g. a tick sent just before an unsubscribe landed
+    if (!pinned(d.symbol)) return;  // e.g. a tick sent just before an unsubscribe landed
     d._receivedAt = Date.now();
     state[d.symbol] = d;
     recordTick(d);
@@ -962,9 +1161,9 @@
   }
 
   // The server's welcome message lists the symbols the feed carries (no
-  // prices). The first time, open the user's watchlist (a new user gets
-  // the default one); after a reconnect, keep what was open,
-  // re-subscribe and re-fetch candles missed while offline.
+  // prices). The first time, load the user's watchlist (a new user gets
+  // the default) and open its cards; after a reconnect, re-subscribe what
+  // is pinned and re-fetch candles missed while offline.
   // The feed also carries bills and bonds; this page shows equities.
   function equitiesOf(welcome) {
     const classes = welcome.asset_classes || {};
@@ -972,11 +1171,8 @@
   }
 
   function onWelcome(symbols) {
-    knownSymbols.length = 0;
-    Array.prototype.push.apply(knownSymbols, symbols);
-    Array.from(openSymbols).forEach(function (sym) {
-      if (symbols.indexOf(sym) === -1) openSymbols.delete(sym);
-    });
+    feedSymbols.clear();
+    symbols.forEach(function (s) { feedSymbols.add(s); });
     const first = !hadConnection;
     hadConnection = true;
     if (!first) {
@@ -985,19 +1181,19 @@
     }
     MarketSearch.loadWatchlist().then(function (list) {
       maxPanes = list.max_pins;
-      list.symbols.forEach(function (sym) {
-        if (symbols.indexOf(sym) !== -1) openSymbols.add(sym); else offFeedPins.push(sym);
-      });
+      pins.length = 0;
+      Array.prototype.push.apply(pins, list.symbols);
     }, function () {
-      // The watchlist couldn't be loaded: show the first few, unsaved.
-      symbols.slice(0, 6).forEach(function (sym) { openSymbols.add(sym); });
+      showNote("Your watchlist couldn't be loaded; showing a few equities instead.");
+      Array.prototype.push.apply(pins, symbols.slice(0, 6));
     }).then(openViews);
   }
 
   function openViews() {
-    openSymbols.forEach(loadHistory);
-    buildGrid();
-    send("subscribe", Array.from(openSymbols));
+    const live = pins.filter(onFeed);
+    live.forEach(loadHistory);
+    syncGrid();
+    send("subscribe", live);
   }
 
   function connect() {
@@ -1027,7 +1223,7 @@
 
     ws.onclose = function () {
       socketOpen = false;
-      openSymbols.forEach(renderStatus);
+      pins.forEach(renderStatus);
       setTimeout(connect, 2000);
     };
 
@@ -1040,15 +1236,16 @@
   window.addEventListener("resize", function () {
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(function () {
-      openSymbols.forEach(drawChart);
+      pins.forEach(drawChart);
     }, 120);
   });
 
   // Keeps relative times current, and turns the badge to Disconnected if
   // status messages stop arriving.
-  setInterval(function () { openSymbols.forEach(renderStatus); }, 1000);
+  setInterval(function () { pins.forEach(renderStatus); }, 1000);
 
-  MarketSearch.mount(document.getElementById("search"), { onPin: pinFromSearch });
+  const search = MarketSearch.mount(document.getElementById("search"), { onPin: pinFromSearch });
+  document.getElementById("emptySearch").addEventListener("click", function () { search.input.focus(); });
 
   let sidebarCollapsed = false;
   try { sidebarCollapsed = localStorage.getItem("sidebar.collapsed") === "1"; } catch (e) { /* storage unavailable */ }
