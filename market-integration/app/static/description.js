@@ -19,7 +19,10 @@
  * total return move with every tick; the rest is as loaded. Anything
  * missing reads "Not available", with the reason on hover where the
  * API gives one. On Ratios, P/E, price-to-book and dividend yield follow
- * the live price too; Revenue & EPS charts the last five fiscal years. Styles itself with the page's colour variables.
+ * the live price too; Revenue & EPS charts the last five fiscal years.
+ * Styles itself with the page's colour variables. Needs
+ * /static/render.js loaded first; call update() at most once a frame
+ * (the stock page does, from its frame-batched paint).
  */
 (function () {
   "use strict";
@@ -209,9 +212,16 @@
   }
 
   // Fill a value cell: main text (or Not available), then optional
-  // sub-lines. `reason` explains a missing value on hover.
+  // sub-lines. `reason` explains a missing value on hover. Live figures
+  // call this on every frame with news, so a cell whose content would
+  // come out the same is left alone (#22).
   function setValue(cell, text, opts) {
     opts = opts || {};
+    const sourced = opts.sourced;
+    const signature = JSON.stringify([text, opts.dir, opts.subs, opts.reason, opts.title,
+      sourced ? [sourced.as_of, sourced.source] : null]);
+    if (cell._signature === signature) return cell;
+    cell._signature = signature;
     cell.textContent = "";
     cell.removeAttribute("title");
     cell.classList.toggle("na", text == null);
@@ -1046,14 +1056,10 @@
       if (mini.msg) {
         mini.msg.textContent = closes.length >= 2 ? "" : mini.loaded ? (mini.msg.textContent || "No history yet") : "Loading chart…";
       }
-      const dpr = window.devicePixelRatio || 1;
-      const W = canvas.clientWidth, H = canvas.clientHeight || 88;
-      if (!W) return;
-      canvas.width = W * dpr;
-      canvas.height = H * dpr;
-      const ctx = canvas.getContext("2d");
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, W, H);
+      // Resized only when its size changed (render.js).
+      const surface = Render.canvas(canvas, 88);
+      if (!surface) return;
+      const ctx = surface.ctx, W = surface.w, H = surface.h;
       if (closes.length < 2) return;
 
       let min = Math.min.apply(null, closes), max = Math.max.apply(null, closes);

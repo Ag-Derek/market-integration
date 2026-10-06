@@ -752,6 +752,12 @@ async def description_script():
     return FileResponse(STATIC_DIR / "description.js", media_type="text/javascript")
 
 
+@app.get("/static/render.js")
+async def render_script():
+    """Frame-batched rendering helpers shared by the live pages (#22)."""
+    return FileResponse(STATIC_DIR / "render.js", media_type="text/javascript")
+
+
 @app.get("/stock")
 async def stock_page_default():
     return RedirectResponse(url=f"/stock/{equities.symbols[0]}")

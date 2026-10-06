@@ -433,6 +433,7 @@
 
 </div>
 
+<script src="/static/render.js"></script>
 <script src="/static/search.js"></script>
 <script>
 (function () {
@@ -530,10 +531,10 @@
     const p = paneEls[sym];
     if (!p) return;
     const badge = badgeState();
-    p.status.dataset.badge = badge;
-    p.statusText.textContent = badgeText(badge);
+    if (p.status.dataset.badge !== badge) p.status.dataset.badge = badge;
+    Render.text(p.statusText, badgeText(badge));
     p.priceCaption.classList.toggle("show", marketClosed());
-    if (state[sym]) p.asOf.textContent = asOfText(state[sym]);
+    if (state[sym]) Render.text(p.asOf, asOfText(state[sym]));
   }
 
   function setMarket(status) {
@@ -749,44 +750,47 @@
     buildPicker();
   }
 
+  // Paints a pane from its state, writing only what changed (#22). Runs
+  // once per animation frame for the panes whose symbol had news.
   function updatePane(sym) {
     const p = paneEls[sym];
     const d = state[sym];
     if (!p || !d) return;
 
-    p.exchangeLabel.textContent = d.exchange_label;
-    p.nameText.textContent = d.name;
+    Render.text(p.exchangeLabel, d.exchange_label);
+    Render.text(p.nameText, d.name);
 
     // GSE official price (session VWAP), and its change vs the previous
     // VWAP close.
-    p.price.textContent = fmtMoney(d.vwap);
+    Render.text(p.price, fmtMoney(d.vwap));
 
     const pct = (d.change / d.previous_close) * 100;
     const dir = d.change > 0 ? "up" : d.change < 0 ? "down" : "flat";
     const arrow = dir === "up" ? "▲" : dir === "down" ? "▼" : "–";
-    p.change.textContent = arrow + " " + Math.abs(d.change).toFixed(2) + " (" + Math.abs(pct).toFixed(2) + "%)";
-    p.change.className = "change-pill num " + dir;
+    Render.text(p.change, arrow + " " + Math.abs(d.change).toFixed(2) + " (" + Math.abs(pct).toFixed(2) + "%)");
+    Render.cls(p.change, "change-pill num " + dir);
 
     const traded = d.volume > 0;
     p.noTrades.classList.toggle("show", !traded);
 
     renderStatus(sym);
 
-    if (d.dividend_announcement) {
-      p.dividend.style.display = "block";
-      p.dividendText.textContent = d.dividend_announcement;
-    } else {
-      p.dividend.style.display = "none";
-    }
+    const display = d.dividend_announcement ? "block" : "none";
+    if (p.dividend.style.display !== display) p.dividend.style.display = display;
+    if (d.dividend_announcement) Render.text(p.dividendText, d.dividend_announcement);
 
-    p.stats.previousClose.value.textContent = fmtMoney(d.previous_close);
-    p.stats.dayRange.value.textContent = traded ? fmtMoney(d.day_low) + " – " + fmtMoney(d.day_high) : "—";
-    p.stats.sharesTraded.value.textContent = traded ? fmtNum(d.volume) : "No trades today";
+    Render.text(p.stats.previousClose.value, fmtMoney(d.previous_close));
+    Render.text(p.stats.dayRange.value, traded ? fmtMoney(d.day_low) + " – " + fmtMoney(d.day_high) : "—");
+    Render.text(p.stats.sharesTraded.value, traded ? fmtNum(d.volume) : "No trades today");
     // Price x shares outstanding; null until shares outstanding are recorded.
-    p.stats.marketCap.value.textContent = d.market_cap != null ? fmtLarge(d.market_cap) : "—";
+    Render.text(p.stats.marketCap.value, d.market_cap != null ? fmtLarge(d.market_cap) : "—");
 
     drawChart(sym);
   }
+
+  // Quotes land in `state` as they arrive; each pane with news is
+  // painted (and its chart drawn, with the latest point) once per frame.
+  const schedulePane = Render.batch(function (symbols) { symbols.forEach(updatePane); });
 
   function drawChart(sym) {
     const p = paneEls[sym];
@@ -794,16 +798,11 @@
     const points = history[sym] || [];
     if (!p || !d || points.length < 2) return;
 
-    const ctx = p.ctx;
-    const canvas = p.canvas;
-    const dpr = window.devicePixelRatio || 1;
-    const cssWidth = canvas.clientWidth;
-    const cssHeight = canvas.clientHeight || 110;
-    if (!cssWidth) return;
-    canvas.width = cssWidth * dpr;
-    canvas.height = cssHeight * dpr;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, cssWidth, cssHeight);
+    // Resized only when its size changed: setting a canvas's width or
+    // height reallocates it even to the same value.
+    const surface = Render.canvas(p.canvas, 110);
+    if (!surface) return;
+    const ctx = surface.ctx, cssWidth = surface.w, cssHeight = surface.h;
 
     const padL = 4, padR = 46, padT = 8, padB = 14;
     const plotW = cssWidth - padL - padR;
@@ -933,7 +932,7 @@
     d._receivedAt = Date.now();
     state[d.symbol] = d;
     recordTick(d);
-    updatePane(d.symbol);
+    schedulePane(d.symbol);
   }
 
   let socket = null;

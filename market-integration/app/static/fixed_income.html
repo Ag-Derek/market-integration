@@ -145,17 +145,14 @@
   .down { color: var(--red); }
   tr.hidden { display: none; }
 
-  /* Live update highlight: the close cells flash in the direction the
-     price moved (a falling yield is a rising price). */
-  @keyframes flash-up { from { background: rgba(52, 197, 127, 0.28); } to { background: transparent; } }
-  @keyframes flash-down { from { background: rgba(229, 103, 90, 0.28); } to { background: transparent; } }
-  @keyframes flash-neutral { from { background: rgba(174, 182, 169, 0.18); } to { background: transparent; } }
-  td.flash-up { animation: flash-up 1.2s ease-out; }
-  td.flash-down { animation: flash-down 1.2s ease-out; }
-  td.flash-neutral { animation: flash-neutral 1.2s ease-out; }
-  @media (prefers-reduced-motion: reduce) {
-    td.flash-up, td.flash-down, td.flash-neutral { animation-duration: 0.01s; }
-  }
+  /* Live update highlight: the close cells light up in the direction the
+     price moved (a falling yield is a rising price) for a moment. A
+     static tint toggled by class (Render.flash in render.js), not an
+     animation, so a burst of updates across the table costs two style
+     changes per cell rather than a repaint of every cell on every frame. */
+  td.flash-up { background: rgba(52, 197, 127, 0.22); }
+  td.flash-down { background: rgba(229, 103, 90, 0.22); }
+  td.flash-neutral { background: rgba(174, 182, 169, 0.14); }
 
   .empty { padding: 30px 16px; color: var(--ink-faint); font-size: 13px; text-align: center; }
 
@@ -213,6 +210,7 @@
 
 </div>
 
+<script src="/static/render.js"></script>
 <script>
 (function () {
   "use strict";
@@ -248,8 +246,16 @@
 
   // ------------------------------------------------------------ state
 
-  const rows = {};          // symbol -> {section, kind, group, data, cells, el}
-  const sbbRows = {};       // symbol -> {data, cells}
+  // Live updates (#22): a quote is applied to this state as it arrives,
+  // and the rows it touched are painted once per animation frame, writing
+  // only the cells whose text or class changed.
+  const rows = {};          // symbol -> {section, kind, group, data, cells, el, flash}
+  const sbbRows = {};       // symbol -> {data, cells, flash}
+  // Section volume/trade totals, kept up to date by each quote's change
+  // rather than re-summed over every row.
+  const totals = {};        // section -> {volume, trades}
+  const sbbTotal = { volume: 0, trades: 0 };
+  const dirtySections = new Set();
   let report = null;
   let refetching = false;
 
@@ -315,6 +321,7 @@
     Object.keys(rows).forEach(function (k) { delete rows[k]; });
 
     SECTIONS.forEach(function (sec) {
+      totals[sec.key] = { volume: 0, trades: 0 };
       const data = report[sec.key] || [];
       let list = data.slice();
       if (sec.key === "treasury_bill") {
@@ -396,68 +403,102 @@
 
     rows[r.symbol] = {
       section: sec.key, kind: sec.kind, group: group, data: Object.assign({}, r),
-      cells: cells, el: tr,
+      cells: cells, el: tr, flash: null,
       text: (r.description + " " + r.symbol + " " + (r.issuer || "") + " " + group).toLowerCase(),
     };
+    totals[sec.key].volume += r.volume || 0;
+    totals[sec.key].trades += r.trade_count || 0;
     paint(rows[r.symbol], values);
     return tr;
   }
 
+  // Writes only the cells whose text or class changed.
   function paint(row, values) {
     values.forEach(function (v, i) {
       const td = row.cells[i];
       if (typeof v === "object") {
-        td.textContent = v.text;
-        td.className = "num " + v.cls;
+        Render.text(td, v.text);
+        setNumClass(td, v.cls);
       } else {
-        td.textContent = v;
+        Render.text(td, v);
       }
     });
+  }
+
+  // A cell's class is "num", a direction ("up", "down", "muted") and any
+  // running flash; only the direction is repainted.
+  function setNumClass(td, cls) {
+    if (td._dirCls === cls) return;
+    if (td._dirCls) td.classList.remove(td._dirCls);
+    if (cls) td.classList.add(cls);
+    td._dirCls = cls;
   }
 
   // Index of the cells that flash when the close moves.
   function closeCells(kind) { return kind === "corp" ? [1, 2] : [1, 2, 4]; }
 
-  function flash(td, dir) {
-    td.classList.remove("flash-up", "flash-down", "flash-neutral");
-    void td.offsetWidth;  // restart the animation
-    td.classList.add("flash-" + dir);
-  }
-
+  // Applies a quote to the row's state now; the row is painted on the
+  // next frame (paintRows), however many quotes arrive before it.
   function applyTick(t) {
     const row = rows[t.symbol];
     if (!row) { refetchReport(); return; }  // a bill issued since the page loaded
     const prev = row.data;
     const key = row.kind === "corp" ? "closing_price" : "closing_yield";
     const before = prev[key], after = t[key];
-    const tradedMore = (t.trade_count || 0) > (prev.trade_count || 0);
-
-    row.data = Object.assign({}, prev, t);
-    paint(row, cellsFor(row.kind, row.data));
+    const flash = row.flash || (row.flash = { close: null, trades: false });
 
     if (before != null && after != null && before !== after) {
-      // Price direction: a lower yield is a higher price.
+      // Price direction: a lower yield is a higher price. The latest move
+      // since the last frame wins.
       const priceUp = row.kind === "corp" ? after > before : after < before;
-      closeCells(row.kind).forEach(function (i) { flash(row.cells[i], priceUp ? "up" : "down"); });
+      flash.close = priceUp ? "up" : "down";
     }
-    if (tradedMore) {
+    if ((t.trade_count || 0) > (prev.trade_count || 0)) flash.trades = true;
+
+    const total = totals[row.section];
+    total.volume += (t.volume || 0) - (prev.volume || 0);
+    total.trades += (t.trade_count || 0) - (prev.trade_count || 0);
+    dirtySections.add(row.section);
+
+    row.data = Object.assign({}, prev, t);
+    schedule(t.symbol);
+  }
+
+  function paintRow(symbol) {
+    const row = rows[symbol];
+    if (!row) return;
+    paint(row, cellsFor(row.kind, row.data));
+    const flash = row.flash;
+    row.flash = null;
+    if (!flash) return;
+    if (flash.close) closeCells(row.kind).forEach(function (i) { Render.flash(row.cells[i], flash.close); });
+    if (flash.trades) {
       const n = row.cells.length;
-      flash(row.cells[n - 2], "neutral");
-      flash(row.cells[n - 1], "neutral");
+      Render.flash(row.cells[n - 2], "neutral");
+      Render.flash(row.cells[n - 1], "neutral");
     }
-    updateTotals(row.section);
   }
 
   function updateTotals(section) {
     const box = $("sec-" + section);
-    if (!box) return;
-    let volume = 0, trades = 0;
-    Object.keys(rows).forEach(function (s) {
-      const r = rows[s];
-      if (r.section === section) { volume += r.data.volume || 0; trades += r.data.trade_count || 0; }
-    });
-    box.querySelector(".totals").textContent = "Volume " + compact(volume) + " · " + (trades || 0) + " trades";
+    const total = totals[section];
+    if (!box || !total) return;
+    Render.text(box.querySelector(".totals"), "Volume " + compact(total.volume) + " · " + (total.trades || 0) + " trades");
   }
+
+  // One paint per animation frame for everything that changed since the
+  // last: monitor rows, sell/buy-back rows (keyed "sbb:" + symbol) and
+  // section totals.
+  const schedule = Render.batch(function (keys) {
+    let sbbChanged = false;
+    keys.forEach(function (key) {
+      if (key.indexOf("sbb:") === 0) { paintSbbRow(key.slice(4)); sbbChanged = true; }
+      else paintRow(key);
+    });
+    dirtySections.forEach(updateTotals);
+    dirtySections.clear();
+    if (sbbChanged) sbbTotals();
+  });
 
   // One segment on screen at a time; the choice is remembered per browser.
   let segment = "treasury_bill";
@@ -533,6 +574,9 @@
     const host = $("sbb");
     host.innerHTML = "";
     const list = report.sell_buy_back || [];
+    Object.keys(sbbRows).forEach(function (k) { delete sbbRows[k]; });
+    sbbTotal.volume = 0;
+    sbbTotal.trades = 0;
     const box = document.createElement("div");
     box.className = "section";
     box.innerHTML =
@@ -564,41 +608,46 @@
       tr.addEventListener("click", open);
       tr.addEventListener("keydown", function (e) { if (e.key === "Enter") open(); });
       body.appendChild(tr);
-      sbbRows[r.symbol] = { cells: Array.prototype.slice.call(tr.children, 2), data: r };
-      paintSbb(r.symbol, r.yield, r.weighted_average_price, r.volume, r.trade_count);
+      sbbRows[r.symbol] = { cells: Array.prototype.slice.call(tr.children, 2), data: r, flash: false };
+      sbbTotal.volume += r.volume || 0;
+      sbbTotal.trades += r.trade_count || 0;
+      paintSbbRow(r.symbol);
     });
     host.appendChild(box);
     sbbTotals(box);
   }
 
-  function paintSbb(symbol, y, price, volume, trades) {
-    const c = sbbRows[symbol].cells;
-    c[0].textContent = yld(y);
-    c[1].textContent = px(price);
-    c[2].textContent = compact(volume);
-    c[3].textContent = count(trades);
+  function paintSbbRow(symbol) {
+    const row = sbbRows[symbol];
+    if (!row) return;
+    const c = row.cells, d = row.data;
+    Render.text(c[0], yld(d.yield));
+    Render.text(c[1], px(d.weighted_average_price));
+    Render.text(c[2], compact(d.volume));
+    Render.text(c[3], count(d.trade_count));
+    if (row.flash) {
+      row.flash = false;
+      c.forEach(function (td) { Render.flash(td, "neutral"); });
+    }
   }
 
   function sbbTotals(box) {
     box = box || $("sbb").querySelector(".section");
-    let volume = 0, trades = 0;
-    Object.keys(sbbRows).forEach(function (s) {
-      volume += sbbRows[s].data.volume || 0;
-      trades += sbbRows[s].data.trade_count || 0;
-    });
-    box.querySelector(".totals").textContent = "Volume " + compact(volume) + " · " + trades + " trades";
+    if (!box) return;
+    Render.text(box.querySelector(".totals"), "Volume " + compact(sbbTotal.volume) + " · " + sbbTotal.trades + " trades");
   }
 
   function applyRepo(t) {
     const row = sbbRows[t.symbol];
     if (!row) return;
+    sbbTotal.volume += (t.volume || 0) - (row.data.volume || 0);
+    sbbTotal.trades += (t.trade_count || 0) - (row.data.trade_count || 0);
     // The USD DDE rows have no yield (the report puts a price there).
     row.data = Object.assign({}, row.data, {
       yield: t.bond_yield, weighted_average_price: t.bond_price, volume: t.volume, trade_count: t.trade_count,
     });
-    paintSbb(t.symbol, t.bond_yield, t.bond_price, t.volume, t.trade_count);
-    row.cells.forEach(function (td) { flash(td, "neutral"); });
-    sbbTotals();
+    row.flash = true;
+    schedule("sbb:" + t.symbol);
   }
 
   // ------------------------------------------------------------ views
@@ -717,7 +766,8 @@
       } else if (msg.type === "snapshot") {
         Object.values(msg.data).forEach(ingest);
       } else if (msg.type === "ticks") {
-        // The latest quote per changed symbol, at most a few times a second.
+        // The latest quote per changed symbol, at most a few times a
+        // second; applied to state now, painted on the next frame.
         msg.data.forEach(ingest);
       } else if (msg.type === "error") {
         console.warn("market feed:", msg.message);
