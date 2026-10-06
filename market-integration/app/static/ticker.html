@@ -416,7 +416,7 @@
     </aside>
 
     <main>
-      <div class="cap-note" id="capNote">Max 6 views at once, close one to open another.</div>
+      <div class="cap-note" id="capNote">That's the most views at once, close one to open another.</div>
       <div class="grid" id="grid">
         <div class="empty-state">Nothing open. Pick a symbol on the left, or search and pin one.</div>
       </div>
@@ -439,9 +439,11 @@
 (function () {
   "use strict";
 
-  const MAX_PANES = 6;
+  // The open views are the user's watchlist, kept on the server (#26);
+  // how many may be open is its max_pins, known once it loads.
+  let maxPanes = 12;
   const HISTORY_LIMIT = 720; // raw ticks kept until the 1D candles arrive
-  const GRID_COLS = { 1: 1, 2: 2, 3: 3, 4: 2, 5: 3, 6: 3 };
+  const SAVE_DELAY_MS = 400;  // coalesce quick open/close clicks into one save
   const UNIT_MS = { m: 60e3, h: 3600e3, d: 86400e3 };
 
   const state = {};       // symbol -> latest MarketData
@@ -549,11 +551,25 @@
     showCapNote._t = setTimeout(function () { el.capNote.classList.remove("show"); }, 2500);
   }
 
-  // The open views are the watchlist: kept in localStorage (shared with
-  // the search bar's "+ Pin" on every page) so they survive a reload.
+  // The open views are the watchlist, saved on the server per user
+  // (PUT /watchlists/me, shared with the search bar's "+ Pin" on every
+  // page) so they survive a reload and a server restart. In the order
+  // they were opened; pins this feed doesn't carry (a suspended name)
+  // are kept, after them.
+  let offFeedPins = [];
+  let saveTimer = null;
   function saveWatchlist() {
-    MarketSearch.writeWatchlist(knownSymbols.filter(function (s) { return openSymbols.has(s); }));
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () {
+      MarketSearch.saveWatchlist(Array.from(openSymbols).concat(offFeedPins)).catch(function (err) {
+        console.warn("watchlist not saved:", err.message);
+      });
+    }, SAVE_DELAY_MS);
   }
+
+  function capacity() { return maxPanes - offFeedPins.length; }
+
+  function gridColumns(n) { return n <= 3 ? n : n === 4 ? 2 : 3; }
 
   // The feed only sends quotes for subscribed symbols, so each open pane
   // is a subscription: opening one subscribes, closing it unsubscribes.
@@ -562,7 +578,7 @@
       openSymbols.delete(sym);
       send("unsubscribe", [sym]);
       buildGrid();
-    } else if (openSymbols.size >= MAX_PANES) {
+    } else if (openSymbols.size >= capacity()) {
       showCapNote();
       return;
     } else {
@@ -578,7 +594,7 @@
   function pinFromSearch(sym) {
     if (openSymbols.has(sym)) return "Already pinned";
     if (knownSymbols.indexOf(sym) === -1) return "Not in the feed";
-    if (openSymbols.size >= MAX_PANES) {
+    if (openSymbols.size >= capacity()) {
       showCapNote();
       return "Watchlist full";
     }
@@ -600,7 +616,7 @@
       chip.addEventListener("click", function () { togglePane(sym); });
       el.pickerList.appendChild(chip);
     });
-    el.pickerCount.textContent = openSymbols.size + " / " + MAX_PANES + " open";
+    el.pickerCount.textContent = openSymbols.size + " / " + capacity() + " open";
   }
 
   function setSidebarCollapsed(collapsed) {
@@ -737,8 +753,9 @@
       empty.textContent = "Nothing open. Pick a symbol on the left, or search and pin one.";
       el.grid.appendChild(empty);
     } else {
-      el.grid.style.gridTemplateColumns = "repeat(" + (GRID_COLS[openSymbols.size] || 3) + ", 1fr)";
-      knownSymbols.filter(function (s) { return openSymbols.has(s); }).forEach(function (sym) {
+      el.grid.style.gridTemplateColumns = "repeat(" + gridColumns(openSymbols.size) + ", 1fr)";
+      // In watchlist order.
+      openSymbols.forEach(function (sym) {
         const pane = createPane(sym);
         el.grid.appendChild(pane.root);
         paneEls[sym] = pane;
@@ -945,8 +962,8 @@
   }
 
   // The server's welcome message lists the symbols the feed carries (no
-  // prices). The first time, open the saved watchlist (or, on a first
-  // visit, the first few); after a reconnect, keep what was open,
+  // prices). The first time, open the user's watchlist (a new user gets
+  // the default one); after a reconnect, keep what was open,
   // re-subscribe and re-fetch candles missed while offline.
   // The feed also carries bills and bonds; this page shows equities.
   function equitiesOf(welcome) {
@@ -960,13 +977,24 @@
     Array.from(openSymbols).forEach(function (sym) {
       if (symbols.indexOf(sym) === -1) openSymbols.delete(sym);
     });
-    if (!hadConnection) {
-      const saved = MarketSearch.readWatchlist();
-      const initial = saved === null ? symbols : saved.filter(function (s) { return symbols.indexOf(s) !== -1; });
-      initial.slice(0, MAX_PANES).forEach(function (sym) { openSymbols.add(sym); });
-      saveWatchlist();
-    }
+    const first = !hadConnection;
     hadConnection = true;
+    if (!first) {
+      openViews();
+      return;
+    }
+    MarketSearch.loadWatchlist().then(function (list) {
+      maxPanes = list.max_pins;
+      list.symbols.forEach(function (sym) {
+        if (symbols.indexOf(sym) !== -1) openSymbols.add(sym); else offFeedPins.push(sym);
+      });
+    }, function () {
+      // The watchlist couldn't be loaded: show the first few, unsaved.
+      symbols.slice(0, 6).forEach(function (sym) { openSymbols.add(sym); });
+    }).then(openViews);
+  }
+
+  function openViews() {
     openSymbols.forEach(loadHistory);
     buildGrid();
     send("subscribe", Array.from(openSymbols));

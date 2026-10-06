@@ -19,11 +19,18 @@
  * typing then searches within that list.
  *
  * "+ Pin" adds an equity to the watchlist: the /ticker page's open
- * views, kept in localStorage so a pin from any page shows up there.
- * `onPin(symbol)` lets a page handle it itself (the ticker opens the
- * view at once); it returns a message to show, or nothing for "Pinned".
- * The watchlist only renders equities for now, so bills and bonds can't
- * be pinned.
+ * views, kept on the server per user (GET and PUT /watchlists/me, #26),
+ * so a pin from any page shows up there and survives reloads and server
+ * restarts. `onPin(symbol)` lets a page handle it itself (the ticker
+ * opens the view at once); it returns a message to show (or a promise of
+ * one), or nothing for "Pinned". The watchlist only renders equities for
+ * now, so bills and bonds can't be pinned.
+ *
+ * The watchlist API for pages:
+ *
+ *   MarketSearch.loadWatchlist()      -> Promise of {symbols, max_pins, is_default}
+ *   MarketSearch.readWatchlist()      -> its symbols, once loaded (else null)
+ *   MarketSearch.saveWatchlist(list)  -> Promise; replaces the whole list
  */
 (function () {
   "use strict";
@@ -31,8 +38,9 @@
   const DEBOUNCE_MS = 150;
   const LIMIT = 10;
   const BROWSE_LIMIT = 50;  // a whole sector, with nothing typed
-  const WATCHLIST_KEY = "watchlist";
-  const WATCHLIST_MAX = 6;
+  // Where pins were kept before they moved to the server; read once to
+  // carry an existing list over, then cleared.
+  const LEGACY_WATCHLIST_KEY = "watchlist";
   const BADGE = { equity: "Equity", bill: "Bill", bond: "Bond", description: "DES" };
   const MOVERS = [
     { key: "gainers", label: "Top gainers", none: "No gainers" },
@@ -145,28 +153,80 @@
 
   // ------------------------------------------------------------ watchlist
 
-  function readWatchlist() {
-    try {
-      const v = JSON.parse(localStorage.getItem(WATCHLIST_KEY) || "null");
-      return Array.isArray(v) ? v.filter(function (s) { return typeof s === "string"; }) : null;
-    } catch (e) {
-      return null;
+  // The user's watchlist lives on the server; this is the page's copy.
+  let watchlist = null;     // the last GET/PUT /watchlists/me body
+  let loadingWatchlist = null;
+
+  function watchlistRequest(method, body) {
+    return fetch("/watchlists/me", {
+      method: method,
+      credentials: "same-origin",   // the anonymous-ID cookie
+      headers: body ? { "Content-Type": "application/json" } : {},
+      body: body ? JSON.stringify(body) : undefined,
+    }).then(function (res) {
+      return res.json().then(function (json) {
+        if (!res.ok) {
+          const err = new Error((json.detail && json.detail.message) || "HTTP " + res.status);
+          err.symbols = (json.detail && json.detail.symbols) || [];   // the ones the server refused
+          throw err;
+        }
+        watchlist = json;
+        return json;
+      });
+    });
+  }
+
+  // Loads once per page (later calls share the result). A user still on
+  // the default who has a list from before pins moved to the server gets
+  // it carried over.
+  function loadWatchlist() {
+    if (!loadingWatchlist) {
+      loadingWatchlist = watchlistRequest("GET").then(migrateLegacy).catch(function (err) {
+        loadingWatchlist = null;    // retry on the next call
+        throw err;
+      });
     }
+    return loadingWatchlist;
   }
 
-  function writeWatchlist(symbols) {
-    try { localStorage.setItem(WATCHLIST_KEY, JSON.stringify(symbols)); } catch (e) { /* storage unavailable */ }
+  function migrateLegacy(current) {
+    let legacy = null;
+    try { legacy = JSON.parse(localStorage.getItem(LEGACY_WATCHLIST_KEY) || "null"); } catch (e) { /* storage blocked */ }
+    if (!Array.isArray(legacy)) return current;
+    const done = function () {
+      try { localStorage.removeItem(LEGACY_WATCHLIST_KEY); } catch (e) { /* storage blocked */ }
+      return watchlist;
+    };
+    if (!current.is_default) return done();
+    const symbols = legacy.filter(function (s) { return typeof s === "string"; }).slice(0, current.max_pins);
+    // A symbol since dropped from the instrument master would sink the
+    // whole list; retry once without the ones the server names.
+    return watchlistRequest("PUT", { symbols: symbols }).catch(function (err) {
+      if (!err.symbols || !err.symbols.length) throw err;
+      return watchlistRequest("PUT", {
+        symbols: symbols.filter(function (s) { return err.symbols.indexOf(s.trim().toUpperCase()) === -1; }),
+      });
+    }).then(done, done);
   }
 
-  // Pin from a page with no watchlist of its own: append to the stored
-  // list the ticker opens with.
-  function pinToStorage(symbol) {
-    const list = readWatchlist() || [];
-    if (list.indexOf(symbol) !== -1) return "Already pinned";
-    if (list.length >= WATCHLIST_MAX) return "Watchlist full";
-    list.push(symbol);
-    writeWatchlist(list);
-    return "Pinned";
+  function readWatchlist() {
+    return watchlist ? watchlist.symbols.slice() : null;
+  }
+
+  // Replaces the whole list, in order. Rejects with the server's reason
+  // (unknown symbol, too many pins).
+  function saveWatchlist(symbols) {
+    return watchlistRequest("PUT", { symbols: symbols });
+  }
+
+  // Pin from a page with no watchlist of its own: append to the list the
+  // ticker opens with.
+  function pinToServer(symbol) {
+    return loadWatchlist().then(function (current) {
+      if (current.symbols.indexOf(symbol) !== -1) return "Already pinned";
+      if (current.symbols.length >= current.max_pins) return "Watchlist full";
+      return saveWatchlist(current.symbols.concat([symbol])).then(function () { return "Pinned"; });
+    }).catch(function () { return "Couldn't pin"; });
   }
 
   // ------------------------------------------------------------ component
@@ -206,6 +266,8 @@
 
   function mount(root, options) {
     options = options || {};
+    // So results can show what's already pinned.
+    loadWatchlist().catch(function () { /* pins just won't show as pinned */ });
     if (!document.getElementById("msearch-css")) {
       const style = document.createElement("style");
       style.id = "msearch-css";
@@ -297,11 +359,11 @@
 
     function pin(r, button) {
       if (r.asset_class !== "equity") return;
-      const note = (options.onPin ? options.onPin(r.symbol) : pinToStorage(r.symbol)) || "Pinned";
-      if (button) {
-        button.textContent = note === "Pinned" ? "Pinned ✓" : note;
-        button.disabled = true;
-      }
+      if (button) button.disabled = true;
+      Promise.resolve(options.onPin ? options.onPin(r.symbol) : pinToServer(r.symbol)).then(function (note) {
+        note = note || "Pinned";
+        if (button) button.textContent = note === "Pinned" ? "Pinned ✓" : note;
+      });
     }
 
     function open(r) {
@@ -650,8 +712,8 @@
 
   window.MarketSearch = {
     mount: mount,
+    loadWatchlist: loadWatchlist,
     readWatchlist: readWatchlist,
-    writeWatchlist: writeWatchlist,
-    WATCHLIST_MAX: WATCHLIST_MAX,
+    saveWatchlist: saveWatchlist,
   };
 })();
