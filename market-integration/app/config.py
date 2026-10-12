@@ -92,6 +92,13 @@ WATCHLIST_DEFAULT: list[str] = [
     s.strip().upper() for s in os.getenv("WATCHLIST_DEFAULT", "MTNGH,GCB,SCB,EGH,GOIL,CAL").split(",") if s.strip()
 ]
 
+# Currency conversion (app/fx/): how often to check the Bank of Ghana
+# for a new interbank fix, in seconds. BoG publishes once a business
+# day, so hourly picks it up within the hour. The first pull also
+# fetches the history (about a minute), in the background. 0 never
+# pulls: conversion uses whatever is already stored (tests, offline).
+FX_REFRESH_SECONDS: float = float(os.getenv("FX_REFRESH_SECONDS", "3600"))
+
 # Queue size for the branches that must see every tick (the candle
 # aggregator; alerts). When one is full anyway, the buffer pauses the
 # feed up to LOSSLESS_BLOCK_SECONDS for it to make room before dropping

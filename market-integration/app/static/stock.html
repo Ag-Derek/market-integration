@@ -444,6 +444,9 @@
   .book-side .stat-value { font-size: 14px; font-weight: 600; }
   .book-side .size { font-size: 11px; color: var(--ink-faint); margin-top: 2px; }
 
+  .des-ccy-note { font-size: 12px; color: var(--ink-faint); margin: 0 0 12px; }
+  #quoteCcy { font-weight: 500; color: var(--ink-faint); }
+
   footer {
     margin-top: 26px;
     font-size: 12px;
@@ -466,6 +469,7 @@
   <div class="topbar">
     <a class="brand" href="/ticker">&larr; Market Integration &middot; Live Ticker</a>
     <div id="search"></div>
+    <div id="currency"></div>
     <span class="sim-badge">Simulated data, not a live GSE feed</span>
   </div>
 
@@ -502,6 +506,9 @@
     <a class="view-link" id="viewDescription" href="#description">Description</a>
   </nav>
 
+  <p class="des-ccy-note" id="desCcyNote" hidden>
+    Company figures here are in the currency they were reported in (cedis unless marked), not converted.
+  </p>
   <div id="description" hidden></div>
 
   <div id="overview">
@@ -520,7 +527,7 @@
 
   <div class="lower">
     <section class="card">
-      <h2 class="card-title">Quote</h2>
+      <h2 class="card-title">Quote<span id="quoteCcy"></span></h2>
       <div class="stats" id="stats"></div>
     </section>
 
@@ -554,11 +561,15 @@
     (<code>/market/status</code>), never price direction. Market cap is the price times shares outstanding, shown as —
     until shares outstanding are recorded for the company. Beta, PE, EPS, dividends and the target here are still generated
     placeholders; the calculated versions are on the Description view (<code>/instruments/{symbol}/description</code>).
+    In another currency (top right), the quote is converted at the latest Bank of Ghana interbank mid-rate
+    (<code>/fx/rates</code>), so its percentage change is the shares' own; daily and weekly charts use each day's
+    rate (<code>/candles?…&amp;currency=…</code>), so they show what the shares were worth in that currency at the time.
   </footer>
 
 </div>
 
 <script src="/static/render.js"></script>
+<script src="/static/currency.js"></script>
 <script src="/static/search.js"></script>
 <script src="/static/description.js"></script>
 <script>
@@ -610,7 +621,8 @@
   const chart = {
     range: "1D",
     interval: null,
-    candles: [],             // [{ts, open, high, low, close, volume}]
+    candles: [],             // [{ts, open, high, low, close, volume}], in the display currency
+    fx: null,                // /candles' fx: how they were converted (null: cedis)
     lastCumVolume: null,     // cumulative session volume on the last tick
     hoverIndex: null,
     requestSeq: 0,
@@ -619,12 +631,13 @@
 
   // ---------------------------------------------------------------- format
 
-  function fmtMoney(n) {
-    return "GH₵" + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  }
-  function fmtPrice(n) {
-    return Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  }
+  // The quote arrives in cedis; fmtMoney/fmtPrice show a cedi amount in
+  // the display currency (/static/currency.js), at the latest fix. The
+  // chart's candles come already converted (/candles?currency=), so it
+  // formats with chartPrice.
+  function fmtMoney(n) { return Currency.money(n); }
+  function fmtPrice(n) { return Currency.price(n); }
+  function chartPrice(v) { return Currency.formatPrice(v); }
   function fmtNum(n) { return Number(n).toLocaleString(); }
   function fmtLarge(n) {
     const abs = Math.abs(n);
@@ -650,14 +663,20 @@
   function fmtWhen(iso) {
     return new Date(iso).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
   }
-  function direction(diff) {
-    return diff > 0.004 ? "up" : diff < -0.004 ? "down" : "flat";
+  // Flat within half a GSE tick (GH₵0.005); `scale` is display-currency
+  // units per cedi when `diff` is in the display currency.
+  function direction(diff, scale) {
+    const half = 0.004 * (scale || 1);
+    return diff > half ? "up" : diff < -half ? "down" : "flat";
   }
-  function changeText(diff, base) {
-    const dir = direction(diff);
+  // A cedi change (the quote's), or with `inDisplay` one already in the
+  // display currency (the chart's).
+  function changeText(diff, base, inDisplay) {
+    const dir = direction(diff, inDisplay ? Currency.convert(1) : 1);
     const arrow = dir === "up" ? "▲" : dir === "down" ? "▼" : "–";
     const pct = base ? (diff / base) * 100 : 0;
-    return arrow + " " + Math.abs(diff).toFixed(2) + " (" + Math.abs(pct).toFixed(2) + "%)";
+    const amount = inDisplay ? chartPrice(Math.abs(diff)) : fmtPrice(Math.abs(diff));
+    return arrow + " " + amount + " (" + Math.abs(pct).toFixed(2) + "%)";
   }
 
   // Axis/tooltip labels depend on how wide each candle is.
@@ -756,16 +775,16 @@
     Render.text(statEls.yearRange, fmtPrice(d.year_low) + " – " + fmtPrice(d.year_high));
     Render.text(statEls.week52, fmtPrice(d.week52_low) + " – " + fmtPrice(d.week52_high));
     Render.text(statEls.volume, traded ? fmtNum(d.volume) : "No trades today");
-    Render.text(statEls.valueTraded, fmtMoney(d.value_traded));
+    Render.text(statEls.valueTraded, Currency.amount(d.value_traded));
     Render.text(statEls.avgVolume, fmtNum(d.avg_volume));
     // Price x shares outstanding; null until shares outstanding are recorded.
-    Render.text(statEls.marketCap, d.market_cap != null ? fmtLarge(d.market_cap) : "—");
+    Render.text(statEls.marketCap, d.market_cap != null ? Currency.large(d.market_cap) : "—");
     Render.text(statEls.beta, d.beta.toFixed(2));
     Render.text(statEls.pe, d.pe_ratio.toFixed(2));
-    Render.text(statEls.eps, d.eps.toFixed(2));
+    Render.text(statEls.eps, fmtPrice(d.eps));
     Render.text(statEls.earnings, fmtDate(d.earnings_date));
     Render.text(statEls.dividend, d.forward_dividend > 0
-      ? d.forward_dividend.toFixed(2) + " (" + d.forward_dividend_yield.toFixed(2) + "%)"
+      ? fmtPrice(d.forward_dividend) + " (" + d.forward_dividend_yield.toFixed(2) + "%)"
       : "N/A");
     Render.text(statEls.exDividend, d.forward_dividend > 0 ? fmtDate(d.ex_dividend_date) : "N/A");
     Render.text(statEls.target, fmtPrice(d.target_est));
@@ -893,7 +912,9 @@
     $("chartMsg").textContent = "Loading chart…";
     $("chartMsg").style.display = "flex";
 
-    fetch("/candles?symbol=" + encodeURIComponent(SYMBOL) + "&range=" + encodeURIComponent(range))
+    const ccy = Currency.code();
+    fetch("/candles?symbol=" + encodeURIComponent(SYMBOL) + "&range=" + encodeURIComponent(range) +
+      (ccy === "GHS" ? "" : "&currency=" + encodeURIComponent(ccy)))
       .then(function (res) {
         if (!res.ok) {
           const err = new Error("HTTP " + res.status);
@@ -913,7 +934,8 @@
         chart.hoverIndex = null;
         $("chartMsg").style.display = chart.candles.length ? "none" : "flex";
         if (!chart.candles.length) $("chartMsg").textContent = "No history for this range yet.";
-        $("chartMeta").textContent = chart.candles.length + " × " + body.interval + " candles";
+        chart.fx = body.fx;
+        renderChartMeta();
         drawChart();
         renderRangeChange();
       })
@@ -929,10 +951,23 @@
       });
   }
 
+  // "120 × 1d candles", and in another currency at what rate.
+  function renderChartMeta() {
+    let text = chart.candles.length + " × " + chart.interval + " candles";
+    if (chart.fx) {
+      text += " · " + chart.fx.currency + (chart.fx.method === "daily"
+        ? " at each day's BoG rate"
+        : " at BoG rate of " + fmtDate(chart.fx.as_of));
+    }
+    $("chartMeta").textContent = text;
+  }
+
   // 1D is measured against the previous close (like the quote's change
-  // pill); every other range against the first candle's open.
+  // pill); every other range against the first candle's open. In the
+  // candles' currency: the previous close converts at the latest fix,
+  // as 1D's candles do.
   function chartBaseline() {
-    if (chart.range === "1D" && quote) return quote.previous_close;
+    if (chart.range === "1D" && quote) return Currency.convert(quote.previous_close);
     return chart.candles.length ? chart.candles[0].open : null;
   }
 
@@ -945,8 +980,8 @@
     const label = RANGES.filter(function (r) { return r.key === chart.range; })[0].label;
     el.innerHTML = "";
     const v = document.createElement("span");
-    v.className = direction(diff);
-    v.textContent = changeText(diff, base);
+    v.className = direction(diff, Currency.convert(1));
+    v.textContent = changeText(diff, base, true);
     el.appendChild(v);
     el.appendChild(document.createTextNode(" " + label.toLowerCase()));
   }
@@ -955,13 +990,14 @@
   // tick crosses into the next bucket, so the chart moves between fetches.
   // Only the data changes here; the chart is drawn on the next frame
   // (paintFrame), with the latest point, however many ticks came in.
-  // Candles are built from trades (`price`), not the VWAP.
+  // Candles are built from trades (`price`), not the VWAP. The newest
+  // candle's fix is the latest one, so a tick converts at it too.
   function applyTickToChart(d) {
     if (!chart.candles.length || !chart.interval) return;
     const step = INTERVAL_MS[chart.interval];
     const t = Date.parse(d.timestamp);
     const last = chart.candles[chart.candles.length - 1];
-    const px = d.price;
+    const px = Currency.convert(d.price);
     const cum = d.volume;
 
     let volDelta = 0;
@@ -973,7 +1009,7 @@
     if (t >= last.ts + step) {
       const ts = last.ts + Math.floor((t - last.ts) / step) * step;
       chart.candles.push({ ts: ts, open: px, high: px, low: px, close: px, volume: volDelta });
-      $("chartMeta").textContent = chart.candles.length + " × " + chart.interval + " candles";
+      renderChartMeta();
     } else if (t >= last.ts) {
       last.high = Math.max(last.high, px);
       last.low = Math.min(last.low, px);
@@ -1047,7 +1083,7 @@
       // Skip labels the live price tag would sit on top of.
       if (Math.abs(y - tagY) < 14) continue;
       ctx.fillStyle = COLORS.axis;
-      ctx.fillText(fmtPrice(v), padL + plotW + 8, y);
+      ctx.fillText(chartPrice(v), padL + plotW + 8, y);
     }
 
     // Time axis: ~6 evenly spaced labels.
@@ -1113,7 +1149,7 @@
     ctx.fillStyle = lineColor;
     ctx.fill();
     ctx.font = "10px ui-monospace, monospace";
-    const tag = fmtPrice(last);
+    const tag = chartPrice(last);
     const tagW = ctx.measureText(tag).width + 10;
     ctx.fillStyle = lineColor;
     ctx.fillRect(padL + plotW + 4, lastY - 8, tagW, 16);
@@ -1154,8 +1190,8 @@
     time.className = "t-time";
     time.textContent = tooltipLabel(c.ts, chart.interval);
     tip.appendChild(time);
-    [["Open", fmtPrice(c.open)], ["High", fmtPrice(c.high)], ["Low", fmtPrice(c.low)],
-     ["Close", fmtPrice(c.close)], ["Volume", fmtLarge(c.volume)]].forEach(function (r) {
+    [["Open", chartPrice(c.open)], ["High", chartPrice(c.high)], ["Low", chartPrice(c.low)],
+     ["Close", chartPrice(c.close)], ["Volume", fmtLarge(c.volume)]].forEach(function (r) {
       const row = document.createElement("div");
       row.className = "t-row";
       const a = document.createElement("span"); a.textContent = r[0];
@@ -1349,6 +1385,24 @@
 
   MarketSearch.mount($("search"));
 
+  // ---------------------------------------------------------------- currency
+  // The quote converts at the latest fix as it's painted, so a new
+  // currency (or fix) only needs a repaint; the chart's candles are
+  // converted by the server, so they're fetched again, and dropped
+  // meanwhile so live ticks in the new currency don't land on old ones.
+
+  function renderCurrencyLabels() {
+    const code = Currency.code();
+    $("quoteCcy").textContent = code === "GHS" ? "" : " · " + code;
+    $("desCcyNote").hidden = code === "GHS" || $("description").hidden;
+  }
+
+  Currency.mount($("currency"));
+  Currency.onChange(function () {
+    renderCurrencyLabels();
+    schedulePaint();
+  });
+
   // ---------------------------------------------------------------- views
   // #overview (the default) or #description[/tab]; the quote header stays
   // on top of both.
@@ -1388,6 +1442,7 @@
       // Canvases hidden while describing have no size; draw them now.
       requestAnimationFrame(function () { drawChart(); drawSpark(); });
     }
+    renderCurrencyLabels();
   }
   window.addEventListener("hashchange", route);
   route();
@@ -1416,7 +1471,17 @@
     if (saved && RANGES.some(function (r) { return r.key === saved; })) initialRange = saved;
   } catch (e) { /* storage unavailable */ }
 
-  selectRange(initialRange);
+  // The candles come in the display currency, so the first fetch waits
+  // for the rates (or for them failing: then it's cedis).
+  Currency.ready.then(function () {
+    selectRange(initialRange);
+    Currency.onChange(function () {
+      chart.candles = [];
+      chart.fx = null;
+      drawChart();
+      loadCandles();
+    });
+  });
   connect();
 })();
 </script>
