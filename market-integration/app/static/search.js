@@ -250,10 +250,17 @@
     return rows.slice(0, i + 1).concat([des], rows.slice(i + 1));
   }
 
+  // Equities in the page's display currency (/static/currency.js, when
+  // the page loads it); bills and bonds per 100 of face value.
   function fmtPrice(r) {
     if (r.price == null) return "—";
+    if (r.asset_class === "equity" && window.Currency) return Currency.money(r.price);
     const n = Number(r.price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     return r.asset_class === "equity" ? "GH₵" + n : n;
+  }
+  function fmtChange(r) {
+    if (r.asset_class === "equity" && window.Currency) return (r.change > 0 ? "+" : "") + Currency.price(r.change);
+    return signed(r.change, 2);
   }
 
   function signed(n, digits) {
@@ -410,7 +417,7 @@
           sub.textContent = signed(r.change_percent, 2) + "%";
         } else if (r.change != null && r.price != null) {
           sub.className = r.change > 0 ? "up" : r.change < 0 ? "down" : "";
-          sub.textContent = signed(r.change, 2);
+          sub.textContent = fmtChange(r);
         }
         if (sub.textContent) px.appendChild(sub);
 

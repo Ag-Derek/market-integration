@@ -154,6 +154,17 @@ Each branch validates ticks itself.
     (`yield_open` … `yield_close`). Sell/buy-back (repo) ticks never make
     candles; they go to a `repo_trades` table, one row per bond per
     session.
+- **`app/fx/`** — currency conversion at the Bank of Ghana's interbank
+  rates. Unlike market data, these are real: `bog.py` pulls them from
+  BoG's website (there's no API: it asks the history table's AJAX
+  endpoint, as the page does), `store.py` keeps every fix as published
+  in SQLite (`fx_rates`), and `rates.py` serves lookups: the latest fix,
+  or the one in force on a day. The first start pulls 11 years of
+  history in the background; after that an hourly pull fetches only
+  what's new. Prices stay in cedis everywhere; the pages convert live
+  quotes at the latest fix, and `/candles?currency=` converts history at
+  each day's. BoG's formats and quirks (inverted West African pairs, a
+  rescaled leone) are in `docs/fx-rates.md`.
 - **`app/gateways/`** — delivery layer. Currently a WebSocket gateway that
   broadcasts to connected clients concurrently; a webhook gateway for
   Symphony workflow events would live here too.
@@ -301,6 +312,37 @@ feed's state under `feeds`. The status message's `feed.state` is
 time. Clients are sent a status message the moment a feed drops or
 recovers, and the pages' badges then read "Reconnecting…".
 
+To show prices in another currency, the service pulls the Bank of
+Ghana's interbank FX rates from bog.gov.gh, so it needs internet access
+for that (and only that). The first start fetches 11 years of history in
+the background, about a minute; later starts and the hourly check
+fetch only new fixes. `FX_REFRESH_SECONDS` (default 3600) sets how often
+it checks; 0 never pulls, for offline work, and the pages then stay in
+cedis unless rates were stored earlier. If BoG can't be reached, the
+service keeps converting at the rates it already has and `/health` says
+why under `fx`.
+
+The service only pulls while it's running. To keep the rates current
+when it isn't, schedule the same pull as a daily job, `python -m
+app.fx.pull` (one pull, then exits; `--log FILE` to log to a file;
+once today's fix is stored it doesn't contact BoG). On Windows, from the
+project root, this registers it with Task Scheduler at 09:00 and hourly
+16:00–22:00 Ghana time, and whenever you log on or unlock the PC, so a
+laptop that's often asleep still gets the day's fix; it logs to
+`fx-pull.log`:
+
+```powershell
+.\scripts\register-fx-pull-task.ps1                          # -GhanaTimes 09:00,17:00 for others
+Start-ScheduledTask -TaskName "market-integration BoG FX pull"  # run it now
+.\scripts\register-fx-pull-task.ps1 -Remove                  # take it off
+```
+
+On macOS/Linux, a crontab line (the times are the machine's):
+
+```text
+0 9,16-22 * * * cd /path/to/market-integration && .venv/bin/python -m app.fx.pull --log fx-pull.log
+```
+
 `MARKET_DB_PATH` (default `market_data.db`) sets where the SQLite
 database holding the instruments table and aggregated candles lives.
 The test suite points it at a temporary file, so running `pytest` never
@@ -337,7 +379,7 @@ Uvicorn running on http://127.0.0.1:8000
 |-----------------------------------|---------------------------------------|
 | `http://127.0.0.1:8000/docs`      | Interactive Swagger UI — try endpoints directly in the browser |
 | `http://127.0.0.1:8000/redoc`     | Alternative API documentation        |
-| `http://127.0.0.1:8000/health`    | Health check: 200 `healthy`, or 503 `reconnecting` (a feed is being retried) / `unhealthy`; `feeds` gives each feed's reconnect state, `metrics` a summary of `/metrics` |
+| `http://127.0.0.1:8000/health`    | Health check: 200 `healthy`, or 503 `reconnecting` (a feed is being retried) / `unhealthy`; `feeds` gives each feed's reconnect state, `metrics` a summary of `/metrics`, `fx` the Bank of Ghana rates' latest fix and last pull (`last_error` if it failed; never makes the service unhealthy) |
 | `http://127.0.0.1:8000/metrics`   | Pipeline metrics in Prometheus text format (scrape it directly); `?format=json` for the same as JSON. Ticks received; dropped ticks and queue depth per buffer subscriber; WebSocket clients and subscriptions; ticks passed/rejected by each validating consumer, and rejections by rule (`crossed_book`, `stale`, `matured`, …); the aggregator's flush count and last flush time, duration and rows; each feed's up/reconnect state |
 | `http://127.0.0.1:8000/instruments` | Instrument master as JSON. Optional `?asset_class=equity\|bill\|bond` and `?sector=Banking` (case-insensitive) filters |
 | `http://127.0.0.1:8000/instruments/{symbol}` | One instrument's reference data (e.g. `/instruments/MTNGH`); 404 if unknown |
@@ -346,6 +388,8 @@ Uvicorn running on http://127.0.0.1:8000
 | `http://127.0.0.1:8000/search?q=gc` | Typeahead for the search bar: `symbol`, `name`, `asset_class`, `price` and `change` (null until quoted). Matches symbol, name, ISIN, tenor, issuer and maturity date (`?q=2027`), ignoring case and punctuation (`?q=fan milk`); ranked exact symbol, symbol prefix, name word prefix, then substring. Optional `limit` (1–50, default 10), `asset_class` and `sector` (case-insensitive; with an empty `q` it lists the whole sector) |
 | `http://127.0.0.1:8000/sectors` | Every sector in the instrument master with its instrument count, for the search bar's Sector filter |
 | `http://127.0.0.1:8000/watchlists/me` | The requesting user's pinned equities, in order: `symbols`, `max_pins` (`WATCHLIST_MAX_PINS`, default 12) and `is_default` (true until the user saves one; a new user gets `WATCHLIST_DEFAULT`). `PUT` with `{"symbols": [...]}` replaces the whole list; unknown symbols, bills and bonds, duplicates or too many pins get a 422 naming them. Until Symphony sign-in, the user is the `X-User-Id` header if sent, else an anonymous ID kept in the `mi_user` cookie (`app/identity.py`) — an identifier, not authentication. Saved in the SQLite database, so watchlists survive restarts |
+| `http://127.0.0.1:8000/fx/rates` | The Bank of Ghana interbank rates prices are converted at: per currency, `ghs_per_unit` and `per_ghs` at the mid, BoG's `buying` and `selling`, the `date` it published them and its `source_pair` (e.g. `USDGHS`, `GHSNGN`). The latest fix, or with `?date=2026-01-15` the one in force that day. 16 currencies (USD, EUR, GBP, CHF, JPY, CNY, CAD, AUD, NZD, ZAR, DKK, NOK, SEK, NGN, XOF, GMD). 503 until the first pull from BoG has landed; 404 for a date before the history held |
+| `http://127.0.0.1:8000/fx/convert?amount=100&to=USD` | Converts `amount` from `from` (default GHS) to `to` at the BoG mid; latest fix, or `?date=` for a past one. Between two foreign currencies it goes through the cedi. 400 for an unknown currency |
 | `http://127.0.0.1:8000/movers?type=gainers` | Today's movers among equities: `type` is `gainers` or `losers` (by % change, VWAP vs previous close) or `active` (by shares traded). Optional `limit` (1–50, default 10), `sector`, and `q` to search within the list |
 | `http://127.0.0.1:8000/fixed-income/report` | Today's fixed-income report in the shape of the GFIM daily trading report: every section plus the summary. Blank report cells are `null` |
 | `http://127.0.0.1:8000/fixed-income/summary` | Volume, number of trades and largest trade per section, plus grand totals |
@@ -353,9 +397,9 @@ Uvicorn running on http://127.0.0.1:8000
 | `http://127.0.0.1:8000/market/status` | Market session and feed status: `status` is `open`, `pre_open` or `closed` (with a `reason`: `weekend`, `holiday`, `before_hours`, `after_hours`), plus `next_open`, `next_close`, `last_close`, the feed's heartbeat, and `badge` (`live`, `delayed`, `closed` or `disconnected`) |
 | `http://127.0.0.1:8000/market/{symbol}` | Latest snapshot for a tracked symbol (e.g. `/market/MTNGH`); 404 if unknown |
 | `ws://127.0.0.1:8000/ws/market`   | WebSocket — live quotes for the symbols a client subscribes to (protocol below) |
-| `http://127.0.0.1:8000/ticker`    | Live quote card UI (`app/static/ticker.html`), driven by the WebSocket feed above. The cards are your watchlist (`/watchlists/me`), in your order: pin from the search bar, unpin with ✕, reorder by dragging a card's ⠿ handle (or focusing it and using the arrow keys); the collapsible sidebar lists the same pins. Only pinned symbols are subscribed. The header search (press `/`; ↑/↓, Enter to open, Shift+Enter to pin, Esc to close) is also on `/stock/{symbol}` |
+| `http://127.0.0.1:8000/ticker`    | Live quote card UI (`app/static/ticker.html`), driven by the WebSocket feed above. The cards are your watchlist (`/watchlists/me`), in your order: pin from the search bar, unpin with ✕, reorder by dragging a card's ⠿ handle (or focusing it and using the arrow keys); the collapsible sidebar lists every listed equity, pinned ones highlighted with their day change; click another to pin it. Only pinned symbols are subscribed. The header search (press `/`; ↑/↓, Enter to open, Shift+Enter to pin, Esc to close) is also on `/stock/{symbol}`. The currency picker (top right, also on `/stock/{symbol}`) shows prices in another currency at the latest BoG mid; it's remembered per browser |
 | `http://127.0.0.1:8000/stock/{symbol}` | Single-stock page (`app/static/stock.html`) for an equity: live quote over `/ws/market` plus a chart from `/candles` with the 1D–Max range selector. 404 for bills, bonds and unknown symbols. `/stock` redirects to the first equity |
-| `http://127.0.0.1:8000/candles?symbol=MTNGH&range=1D` | OHLCV candles as JSON for charting. `symbol` is required (404 if not in the feed). `range` is `1D`, `5D`, `1M`, `6M`, `YTD`, `1Y`, `5Y` or `Max` (default `1D`) and picks the lookback and candle interval (see `ranges.py` above); `interval` (`5m`, `15m`, `1h`, `1d`, `1w`) overrides the interval. 400 for an unknown range or interval. Returns `symbol`, `range`, `interval`, `start` and `candles` — each `time`, `open`, `high`, `low`, `close`, `volume` and `yield` (`{open, high, low, close}` for bills and bonds, `null` for equities and price-only corporates). The newest candle is the live, still-open one |
+| `http://127.0.0.1:8000/candles?symbol=MTNGH&range=1D` | OHLCV candles as JSON for charting. `symbol` is required (404 if not in the feed). `range` is `1D`, `5D`, `1M`, `6M`, `YTD`, `1Y`, `5Y` or `Max` (default `1D`) and picks the lookback and candle interval (see `ranges.py` above); `interval` (`5m`, `15m`, `1h`, `1d`, `1w`) overrides the interval. 400 for an unknown range or interval. Returns `symbol`, `range`, `interval`, `start` and `candles` — each `time`, `open`, `high`, `low`, `close`, `volume` and `yield` (`{open, high, low, close}` for bills and bonds, `null` for equities and price-only corporates). The newest candle is the live, still-open one. `currency` (equities only; 400 for bills and bonds) converts OHLC at the BoG mid: daily and weekly candles each at their day's fix, intraday ones at the latest; `currency` and `fx` in the response say how |
 | `http://127.0.0.1:8000/candles/export` | Stored OHLCV candles from `market_candles` as a CSV download (opens in Excel), ordered by symbol then time. Optional `?symbol=MTNGH` (default: all symbols) and `?interval=` (`5m`, `15m`, `1h`, `1d`, `1w`; default `15m`). Columns: `symbol`, `interval`, `window_start`, `window_end`, `open`, `high`, `low`, `close`, `volume`, `tick_count`, `yield_open`, `yield_high`, `yield_low`, `yield_close`. Reads the database only, so the open window is as of the last flush (up to 60 s old) |
 
 `127.0.0.1` means "this machine only" — the service isn't reachable from
@@ -368,6 +412,9 @@ curl http://127.0.0.1:8000/health
 curl http://127.0.0.1:8000/market/status
 curl http://127.0.0.1:8000/market/MTNGH
 curl "http://127.0.0.1:8000/candles?symbol=MTNGH&range=5D"
+curl http://127.0.0.1:8000/fx/rates
+curl "http://127.0.0.1:8000/fx/convert?amount=100&to=USD"
+curl "http://127.0.0.1:8000/candles?symbol=MTNGH&range=5Y&currency=USD"
 curl "http://127.0.0.1:8000/candles/export?symbol=MTNGH&interval=1d" -o market_candles_MTNGH.csv
 ```
 

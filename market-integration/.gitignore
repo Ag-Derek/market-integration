@@ -4,6 +4,8 @@ __pycache__/
 .pytest_cache/
 market_data.db
 .env
+# The scheduled FX pull's log (scripts/register-fx-pull-task.ps1)
+fx-pull.log
 
 # Raw benchmark output (the summary lives in docs/benchmarks.md)
 bench/results/

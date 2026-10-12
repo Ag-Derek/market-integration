@@ -35,6 +35,10 @@ from app.connectors.fixed_income_mock import MockFixedIncomeMarket
 from app.connectors.load_connector import LoadConnector
 from app.connectors.market_connector import MockMarketConnector
 from app.connectors.supervisor import SupervisedConnector
+from app.fx import BASE as FX_BASE, BASE_NAME as FX_BASE_NAME, BASE_SYMBOL as FX_BASE_SYMBOL, CURRENCIES
+from app.fx.bog import HISTORY_PAGE_URL as FX_SOURCE_URL, SOURCE as FX_SOURCE, BankOfGhanaClient
+from app.fx.rates import RETRY_SECONDS as FX_RETRY_SECONDS, FxRates
+from app.fx.store import FxStore
 from app.gateways.websocket_gateway import WebSocketGateway
 from app.identity import current_user_id
 from app.instruments import INSTRUMENTS
@@ -47,6 +51,8 @@ from app.models.fixed_income import (
     GovernmentYieldCurve, ReportSection,
 )
 from app.models.company import Company
+from app.models.candle import INTERVALS, Candle
+from app.models.fx import FxRate
 from app.models.instrument import AssetClass, Instrument
 from app.models.market_data import MarketData
 from app.processors.market_processor import MarketProcessor
@@ -207,6 +213,9 @@ company_store = CompanyStore(config.DB_PATH)
 # Each user's pinned equities (#26). User data: kept across restarts,
 # never re-seeded.
 watchlist_store = WatchlistStore(config.DB_PATH)
+# Bank of Ghana interbank FX fixes for showing prices in other
+# currencies: pulled from BoG's site and kept across restarts; see app/fx/.
+fx_rates = FxRates(FxStore(config.DB_PATH), BankOfGhanaClient())
 
 # The buffer decouples ingestion (connector) from its downstream
 # consumers: conflated (latest tick per symbol) for the live display,
@@ -250,6 +259,7 @@ aggregator = MarketAggregator(
 # alive (e.g. hasn't died from an unhandled exception in processor.consume).
 consumer_task: Optional[asyncio.Task] = None
 status_task: Optional[asyncio.Task] = None
+fx_task: Optional[asyncio.Task] = None
 
 
 def pipeline_metrics() -> dict:
@@ -302,6 +312,10 @@ async def health():
             "feeds": {f.name: f.describe() for f in feeds},
             # The headline numbers from /metrics.
             "metrics": metrics.summary(pipeline_metrics()),
+            # Bank of Ghana FX rates: the latest fix held and the last
+            # pull. Not a component: prices still flow without them, and
+            # pages then show cedis.
+            "fx": fx_rates.describe(),
         },
     )
 
@@ -523,6 +537,108 @@ async def movers(
     ]
 
 
+def _fx_code(code: str) -> str:
+    """A currency we convert to, upper-cased. 400 if we don't offer it;
+    503 if we do but have no Bank of Ghana rate for it yet."""
+    code = code.strip().upper()
+    if code != FX_BASE and code not in CURRENCIES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown currency '{code}'. Expected one of: {', '.join([FX_BASE, *CURRENCIES])}",
+        )
+    if not fx_rates.has(code):
+        raise HTTPException(status_code=503, detail=f"No Bank of Ghana rate for {code} yet; try again shortly")
+    return code
+
+
+def _fix_on(code: str, day: Optional[date]) -> Optional[FxRate]:
+    """The fix for `code` in force on `day` (latest if None), or None if
+    the history held doesn't reach back to `day`."""
+    rate = fx_rates.latest(code) if day is None else fx_rates.on(code, day)
+    return None if rate is None or (day is not None and rate.date > day) else rate
+
+
+@app.get("/fx/rates")
+async def get_fx_rates(day: Optional[date] = Query(None, alias="date")):
+    """The Bank of Ghana interbank rates prices are converted at: for
+    each currency, cedis per unit (`ghs_per_unit`) and units per cedi
+    (`per_ghs`) at the mid, with BoG's buying and selling and the day it
+    published them. The latest fix by default; `date` (YYYY-MM-DD) gives
+    the fix in force that day (BoG publishes on business days only).
+    503 until the first pull from BoG has landed; 404 for a date before
+    the history held. See app/fx/."""
+    if not fx_rates.currencies():
+        raise HTTPException(
+            status_code=503,
+            detail={"message": "No Bank of Ghana rates yet; the first pull may still be running", **fx_rates.describe()},
+        )
+    rows = []
+    for code in fx_rates.currencies():
+        rate = _fix_on(code, day)
+        if rate is None:
+            continue
+        name, symbol, _ = CURRENCIES[code]
+        rows.append({
+            "code": code,
+            "name": name,
+            "symbol": symbol,
+            "date": rate.date.isoformat(),
+            "ghs_per_unit": rate.mid,
+            "per_ghs": rate.per_ghs,
+            "buying": rate.buying,
+            "selling": rate.selling,
+            "source_pair": rate.source_pair,
+        })
+    if not rows:
+        raise HTTPException(status_code=404, detail=f"No Bank of Ghana rates held for {day}")
+    return {
+        "base": {"code": FX_BASE, "name": FX_BASE_NAME, "symbol": FX_BASE_SYMBOL},
+        "source": FX_SOURCE,
+        "source_url": FX_SOURCE_URL,
+        "rate": "mid",
+        "date": day.isoformat() if day else None,
+        "as_of": max(r["date"] for r in rows),
+        "currencies": rows,
+        "status": fx_rates.describe(),
+    }
+
+
+@app.get("/fx/convert")
+async def fx_convert(
+    amount: float,
+    to: str,
+    from_: str = Query(FX_BASE, alias="from"),
+    day: Optional[date] = Query(None, alias="date"),
+):
+    """`amount` of `from` (default GHS) in `to`, at the Bank of Ghana
+    mid: the latest fix, or the one in force on `date`. Between two
+    foreign currencies it goes through the cedi, as BoG quotes only
+    against the cedi. 400 for a currency we don't offer, 503 before the
+    first pull from BoG, 404 for a date before the history held."""
+    codes = (_fx_code(from_), _fx_code(to))
+    fixes = {}
+    for code in codes:
+        if code == FX_BASE:
+            continue
+        rate = _fix_on(code, day)
+        if rate is None:
+            raise HTTPException(status_code=404, detail=f"No Bank of Ghana rate for {code} on or before {day}")
+        fixes[code] = rate
+    per_ghs = [fixes[c].per_ghs if c in fixes else 1.0 for c in codes]
+    rate = per_ghs[1] / per_ghs[0]
+    return {
+        "amount": amount,
+        "from": codes[0],
+        "to": codes[1],
+        "rate": rate,
+        "result": amount * rate,
+        "date": day.isoformat() if day else None,
+        # The day each fix used was published, by currency.
+        "fixes": {c: r.date.isoformat() for c, r in fixes.items()},
+        "source": FX_SOURCE,
+    }
+
+
 @app.get("/fixed-income/report", response_model=FixedIncomeReport)
 async def fixed_income_report():
     """The whole GFIM-style daily report for the current session: every
@@ -585,6 +701,7 @@ async def get_candles(
     symbol: str,
     range_: str = Query("1D", alias="range"),
     interval: Optional[str] = None,
+    currency: Optional[str] = None,
 ):
     """OHLCV candles as JSON for charting. `range` is one of the chart
     selector ranges (1D, 5D, 1M, 6M, YTD, 1Y, 5Y, Max) and picks both the
@@ -594,6 +711,13 @@ async def get_candles(
     for equities and price-only corporates), so a chart can toggle.
     `possibly_incomplete` is true where the live feed lost a tick in
     that window under load.
+
+    `currency` (an equity only) gives prices in that currency at the
+    Bank of Ghana mid (`fx` says how): daily and weekly candles at the
+    fix in force on their day (a week's last day), so a long chart
+    shows what the shares were worth in that currency at the time;
+    intraday candles all at the latest fix, as BoG fixes once a day.
+    400 for bills and bonds, quoted per 100 of face value.
     """
     symbol = symbol.upper()
     if symbol not in connector.symbols:
@@ -612,20 +736,32 @@ async def get_candles(
             detail=f"Unknown interval '{interval}'. Expected one of: {', '.join(aggregator.intervals)}",
         )
 
-    start = spec.start(datetime.now(timezone.utc))
+    equity = asset_class(symbol) == "equity"
+    if currency is not None:
+        if not equity:
+            raise HTTPException(
+                status_code=400,
+                detail=f"'{symbol}' is quoted per 100 of face value, so it isn't converted; currency is for equities",
+            )
+        currency = _fx_code(currency)
+
+    now = datetime.now(timezone.utc)
+    start = spec.start(now)
     candles = await aggregator.get_candles(symbol, interval, start)
+    to_currency, fx = _candle_converter(currency, interval, now.date())
     return {
         "symbol": symbol,
         "range": range_,
         "interval": interval,
         "start": start.isoformat() if start else None,
+        # What OHLC is in: GHS unless converted; null for bills and bonds
+        # (per 100 of face value).
+        "currency": (currency or FX_BASE) if equity else None,
+        "fx": fx,
         "candles": [
             {
                 "time": c.window_start.isoformat(),
-                "open": c.open,
-                "high": c.high,
-                "low": c.low,
-                "close": c.close,
+                **{k: getattr(c, k) * to_currency(c) for k in ("open", "high", "low", "close")},
                 "volume": c.volume,
                 "yield": None if c.yield_close is None else {
                     "open": c.yield_open,
@@ -637,6 +773,33 @@ async def get_candles(
             }
             for c in candles
         ],
+    }
+
+
+def _candle_converter(currency: Optional[str], interval: str, today: date):
+    """(factor(candle), fx) for /candles: what to multiply a candle's
+    cedi prices by for `currency`, and how that was done. Daily and
+    weekly candles take the fix in force on their (last) day; anything
+    shorter takes the latest fix: BoG fixes once a business day, so
+    converting each intraday candle at its own day's fix would only draw
+    steps at midnight that are no price move."""
+    if currency is None or currency == FX_BASE:
+        return (lambda c: 1.0), None
+    daily = INTERVALS[interval] >= INTERVALS["1d"]
+    if daily:
+        def factor(c: Candle) -> float:
+            last_day = (c.window_start + INTERVALS[interval] - timedelta(days=1)).date()
+            return fx_rates.per_ghs(currency, min(last_day, today))
+    else:
+        latest = fx_rates.per_ghs(currency)
+        def factor(c: Candle) -> float:
+            return latest
+    return factor, {
+        "currency": currency,
+        "source": FX_SOURCE,
+        "rate": "mid",
+        "method": "daily" if daily else "latest",
+        "as_of": fx_rates.latest(currency).date.isoformat(),
     }
 
 
@@ -806,6 +969,13 @@ async def render_script():
     return FileResponse(STATIC_DIR / "render.js", media_type="text/javascript")
 
 
+@app.get("/static/currency.js")
+async def currency_script():
+    """The display-currency picker and price formatting shared by
+    /ticker, /stock/{symbol} and the search bar, over /fx/rates."""
+    return FileResponse(STATIC_DIR / "currency.js", media_type="text/javascript")
+
+
 @app.get("/stock")
 async def stock_page_default():
     return RedirectResponse(url=f"/stock/{equities.symbols[0]}")
@@ -862,11 +1032,30 @@ async def status_loop() -> None:
             logger.exception("Market status broadcast failed")
 
 
+async def fx_loop() -> None:
+    """Keep the Bank of Ghana rates current: pull now (the history too,
+    the first time), then every FX_REFRESH_SECONDS, or after
+    FX_RETRY_SECONDS when a pull fails. Rates already stored stay in use
+    meanwhile, so a BoG outage only makes them older."""
+    while True:
+        try:
+            ok = await fx_rates.refresh()
+        except Exception:
+            logger.exception("Bank of Ghana FX refresh crashed")
+            ok = False
+        await asyncio.sleep(config.FX_REFRESH_SECONDS if ok else min(FX_RETRY_SECONDS, config.FX_REFRESH_SECONDS))
+
+
 @app.on_event("startup")
 async def startup():
-    global consumer_task, status_task
+    global consumer_task, status_task, fx_task
     await asyncio.to_thread(instrument_store.seed, INSTRUMENTS.values())
     await asyncio.to_thread(company_store.seed, COMPANIES.values())
+    # Rates stored by earlier runs are usable at once; the pull for
+    # newer ones runs in the background, never holding up startup.
+    await asyncio.to_thread(fx_rates.reload)
+    if config.FX_REFRESH_SECONDS > 0:
+        fx_task = asyncio.create_task(fx_loop())
     await connector.connect()
     # Before any live ticks flow, so history is in place (and open
     # windows seeded) by the time the aggregator starts recording.
@@ -879,7 +1068,8 @@ async def startup():
 
 @app.on_event("shutdown")
 async def shutdown():
-    for task in (status_task, consumer_task):
+    fx_rates.close()  # a pull in progress stops at its next page
+    for task in (fx_task, status_task, consumer_task):
         if task is not None:
             task.cancel()
             try:

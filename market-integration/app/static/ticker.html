@@ -149,8 +149,8 @@
   .layout.collapsed .watch-list,
   .layout.collapsed .watch-count { display: none; }
 
-  /* The watchlist, in order: a symbol and its day change; click to find
-     its card. */
+  /* Every listed equity. Pinned ones are highlighted with their day
+     change; click one to find its card, any other to pin it. */
   .watch-item {
     font-family: ui-monospace, monospace;
     font-size: 12.5px;
@@ -172,6 +172,9 @@
   .watch-item .chg { font-size: 11px; color: var(--ink-faint); }
   .watch-item .chg.up { color: var(--green); }
   .watch-item .chg.down { color: var(--red); }
+  .watch-item.pinned { color: var(--ink); background: rgba(62, 156, 130, 0.14); border-color: rgba(62, 156, 130, 0.45); }
+  .watch-item.pinned:hover { background: rgba(62, 156, 130, 0.22); }
+  .watch-item.inactive:not(.pinned) { color: var(--ink-faint); }
 
   @media (max-width: 760px) {
     .layout, .layout.collapsed { grid-template-columns: minmax(0, 1fr); }
@@ -433,16 +436,17 @@
     </nav>
     <div id="search"></div>
     <span class="spacer"></span>
+    <div id="currency"></div>
     <span class="sim-badge">Simulated data, not a live GSE feed</span>
   </div>
 
   <div class="layout" id="layout">
-    <aside class="sidebar" aria-label="Watchlist">
+    <aside class="sidebar" aria-label="Equities">
       <div class="sidebar-head">
-        <span class="sidebar-title">Watchlist</span>
+        <span class="sidebar-title">Equities</span>
         <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-controls="watchList" aria-expanded="true" title="Collapse the list">&lsaquo;</button>
       </div>
-      <p class="sidebar-note">Search to pin. Drag a card's ⠿ to reorder.</p>
+      <p class="sidebar-note">Click to pin. Drag a card's ⠿ to reorder.</p>
       <div class="watch-list" id="watchList"></div>
       <div class="watch-count" id="watchCount"></div>
     </aside>
@@ -464,12 +468,16 @@
     previous VWAP close; the chart plots individual trades. The status badge reflects the trading session and the
     feed's connection (<code>/market/status</code>), never price direction. Market cap is the price times shares
     outstanding, shown as — until shares outstanding are recorded for the company. The cards are your watchlist,
-    saved for this browser: pin from the search bar, unpin with ✕, drag ⠿ to reorder (<code>/watchlists/me</code>).
+    saved for this browser: pin from the sidebar (every listed equity) or the search bar, unpin with ✕, drag ⠿ to
+    reorder (<code>/watchlists/me</code>).
+    Prices are in cedis unless you pick another currency (top right), which converts them at the latest Bank of Ghana
+    interbank mid-rate (<code>/fx/rates</code>); percentage changes are the shares' own, in cedis.
   </footer>
 
 </div>
 
 <script src="/static/render.js"></script>
+<script src="/static/currency.js"></script>
 <script src="/static/search.js"></script>
 <script>
 (function () {
@@ -498,19 +506,11 @@
     grid: document.getElementById("grid"),
   };
 
-  function fmtMoney(n) {
-    return "GH₵" + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  }
+  // Quotes arrive in cedis; these show them in the display currency
+  // (/static/currency.js), at the latest Bank of Ghana fix.
+  function fmtMoney(n) { return Currency.money(n); }
   function fmtNum(n) {
     return Number(n).toLocaleString();
-  }
-  function fmtLarge(n) {
-    const abs = Math.abs(n);
-    if (abs >= 1e12) return (n / 1e12).toFixed(2) + "T";
-    if (abs >= 1e9) return (n / 1e9).toFixed(2) + "B";
-    if (abs >= 1e6) return (n / 1e6).toFixed(2) + "M";
-    if (abs >= 1e3) return (n / 1e3).toFixed(2) + "K";
-    return String(n);
   }
   function relTime(ts) {
     const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
@@ -592,6 +592,8 @@
   const feedSymbols = new Set();  // what /ws/market carries, from its welcome
   const names = {};               // symbol -> name, for cards without quotes
   const watchItems = {};          // symbol -> its sidebar entry
+  const listed = [];              // every listed equity, A-Z, for the sidebar
+  const inactive = new Set();     // listed but suspended or delisted
   let saveTimer = null;
   let noteTimer = null;
 
@@ -693,14 +695,29 @@
     requestAnimationFrame(function () { pins.forEach(drawChart); });
   }
 
+  // Scrolls a pinned card into view and outlines it briefly.
+  function locate(sym) {
+    const p = paneEls[sym];
+    if (!p) return;
+    p.root.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    p.root.classList.remove("located");
+    requestAnimationFrame(function () { p.root.classList.add("located"); });
+  }
+
+  // The sidebar lists every listed equity (/instruments), suspended ones
+  // included, as they can be pinned too. Until that loads, just the pins.
   function buildWatchList() {
     el.watchList.innerHTML = "";
     Object.keys(watchItems).forEach(function (k) { delete watchItems[k]; });
-    pins.forEach(function (sym) {
+    const symbols = listed.length ? listed : pins;
+    symbols.forEach(function (sym) {
+      const isPinned = pinned(sym);
       const item = document.createElement("button");
       item.type = "button";
-      item.className = "watch-item";
-      item.title = "Show " + sym;
+      item.className = "watch-item" + (isPinned ? " pinned" : "") + (inactive.has(sym) ? " inactive" : "");
+      item.setAttribute("aria-pressed", isPinned ? "true" : "false");
+      const name = names[sym] ? names[sym] + " · " : "";
+      item.title = isPinned ? name + "Pinned: show its card" : name + "Pin " + sym;
       const label = document.createElement("span");
       label.textContent = sym;
       const chg = document.createElement("span");
@@ -708,24 +725,38 @@
       item.appendChild(label);
       item.appendChild(chg);
       item.addEventListener("click", function () {
-        const p = paneEls[sym];
-        if (!p) return;
-        p.root.scrollIntoView({ behavior: "smooth", block: "nearest" });
-        p.root.classList.remove("located");
-        requestAnimationFrame(function () { p.root.classList.add("located"); });
+        if (pinned(sym)) { locate(sym); return; }
+        if (pin(sym) === "Pinned") requestAnimationFrame(function () { locate(sym); });
       });
       el.watchList.appendChild(item);
       watchItems[sym] = { item: item, chg: chg };
-      if (state[sym]) paintWatchItem(sym);
+      if (isPinned && state[sym]) paintWatchItem(sym);
     });
     const full = pins.length >= maxPanes;
     el.watchCount.textContent = pins.length + " / " + maxPanes + " pinned" + (full ? " · full" : "");
     el.watchCount.classList.toggle("full", full);
   }
 
+  function loadListed() {
+    fetch("/instruments?asset_class=equity")
+      .then(function (res) { return res.ok ? res.json() : Promise.reject(new Error("HTTP " + res.status)); })
+      .then(function (instruments) {
+        listed.length = 0;
+        instruments.forEach(function (i) {
+          listed.push(i.symbol);
+          names[i.symbol] = i.name + (i.status !== "active" ? " (" + i.status + ")" : "");
+          if (i.status !== "active") inactive.add(i.symbol);
+        });
+        listed.sort();
+        buildWatchList();
+      })
+      .catch(function () { setTimeout(loadListed, 5000); });
+  }
+
+  // Live day change, for pinned equities only: only they're subscribed.
   function paintWatchItem(sym) {
     const w = watchItems[sym], d = state[sym];
-    if (!w || !d) return;
+    if (!w || !d || !pinned(sym)) return;
     const pct = d.previous_close ? (d.change / d.previous_close) * 100 : 0;
     Render.text(w.chg, (pct > 0 ? "+" : pct < 0 ? "−" : "") + Math.abs(pct).toFixed(2) + "%");
     Render.cls(w.chg, "chg num " + (pct > 0 ? "up" : pct < 0 ? "down" : ""));
@@ -982,7 +1013,7 @@
     const pct = (d.change / d.previous_close) * 100;
     const dir = d.change > 0 ? "up" : d.change < 0 ? "down" : "flat";
     const arrow = dir === "up" ? "▲" : dir === "down" ? "▼" : "–";
-    Render.text(p.change, arrow + " " + Math.abs(d.change).toFixed(2) + " (" + Math.abs(pct).toFixed(2) + "%)");
+    Render.text(p.change, arrow + " " + Currency.price(Math.abs(d.change)) + " (" + Math.abs(pct).toFixed(2) + "%)");
     Render.cls(p.change, "change-pill num " + dir);
 
     const traded = d.volume > 0;
@@ -998,7 +1029,7 @@
     Render.text(p.stats.dayRange.value, traded ? fmtMoney(d.day_low) + " – " + fmtMoney(d.day_high) : "—");
     Render.text(p.stats.sharesTraded.value, traded ? fmtNum(d.volume) : "No trades today");
     // Price x shares outstanding; null until shares outstanding are recorded.
-    Render.text(p.stats.marketCap.value, d.market_cap != null ? fmtLarge(d.market_cap) : "—");
+    Render.text(p.stats.marketCap.value, d.market_cap != null ? Currency.large(d.market_cap) : "—");
 
     drawChart(sym);
     paintWatchItem(sym);
@@ -1074,7 +1105,9 @@
     ctx.fill();
 
     ctx.font = "9.5px ui-monospace, monospace";
-    const labelText = points[points.length - 1].price.toFixed(2);
+    // The sparkline is drawn in cedis (converting at one rate only
+    // rescales it); its price tag is in the display currency.
+    const labelText = Currency.price(points[points.length - 1].price);
     const labelW = ctx.measureText(labelText).width + 10;
     ctx.fillStyle = lineColor;
     ctx.fillRect(cssWidth - padR + 4, lastY - 8, labelW, 15);
@@ -1244,6 +1277,12 @@
   // status messages stop arriving.
   setInterval(function () { pins.forEach(renderStatus); }, 1000);
 
+  // Another currency, or a new fix for it: repaint every card.
+  Currency.mount(document.getElementById("currency"));
+  Currency.onChange(function () {
+    pins.forEach(function (sym) { if (state[sym]) schedulePane(sym); });
+  });
+
   const search = MarketSearch.mount(document.getElementById("search"), { onPin: pinFromSearch });
   document.getElementById("emptySearch").addEventListener("click", function () { search.input.focus(); });
 
@@ -1256,6 +1295,7 @@
     try { localStorage.setItem("sidebar.collapsed", sidebarCollapsed ? "1" : "0"); } catch (e) { /* storage unavailable */ }
   });
 
+  loadListed();
   connect();
 })();
 </script>
