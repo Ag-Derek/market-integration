@@ -52,6 +52,12 @@
   }
   .back { font-size: 13px; font-weight: 600; color: var(--ink-soft); text-decoration: none; letter-spacing: 0.02em; }
   .back:hover { color: var(--ink); }
+  .topbar-right { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .ticket-btn {
+    font-size: 12px; font-weight: 600; color: var(--bg); background: var(--teal); text-decoration: none;
+    border-radius: 7px; padding: 6px 12px;
+  }
+  .ticket-btn:hover { filter: brightness(1.1); }
   .sim-badge {
     font-size: 11px;
     font-family: ui-monospace, monospace;
@@ -292,7 +298,10 @@
 
   <div class="topbar">
     <a class="back" href="/fixed-income">&larr; Fixed Income</a>
-    <span class="sim-badge" id="simBadge">Simulated data, not a live GFIM feed</span>
+    <span class="topbar-right">
+      <a class="ticket-btn" id="ticketBtn" href="/tickets" title="New trade ticket at the calculator's price and face amount">New trade ticket</a>
+      <span class="sim-badge" id="simBadge">Simulated data, not a live GFIM feed</span>
+    </span>
   </div>
 
   <section class="card">
@@ -1099,6 +1108,16 @@
     .then(function (t) { if (t && !quote) ingest(t, true); });
   runCalc();
   connect();
+
+  // A trade ticket at whatever the calculator shows: its clean price and face amount.
+  $("ticketBtn").addEventListener("click", function () {
+    const params = new URLSearchParams({ symbol: SYMBOL });
+    const price = $("priceIn").value.replace(/[,\s]/g, "");
+    const face = $("faceIn").value.replace(/[,\s]/g, "");
+    if (price && !isNaN(Number(price))) params.set("price", Number(price).toFixed(4));
+    if (face && !isNaN(Number(face))) params.set("quantity", face);
+    this.href = "/tickets?" + params.toString();
+  });
 })();
 </script>
 

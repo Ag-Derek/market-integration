@@ -7,5 +7,8 @@ market_data.db
 # The scheduled FX pull's log (scripts/register-fx-pull-task.ps1)
 fx-pull.log
 
+# Ticket emails saved for sending by hand (DEPOSITORY_OUTBOX)
+outbox/
+
 # Raw benchmark output (the summary lives in docs/benchmarks.md)
 bench/results/

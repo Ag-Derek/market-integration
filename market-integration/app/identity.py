@@ -18,8 +18,9 @@ for the Symphony identity later is a change to this one function.
 
 import re
 import uuid
+from typing import Optional
 
-from fastapi import HTTPException, Request, Response
+from fastapi import HTTPException, Request, Response, WebSocket
 
 USER_HEADER = "X-User-Id"
 USER_COOKIE = "mi_user"
@@ -44,8 +45,30 @@ def current_user_id(request: Request, response: Response) -> str:
     if cookie and _VALID_ID.fullmatch(cookie):
         return cookie
     user_id = "anon-" + uuid.uuid4().hex
+    set_user_cookie(request, response, user_id)
+    return user_id
+
+
+def valid_user_id(user_id: str) -> bool:
+    return _VALID_ID.fullmatch(user_id) is not None
+
+
+def set_user_cookie(request: Request, response: Response, user_id: str) -> None:
+    """Make this browser `user_id` from now on: PUT /identity/me, so a
+    trader can put their own name on tickets (and a second browser can
+    play the counterparty). No more trust than X-User-Id already has."""
     response.set_cookie(
         USER_COOKIE, user_id, max_age=COOKIE_MAX_AGE, httponly=True, samesite="lax",
         secure=request.url.scheme == "https",
     )
-    return user_id
+
+
+def websocket_user_id(websocket: WebSocket) -> Optional[str]:
+    """The user on a WebSocket: the X-User-Id header or the cookie, as
+    for HTTP. None if it carries neither (or a malformed one): a socket
+    can't be issued a cookie, so the page must have made a request
+    first."""
+    for candidate in (websocket.headers.get(USER_HEADER), websocket.cookies.get(USER_COOKIE)):
+        if candidate is not None:
+            return candidate if _VALID_ID.fullmatch(candidate) else None
+    return None

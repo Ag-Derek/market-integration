@@ -156,6 +156,13 @@
 
   .empty { padding: 30px 16px; color: var(--ink-faint); font-size: 13px; text-align: center; }
 
+  td.act { padding: 4px 10px; }
+  .ticket-btn {
+    font-size: 11px; font-weight: 600; color: var(--teal); text-decoration: none;
+    border: 1px solid var(--line); border-radius: 6px; padding: 3px 9px;
+  }
+  .ticket-btn:hover, .ticket-btn:focus { color: var(--bg); background: var(--teal); border-color: var(--teal); outline: none; }
+
   footer { margin-top: 26px; font-size: 12px; color: var(--ink-faint); line-height: 1.6; }
   footer code {
     font-family: ui-monospace, monospace; background: var(--panel);
@@ -173,6 +180,7 @@
       <a class="tab" href="/ticker">Equities</a>
       <a class="tab active" href="/fixed-income" aria-current="page">Fixed Income</a>
       <a class="tab" href="/yield-curve">Yield Curve</a>
+      <a class="tab" href="/tickets">Trade Tickets</a>
     </nav>
     <span class="spacer"></span>
     <span class="status" id="status" data-badge="disconnected">
@@ -206,6 +214,7 @@
     end-of-day methodology, so they can sit outside the day's traded range. Change is the close against the open, in
     basis points of yield (price points for corporates). A row flashes green when its price rises (its yield falls)
     and red when it falls. Sell/buy-backs are repos on GoG bonds, shown apart from outright trades.
+    <strong>Ticket</strong> on a row starts a trade ticket for it at its close price (Trade Tickets tab).
   </footer>
 
 </div>
@@ -225,10 +234,11 @@
     { key: "corporate", title: "Corporate Bonds", kind: "corp" },
   ];
   const BILL_ORDER = ["91-DAY BILL", "182-DAY BILL", "364-DAY BILL"];
+  // The last, unlabelled column holds each row's Ticket button.
   const COLUMNS = {
-    gov: ["Security", "Maturity", "Open yld", "Close yld", "Chg (bp)", "Day range (yld)", "Close price", "Volume", "Trades"],
-    bill: ["Security", "Maturity", "Open yld", "Close yld", "Chg (bp)", "Day range (price)", "Close price", "Volume", "Trades"],
-    corp: ["Security", "Maturity", "Open price", "Close price", "Chg", "Day range (price)", "Volume", "Trades"],
+    gov: ["Security", "Maturity", "Open yld", "Close yld", "Chg (bp)", "Day range (yld)", "Close price", "Volume", "Trades", ""],
+    bill: ["Security", "Maturity", "Open yld", "Close yld", "Chg (bp)", "Day range (price)", "Close price", "Volume", "Trades", ""],
+    corp: ["Security", "Maturity", "Open price", "Close price", "Chg", "Day range (price)", "Volume", "Trades", ""],
   };
 
   // The group a row sits under within its section, as the GFIM report
@@ -396,6 +406,24 @@
       tr.appendChild(td);
       cells.push(td);
     });
+
+    // A trade ticket for this security, at its latest close price.
+    const act = document.createElement("td");
+    act.className = "act";
+    const ticket = document.createElement("a");
+    ticket.className = "ticket-btn";
+    ticket.textContent = "Ticket";
+    ticket.title = "New trade ticket for " + r.description;
+    const base = "/tickets?symbol=" + encodeURIComponent(r.symbol);
+    ticket.href = base;
+    ticket.addEventListener("click", function (e) {
+      e.stopPropagation();
+      const close = rows[r.symbol] && rows[r.symbol].data.closing_price;
+      ticket.href = close != null ? base + "&price=" + encodeURIComponent(Number(close).toFixed(4)) : base;
+    });
+    ticket.addEventListener("keydown", function (e) { e.stopPropagation(); });
+    act.appendChild(ticket);
+    tr.appendChild(act);
 
     const open = function () { location.href = "/bond/" + encodeURIComponent(r.symbol); };
     tr.addEventListener("click", open);

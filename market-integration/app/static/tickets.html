@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trade Tickets</title>
+<style>
+  :root {
+    --bg: #0E1613;
+    --panel: #16211B;
+    --panel-strong: #1C2921;
+    --ink: #EAE7DA;
+    --ink-soft: #AEB6A9;
+    --ink-faint: #6F766D;
+    --line: #26362F;
+    --teal: #3E9C82;
+    --gold: #D9A44C;
+    --gold-bg: #2A2313;
+    --green: #34C57F;
+    --green-bg: rgba(52, 197, 127, 0.14);
+    --red: #E5675A;
+    --red-bg: rgba(229, 103, 90, 0.14);
+    --blue: #5AA9E6;
+    --blue-bg: rgba(90, 169, 230, 0.14);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .num {
+    font-family: ui-monospace, "SFMono-Regular", "Cascadia Mono", Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .page { max-width: 1360px; margin: 0 auto; padding: 28px 20px 60px; }
+
+  /* Top bar and tabs, as on the Fixed Income tab */
+
+  .topbar { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
+  .brand { font-size: 13px; font-weight: 600; color: var(--ink-soft); letter-spacing: 0.02em; }
+  .tabs { display: flex; gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 3px; flex-wrap: wrap; }
+  .tab { font-size: 13px; font-weight: 600; color: var(--ink-soft); text-decoration: none; padding: 6px 14px; border-radius: 6px; }
+  .tab:hover { color: var(--ink); }
+  .tab.active { color: var(--bg); background: var(--teal); }
+  .topbar .spacer { flex: 1; }
+
+  .chip-btn {
+    font: inherit; font-size: 12px; color: var(--ink-soft); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  }
+  .chip-btn:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .chip-btn strong { color: var(--ink); font-weight: 600; }
+  .badge {
+    min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--red);
+    color: #fff; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;
+  }
+  .badge[hidden] { display: none; }
+  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-faint); }
+  .live-dot.on { background: var(--blue); box-shadow: 0 0 0 3px rgba(90, 169, 230, 0.18); }
+
+  /* Layout */
+
+  .layout { display: grid; grid-template-columns: minmax(0, 460px) minmax(0, 1fr); gap: 16px; align-items: start; }
+  @media (max-width: 980px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; min-width: 0; }
+  .card-head {
+    display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line);
+  }
+  .card-head h2 { font-size: 14px; margin: 0; }
+  .card-head .right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .card-body { padding: 16px; }
+
+  /* Form */
+
+  .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .field.wide { grid-column: 1 / -1; }
+  .field[hidden] { display: none; }
+  label, .label {
+    font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-faint);
+    display: flex; justify-content: space-between; gap: 8px;
+  }
+  label .hint { text-transform: none; letter-spacing: 0; font-weight: 400; }
+  input, textarea, select {
+    font: inherit; font-size: 13px; color: var(--ink); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; width: 100%; min-width: 0;
+  }
+  input:focus, textarea:focus { outline: none; border-color: var(--teal); }
+  input::placeholder, textarea::placeholder { color: var(--ink-faint); }
+  input:disabled { color: var(--ink-soft); }
+  textarea { resize: vertical; min-height: 54px; }
+  input[type="date"] { color-scheme: dark; }
+
+  .security { position: relative; }
+  .suggest {
+    position: absolute; z-index: 20; left: 0; right: 0; top: 100%; margin-top: 4px;
+    background: var(--panel-strong); border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  }
+  .suggest[hidden] { display: none; }
+  .suggest button {
+    display: flex; width: 100%; gap: 10px; align-items: baseline; text-align: left; font: inherit; font-size: 12.5px;
+    color: var(--ink); background: none; border: 0; border-top: 1px solid var(--line); padding: 8px 10px; cursor: pointer;
+  }
+  .suggest button:first-child { border-top: 0; }
+  .suggest button:hover, .suggest button.on { background: var(--panel); }
+  .suggest .sym { font-family: ui-monospace, monospace; font-weight: 600; white-space: nowrap; }
+  .suggest .nm { color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .suggest .ac { color: var(--ink-faint); font-size: 11px; }
+  .sec-info { font-size: 12px; color: var(--ink-soft); min-height: 16px; }
+  .sec-info .pill { margin-right: 6px; }
+
+  .sides { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .side-btn {
+    font: inherit; font-size: 13px; font-weight: 700; letter-spacing: 0.04em; padding: 8px; border-radius: 7px; cursor: pointer;
+    color: var(--ink-soft); background: var(--bg); border: 1px solid var(--line);
+  }
+  .side-btn[data-side="buy"].on { color: var(--green); background: var(--green-bg); border-color: var(--green); }
+  .side-btn[data-side="sell"].on { color: var(--red); background: var(--red-bg); border-color: var(--red); }
+
+  .preview {
+    margin-top: 14px; background: var(--panel-strong); border: 1px solid var(--line); border-radius: 9px; padding: 10px 12px;
+  }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 12.5px; }
+  .kv dt { color: var(--ink-faint); }
+  .kv dd { margin: 0; text-align: right; }
+  .kv dd.total { font-weight: 700; color: var(--ink); }
+  .msg { font-size: 12.5px; margin: 10px 0 0; min-height: 0; }
+  .msg:empty { display: none; }
+  .msg.err { color: var(--red); }
+  .msg.ok { color: var(--green); }
+  .msg.info { color: var(--ink-soft); }
+
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  .btn {
+    font: inherit; font-size: 13px; font-weight: 600; border-radius: 7px; padding: 8px 14px; cursor: pointer;
+    color: var(--ink); background: var(--panel-strong); border: 1px solid var(--line); text-decoration: none;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn:hover:not(:disabled) { border-color: var(--ink-faint); }
+  .btn.primary { color: var(--bg); background: var(--teal); border-color: var(--teal); }
+  .btn.primary:hover:not(:disabled) { filter: brightness(1.1); }
+  .btn:disabled { opacity: 0.5; cursor: default; }
+  .btn.small { font-size: 12px; padding: 5px 10px; }
+
+  /* Status pills */
+
+  .pill {
+    display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    padding: 2px 8px; border-radius: 999px; border: 1px solid transparent; white-space: nowrap;
+  }
+  .pill.draft { color: var(--ink-soft); border-color: var(--line); }
+  .pill.filing, .pill.sent { color: var(--gold); background: var(--gold-bg); border-color: rgba(217, 164, 76, 0.35); }
+  .pill.filed { color: var(--green); background: var(--green-bg); }
+  .pill.rejected { color: var(--red); background: var(--red-bg); }
+  .pill.asset { color: var(--blue); background: var(--blue-bg); }
+  .buy { color: var(--green); font-weight: 700; }
+  .sell { color: var(--red); font-weight: 700; }
+
+  /* Blotter */
+
+  .filters { display: flex; gap: 6px; flex-wrap: wrap; }
+  .filter-btn {
+    font: inherit; font-size: 12px; color: var(--ink-soft); background: var(--bg); border: 1px solid var(--line);
+    border-radius: 7px; padding: 5px 10px; cursor: pointer;
+  }
+  .filter-btn .n { opacity: 0.7; margin-left: 4px; font-family: ui-monospace, monospace; font-size: 11px; }
+  .filter-btn.on { color: var(--bg); background: var(--teal); border-color: var(--teal); }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-faint);
+    text-align: right; padding: 8px 12px; white-space: nowrap; background: var(--panel-strong);
+  }
+  td { padding: 8px 12px; text-align: right; white-space: nowrap; border-top: 1px solid var(--line); }
+  th.l, td.l { text-align: left; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover td { background: var(--panel-strong); }
+  tbody tr.sel td { background: var(--panel-strong); }
+  tbody tr.sel td:first-child { box-shadow: inset 2px 0 0 var(--teal); }
+  td .sub { display: block; font-size: 11px; color: var(--ink-faint); max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+  .empty { padding: 30px 16px; color: var(--ink-faint); font-size: 13px; text-align: center; }
+
+  /* Detail */
+
+  .detail-title { font-family: ui-monospace, monospace; font-size: 16px; font-weight: 700; }
+  .detail-sec { margin-top: 14px; }
+  .detail-sec h3 { font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-faint); margin: 0 0 6px; }
+  .reply { margin-top: 14px; border: 1px dashed var(--line); border-radius: 9px; padding: 12px; }
+  .reply[hidden] { display: none; }
+  .radio { display: flex; gap: 14px; font-size: 13px; margin-bottom: 10px; }
+  .radio label { text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--ink); font-weight: 400; gap: 6px; justify-content: flex-start; cursor: pointer; }
+  .radio input { width: auto; }
+
+  /* Notifications */
+
+  .notes-panel {
+    position: absolute; z-index: 30; right: 0; top: calc(100% + 6px); width: 380px; max-width: calc(100vw - 32px);
+    max-height: 60vh; overflow-y: auto; background: var(--panel-strong); border: 1px solid var(--line);
+    border-radius: 10px; box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
+  }
+  .notes-panel[hidden] { display: none; }
+  .note { display: block; width: 100%; text-align: left; font: inherit; font-size: 12.5px; line-height: 1.45; color: var(--ink-soft);
+          background: none; border: 0; border-top: 1px solid var(--line); padding: 10px 12px; cursor: pointer; }
+  .note:first-child { border-top: 0; }
+  .note:hover { background: var(--panel); }
+  .note.unread { color: var(--ink); box-shadow: inset 3px 0 0 var(--teal); }
+  .note time { display: block; font-size: 11px; color: var(--ink-faint); margin-top: 3px; }
+  .bell-wrap { position: relative; }
+
+  .toasts { position: fixed; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 50; max-width: 380px; }
+  .toast {
+    background: var(--panel-strong); border: 1px solid var(--line); border-left: 3px solid var(--teal);
+    border-radius: 8px; padding: 10px 12px; font-size: 12.5px; line-height: 1.45; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+    cursor: pointer;
+  }
+  .toast.ticket_rejected { border-left-color: var(--red); }
+  .toast.ticket_sent { border-left-color: var(--gold); }
+
+  footer { margin-top: 26px; font-size: 12px; color: var(--ink-faint); line-height: 1.6; }
+  footer code { font-family: ui-monospace, monospace; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <div class="topbar">
+    <span class="brand">Market Integration</span>
+    <nav class="tabs" aria-label="Markets">
+      <a class="tab" href="/ticker">Equities</a>
+      <a class="tab" href="/fixed-income">Fixed Income</a>
+      <a class="tab" href="/yield-curve">Yield Curve</a>
+      <a class="tab active" href="/tickets" aria-current="page">Trade Tickets</a>
+    </nav>
+    <span class="spacer"></span>
+    <div class="bell-wrap">
+      <button class="chip-btn" id="bellBtn" type="button" aria-haspopup="true" aria-expanded="false"
+              title="Notifications about your tickets">
+        <span class="live-dot" id="liveDot"></span>Notifications <span class="badge" id="unread" hidden>0</span>
+      </button>
+      <div class="notes-panel" id="notesPanel" hidden></div>
+    </div>
+    <button class="chip-btn" id="meBtn" type="button" title="Change the name your tickets carry">
+      Signed in as <strong id="me">…</strong>
+    </button>
+  </div>
+
+  <div class="layout">
+
+    <!-- New ticket -->
+    <section class="card" id="formCard">
+      <div class="card-head"><h2>New trade ticket</h2></div>
+      <form class="card-body" id="form" autocomplete="off" novalidate>
+        <div class="fields">
+          <div class="field wide security">
+            <label for="secIn"><span>Security</span><span class="hint">symbol, name or ISIN</span></label>
+            <input id="secIn" type="text" placeholder="e.g. MTNGH or 364-day bill" role="combobox"
+                   aria-autocomplete="list" aria-controls="suggest" aria-expanded="false">
+            <div class="suggest" id="suggest" role="listbox" hidden></div>
+            <div class="sec-info" id="secInfo"></div>
+          </div>
+          <div class="field wide">
+            <span class="label">Side <span class="hint">what you did</span></span>
+            <div class="sides">
+              <button class="side-btn on" type="button" data-side="buy">BUY</button>
+              <button class="side-btn" type="button" data-side="sell">SELL</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="qtyIn"><span id="qtyLabel">Quantity</span><span class="hint" id="qtyHint"></span></label>
+            <input id="qtyIn" class="num" type="text" inputmode="decimal">
+          </div>
+          <div class="field">
+            <label for="priceIn"><span id="priceLabel">Price</span><span class="hint" id="priceHint"></span></label>
+            <input id="priceIn" class="num" type="text" inputmode="decimal">
+          </div>
+          <div class="field wide" id="accruedField" hidden>
+            <label for="accruedIn"><span>Accrued interest</span><span class="hint">as agreed; can't be calculated for this bond</span></label>
+            <input id="accruedIn" class="num" type="text" inputmode="decimal">
+          </div>
+          <div class="field">
+            <label for="cptyIn"><span>Counterparty</span><span class="hint">their user ID</span></label>
+            <input id="cptyIn" type="text" maxlength="128">
+          </div>
+          <div class="field">
+            <label for="dateIn"><span>Trade date</span></label>
+            <input id="dateIn" type="date">
+          </div>
+          <div class="field">
+            <label for="myAccIn"><span>Your CSD account</span><span class="hint">optional</span></label>
+            <input id="myAccIn" type="text" maxlength="64">
+          </div>
+          <div class="field">
+            <label for="cptyAccIn"><span>Their CSD account</span><span class="hint">optional</span></label>
+            <input id="cptyAccIn" type="text" maxlength="64">
+          </div>
+          <div class="field wide">
+            <label for="notesIn"><span>Notes</span><span class="hint">optional</span></label>
+            <textarea id="notesIn" maxlength="500" placeholder="e.g. Agreed by phone at 10:12"></textarea>
+          </div>
+        </div>
+
+        <div class="preview">
+          <dl class="kv" id="preview">
+            <dt>Settlement date</dt><dd class="num" id="pvSettle">—</dd>
+            <dt>Consideration</dt><dd class="num" id="pvCons">—</dd>
+            <dt id="pvAccLabel">Accrued interest</dt><dd class="num" id="pvAcc">—</dd>
+            <dt>Net amount</dt><dd class="num total" id="pvNet">—</dd>
+          </dl>
+        </div>
+        <p class="msg" id="formMsg"></p>
+
+        <div class="actions">
+          <button class="btn" type="submit" data-file="0" id="saveBtn">Save draft</button>
+          <button class="btn primary" type="submit" data-file="1" id="fileBtn">Save &amp; send to depository</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Ticket detail (replaces the form while a ticket is open) -->
+    <section class="card" id="detailCard" hidden>
+      <div class="card-head">
+        <span class="detail-title" id="dTitle"></span>
+        <span class="pill" id="dStatus"></span>
+        <div class="right"><button class="btn small" type="button" id="newBtn">+ New ticket</button></div>
+      </div>
+      <div class="card-body">
+        <div id="dBody"></div>
+        <p class="msg" id="dMsg"></p>
+        <div class="actions" id="dActions"></div>
+        <div class="reply" id="reply" hidden>
+          <div class="radio">
+            <label><input type="radio" name="outcome" value="accepted" checked> Accepted</label>
+            <label><input type="radio" name="outcome" value="rejected"> Rejected</label>
+          </div>
+          <div class="field" id="refField">
+            <label for="refIn"><span>Depository reference</span></label>
+            <input id="refIn" type="text" maxlength="64">
+          </div>
+          <div class="field" id="reasonField" hidden>
+            <label for="reasonIn"><span>Reason given</span></label>
+            <input id="reasonIn" type="text" maxlength="500">
+          </div>
+          <div class="actions"><button class="btn primary" type="button" id="replyBtn">Record reply</button></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Blotter -->
+    <section class="card">
+      <div class="card-head">
+        <h2>My tickets</h2>
+        <div class="right filters" id="filters"></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th class="l">Ticket</th><th class="l">Status</th><th class="l">Side</th><th class="l">Security</th>
+            <th>Quantity</th><th>Price</th><th>Net amount</th><th class="l">Counterparty</th><th>Trade / settle</th>
+          </tr></thead>
+          <tbody id="blotter"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="blotterEmpty" hidden>No tickets yet.</div>
+    </section>
+  </div>
+
+  <footer>
+    A ticket is saved as a draft, then sent to the depository: by email as a PDF, or straight to a mock in development.
+    An emailed ticket waits as <em>sent</em> until you record the depository's reply here. You and your counterparty are
+    notified at each step, live over <code>/ws/notifications</code>. Amounts exclude brokerage fees and levies.
+  </footer>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  const $ = function (id) { return document.getElementById(id); };
+  let me = null;
+  let instrument = null;       // the chosen security, from /instruments/{symbol}
+  let side = "buy";
+  let tickets = [];
+  let filter = "all";
+  let current = null;          // the ticket open in the detail card
+  let notifications = [];
+
+  // ------------------------------------------------------------ helpers
+
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function parseNum(s) {
+    const v = String(s || "").replace(/[,\s]/g, "");
+    return v === "" ? null : Number(v);
+  }
+  function money(v, ccy) {
+    if (v == null) return "—";
+    return (ccy ? ccy + " " : "") + Number(v).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function qty(t) {
+    return t.asset_class === "equity"
+      ? Number(t.quantity).toLocaleString("en-GB", { maximumFractionDigits: 0 })
+      : Number(t.quantity).toLocaleString("en-GB", { maximumFractionDigits: 2 });
+  }
+  function priceText(t) {
+    return t.asset_class === "equity" ? Number(t.price).toFixed(2) : Number(t.price).toFixed(4);
+  }
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  function day(iso) {
+    if (!iso) return "—";
+    const p = iso.slice(0, 10).split("-");
+    return Number(p[2]) + " " + MONTHS[Number(p[1]) - 1] + " " + p[0];
+  }
+  function when(iso) {
+    const d = new Date(iso);
+    return d.toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  }
+  function errText(body, fallback) {
+    if (!body || body.detail == null) return fallback;
+    if (typeof body.detail === "string") return body.detail;
+    if (Array.isArray(body.detail)) {
+      return body.detail.map(function (d) {
+        const where = (d.loc || []).filter(function (x) { return x !== "body"; }).join(".");
+        return (where ? where + ": " : "") + d.msg.replace(/^Value error, /, "");
+      }).join("; ");
+    }
+    return body.detail.message || fallback;
+  }
+  function api(method, url, body) {
+    return fetch(url, {
+      method: method,
+      headers: body ? { "Content-Type": "application/json" } : {},
+      body: body ? JSON.stringify(body) : undefined,
+      credentials: "same-origin",
+    }).then(function (r) {
+      if (r.status === 204) return null;
+      return r.json().catch(function () { return null; }).then(function (data) {
+        if (!r.ok) throw new Error(errText(data, "Request failed (" + r.status + ")"));
+        return data;
+      });
+    });
+  }
+  function setMsg(node, text, kind) {
+    node.textContent = text || "";
+    node.className = "msg" + (kind ? " " + kind : "");
+  }
+  const STATUS_TEXT = { draft: "Draft", filing: "Sending", sent: "Sent", filed: "Filed", rejected: "Rejected" };
+  function pill(status) { return el("span", "pill " + status, STATUS_TEXT[status] || status); }
+  function mySide(t) { return t.buyer === me ? "buy" : "sell"; }
+  function other(t) { return t.trader === me ? t.counterparty : t.trader; }
+
+  // ------------------------------------------------------------ identity
+
+  function loadMe() {
+    return api("GET", "/identity/me").then(function (body) { me = body.user_id; $("me").textContent = me; });
+  }
+  $("meBtn").addEventListener("click", function () {
+    const name = window.prompt(
+      "Your user ID: the name on tickets you write, and what counterparties type to send you one.", me || "");
+    if (name == null || !name.trim() || name.trim() === me) return;
+    api("PUT", "/identity/me", { user_id: name.trim() }).then(function () { location.reload(); },
+      function (e) { window.alert(e.message); });
+  });
+
+  // ------------------------------------------------------------ security search
+
+  let suggestions = [], suggestIndex = -1, searchSeq = 0;
+
+  function showSuggest(list) {
+    suggestions = list;
+    suggestIndex = -1;
+    const box = $("suggest");
+    box.innerHTML = "";
+    list.forEach(function (r, i) {
+      const b = el("button");
+      b.type = "button";
+      b.setAttribute("role", "option");
+      b.appendChild(el("span", "sym", r.symbol));
+      b.appendChild(el("span", "nm", r.name));
+      b.appendChild(el("span", "ac", r.asset_class));
+      b.addEventListener("mousedown", function (e) { e.preventDefault(); choose(r.symbol); });
+      box.appendChild(b);
+    });
+    box.hidden = !list.length;
+    $("secIn").setAttribute("aria-expanded", list.length ? "true" : "false");
+  }
+  function highlight(i) {
+    suggestIndex = i;
+    Array.prototype.forEach.call($("suggest").children, function (b, j) { b.classList.toggle("on", j === i); });
+  }
+
+  $("secIn").addEventListener("input", function () {
+    instrument = null;
+    renderInstrument();
+    const q = this.value.trim();
+    const seq = ++searchSeq;
+    if (!q) { showSuggest([]); return; }
+    api("GET", "/search?limit=8&q=" + encodeURIComponent(q)).then(function (list) {
+      if (seq === searchSeq) showSuggest(list);
+    }, function () { /* the box just stays empty */ });
+  });
+  $("secIn").addEventListener("keydown", function (e) {
+    if ($("suggest").hidden) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); highlight(Math.min(suggestIndex + 1, suggestions.length - 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); highlight(Math.max(suggestIndex - 1, 0)); }
+    else if (e.key === "Enter") { e.preventDefault(); choose((suggestions[Math.max(suggestIndex, 0)] || {}).symbol); }
+    else if (e.key === "Escape") { showSuggest([]); }
+  });
+  $("secIn").addEventListener("blur", function () { setTimeout(function () { showSuggest([]); }, 100); });
+
+  function choose(symbol) {
+    if (!symbol) return Promise.resolve();
+    showSuggest([]);
+    return api("GET", "/instruments/" + encodeURIComponent(symbol)).then(function (inst) {
+      instrument = inst;
+      $("secIn").value = inst.symbol;
+      renderInstrument();
+      schedulePreview();
+    }, function (e) {
+      instrument = null;
+      renderInstrument();
+      setMsg($("formMsg"), e.message, "err");
+    });
+  }
+
+  function renderInstrument() {
+    const info = $("secInfo");
+    info.innerHTML = "";
+    const equity = !instrument || instrument.asset_class === "equity";
+    $("qtyLabel").textContent = equity ? "Shares" : "Face value";
+    $("qtyHint").textContent = equity ? "" : (instrument ? instrument.currency : "");
+    $("priceLabel").textContent = equity ? "Price per share" : "Clean price";
+    $("priceHint").textContent = equity ? (instrument ? instrument.currency : "") : "per 100";
+    $("accruedField").hidden = true;
+    if (!instrument) return;
+    info.appendChild(el("span", "pill asset", instrument.asset_class));
+    let text = instrument.name;
+    if (instrument.maturity_date) text += " · matures " + day(instrument.maturity_date);
+    if (instrument.coupon_rate) text += " · " + instrument.coupon_rate + "% coupon";
+    info.appendChild(document.createTextNode(text));
+  }
+
+  // ------------------------------------------------------------ side
+
+  document.querySelectorAll(".side-btn").forEach(function (b) {
+    b.addEventListener("click", function () {
+      side = b.dataset.side;
+      document.querySelectorAll(".side-btn").forEach(function (x) { x.classList.toggle("on", x === b); });
+      schedulePreview();
+    });
+  });
+
+  // ------------------------------------------------------------ preview
+
+  function requestBody() {
+    const body = {
+      symbol: instrument ? instrument.symbol : $("secIn").value.trim(),
+      side: side,
+      quantity: parseNum($("qtyIn").value),
+      price: parseNum($("priceIn").value),
+      counterparty: $("cptyIn").value.trim(),
+    };
+    if ($("dateIn").value) body.trade_date = $("dateIn").value;
+    if (!$("accruedField").hidden && $("accruedIn").value.trim()) body.accrued_interest = parseNum($("accruedIn").value);
+    if ($("myAccIn").value.trim()) body.trader_account = $("myAccIn").value.trim();
+    if ($("cptyAccIn").value.trim()) body.counterparty_account = $("cptyAccIn").value.trim();
+    if ($("notesIn").value.trim()) body.notes = $("notesIn").value.trim();
+    return body;
+  }
+
+  function clearPreview() {
+    ["pvSettle", "pvCons", "pvAcc", "pvNet"].forEach(function (id) { $(id).textContent = "—"; });
+  }
+
+  let previewTimer = null, previewSeq = 0;
+  function schedulePreview() {
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(preview, 250);
+  }
+  function preview() {
+    const body = requestBody();
+    setMsg($("formMsg"), "");
+    if (!instrument || !(body.quantity > 0) || !(body.price > 0)) { clearPreview(); return; }
+    // The counterparty isn't needed for the numbers; stand one in until it's typed.
+    if (!body.counterparty || body.counterparty === me) body.counterparty = "(counterparty)";
+    const seq = ++previewSeq;
+    api("POST", "/tickets/preview", body).then(function (t) {
+      if (seq !== previewSeq) return;
+      $("pvSettle").textContent = day(t.settlement_date) + "  (T+" + businessDaysLabel(t) + ")";
+      $("pvCons").textContent = money(t.consideration, t.currency);
+      const needsAccrued = t.accrued_source === "required" || t.accrued_source === "entered";
+      $("accruedField").hidden = !needsAccrued;
+      $("pvAccLabel").textContent = t.accrued_source === "calculated"
+        ? "Accrued interest (" + t.days_accrued + " days)" : "Accrued interest";
+      $("pvAcc").textContent = t.accrued_source === "required" ? "enter above" : money(t.accrued_interest, t.currency);
+      $("pvNet").textContent = t.accrued_source === "required" ? "—" : money(t.net_amount, t.currency);
+    }, function (e) {
+      if (seq !== previewSeq) return;
+      clearPreview();
+      setMsg($("formMsg"), e.message, "err");
+    });
+  }
+  function businessDaysLabel(t) {
+    // Business days between trade and settlement (weekdays; the server's
+    // calendar also skips holidays, so this is only a label).
+    let n = 0;
+    const d = new Date(t.trade_date + "T00:00:00Z"), end = new Date(t.settlement_date + "T00:00:00Z");
+    while (d < end) { d.setUTCDate(d.getUTCDate() + 1); if (d.getUTCDay() % 6 !== 0) n++; }
+    return n;
+  }
+
+  ["qtyIn", "priceIn", "accruedIn", "cptyIn", "dateIn"].forEach(function (id) {
+    $(id).addEventListener("input", schedulePreview);
+  });
+  // Thousands separators once a number is typed in.
+  ["qtyIn", "priceIn", "accruedIn"].forEach(function (id) {
+    $(id).addEventListener("blur", function () {
+      const v = parseNum(this.value);
+      if (v == null || isNaN(v)) return;
+      this.value = v.toLocaleString("en-GB", { maximumFractionDigits: id === "qtyIn" ? 2 : 6 });
+    });
+  });
+
+  // ------------------------------------------------------------ save
+
+  $("form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    const fileIt = e.submitter && e.submitter.dataset.file === "1";
+    const body = requestBody();
+    if (!instrument) { setMsg($("formMsg"), "Choose a security from the list.", "err"); return; }
+    if (!(body.quantity > 0) || !(body.price > 0)) { setMsg($("formMsg"), "Enter a quantity and a price.", "err"); return; }
+    if (!body.counterparty) { setMsg($("formMsg"), "Enter the counterparty's user ID.", "err"); return; }
+    $("saveBtn").disabled = $("fileBtn").disabled = true;
+    setMsg($("formMsg"), fileIt ? "Saving and sending…" : "Saving…", "info");
+    api("POST", "/tickets", body).then(function (t) {
+      return fileIt ? api("POST", "/tickets/" + t.id + "/file") : t;
+    }).then(function (t) {
+      resetForm();
+      return loadTickets().then(function () { openTicket(t.id, outcomeText(t)); });
+    }, function (err) {
+      setMsg($("formMsg"), err.message, "err");
+      loadTickets();
+    }).then(function () {
+      $("saveBtn").disabled = $("fileBtn").disabled = false;
+    });
+  });
+
+  function outcomeText(t) {
+    if (t.status === "draft") return ["Saved as a draft. Send it to the depository when ready.", "ok"];
+    if (t.status === "sent") return ["Emailed to the depository (" + t.sent_to + "). Record its reply when it comes.", "ok"];
+    if (t.status === "filed") return ["Filed with the depository as " + t.depository_reference + ".", "ok"];
+    if (t.status === "rejected") return ["Rejected by the depository: " + t.rejection_reason, "err"];
+    return null;
+  }
+
+  function resetForm() {
+    $("form").reset();
+    instrument = null;
+    renderInstrument();
+    clearPreview();
+    setMsg($("formMsg"), "");
+    side = "buy";
+    document.querySelectorAll(".side-btn").forEach(function (x) { x.classList.toggle("on", x.dataset.side === "buy"); });
+    $("dateIn").value = today();
+  }
+  function today() {
+    const d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+
+  // ------------------------------------------------------------ blotter
+
+  const FILTERS = [["all", "All"], ["draft", "Draft"], ["sent", "Sent"], ["filed", "Filed"], ["rejected", "Rejected"]];
+
+  function loadTickets() {
+    return api("GET", "/tickets/me").then(function (list) { tickets = list; renderBlotter(); });
+  }
+
+  function renderFilters() {
+    const host = $("filters");
+    host.innerHTML = "";
+    FILTERS.forEach(function (f) {
+      const n = f[0] === "all" ? tickets.length : tickets.filter(function (t) { return t.status === f[0]; }).length;
+      const b = el("button", "filter-btn" + (filter === f[0] ? " on" : ""), f[1]);
+      b.type = "button";
+      b.appendChild(el("span", "n", String(n)));
+      b.addEventListener("click", function () { filter = f[0]; renderBlotter(); });
+      host.appendChild(b);
+    });
+  }
+
+  function renderBlotter() {
+    renderFilters();
+    const body = $("blotter");
+    body.innerHTML = "";
+    const list = tickets.filter(function (t) { return filter === "all" || t.status === filter; });
+    $("blotterEmpty").hidden = list.length > 0;
+    $("blotterEmpty").textContent = tickets.length ? "No " + filter + " tickets." : "No tickets yet.";
+    list.forEach(function (t) {
+      const tr = el("tr");
+      if (current && current.id === t.id) tr.className = "sel";
+      const idCell = el("td", "l num", t.id);
+      idCell.appendChild(el("span", "sub", t.trader === me ? "written by you" : "from " + t.trader));
+      tr.appendChild(idCell);
+      const st = el("td", "l"); st.appendChild(pill(t.status)); tr.appendChild(st);
+      tr.appendChild(el("td", "l " + mySide(t), mySide(t).toUpperCase()));
+      const sec = el("td", "l", t.symbol.length > 10 ? t.name : t.symbol);
+      sec.appendChild(el("span", "sub", t.symbol.length > 10 ? t.symbol : t.name));
+      tr.appendChild(sec);
+      tr.appendChild(el("td", "num", qty(t)));
+      tr.appendChild(el("td", "num", priceText(t)));
+      tr.appendChild(el("td", "num", money(t.net_amount)));
+      tr.appendChild(el("td", "l", other(t)));
+      const dates = el("td", "num", day(t.trade_date));
+      dates.appendChild(el("span", "sub", day(t.settlement_date)));
+      tr.appendChild(dates);
+      tr.addEventListener("click", function () { openTicket(t.id); });
+      body.appendChild(tr);
+    });
+  }
+
+  // ------------------------------------------------------------ detail
+
+  function openTicket(id, message) {
+    return api("GET", "/tickets/" + encodeURIComponent(id)).then(function (t) {
+      current = t;
+      $("formCard").hidden = true;
+      $("detailCard").hidden = false;
+      renderDetail(message);
+      renderBlotter();
+    }, function (e) { window.alert(e.message); });
+  }
+
+  function closeDetail() {
+    current = null;
+    $("detailCard").hidden = true;
+    $("formCard").hidden = false;
+    renderBlotter();
+  }
+  $("newBtn").addEventListener("click", function () { closeDetail(); resetForm(); $("secIn").focus(); });
+
+  function section(title, rows) {
+    const box = el("div", "detail-sec");
+    box.appendChild(el("h3", null, title));
+    const dl = el("dl", "kv");
+    rows.forEach(function (r) {
+      if (r == null) return;
+      dl.appendChild(el("dt", null, r[0]));
+      const dd = el("dd", r[2] || "", r[1] == null || r[1] === "" ? "—" : r[1]);
+      dl.appendChild(dd);
+    });
+    box.appendChild(dl);
+    return box;
+  }
+
+  function renderDetail(message) {
+    const t = current;
+    $("dTitle").textContent = t.id;
+    const st = $("dStatus");
+    st.className = "pill " + t.status;
+    st.textContent = STATUS_TEXT[t.status];
+    const body = $("dBody");
+    body.innerHTML = "";
+
+    const equity = t.asset_class === "equity";
+    body.appendChild(section("Trade", [
+      ["You", (mySide(t) === "buy" ? "BOUGHT" : "SOLD"), mySide(t)],
+      ["Security", t.symbol],
+      ["Name", t.name],
+      ["ISIN", t.isin],
+      [equity ? "Shares" : "Face value", qty(t), "num"],
+      [equity ? "Price per share" : "Clean price (per 100)", priceText(t), "num"],
+      ["Trade date", day(t.trade_date)],
+      ["Settlement date", day(t.settlement_date)],
+    ]));
+    body.appendChild(section("Amounts (" + t.currency + ")", [
+      ["Consideration", money(t.consideration), "num"],
+      t.asset_class === "bond" ? [
+        t.accrued_source === "calculated" ? "Accrued interest (" + t.days_accrued + " days)" : "Accrued interest (as agreed)",
+        money(t.accrued_interest), "num",
+      ] : null,
+      ["Net amount", money(t.net_amount), "num total"],
+    ]));
+    body.appendChild(section("Parties", [
+      ["Buyer", t.buyer + (t.buyer === me ? " (you)" : "")],
+      ["Buyer CSD account", t.side === "buy" ? t.trader_account : t.counterparty_account],
+      ["Seller", t.seller + (t.seller === me ? " (you)" : "")],
+      ["Seller CSD account", t.side === "buy" ? t.counterparty_account : t.trader_account],
+      ["Written by", t.trader === me ? "you" : t.trader],
+    ]));
+    body.appendChild(section("Depository", [
+      ["Status", STATUS_TEXT[t.status]],
+      t.sent_to ? ["Emailed to", t.sent_to] : null,
+      t.sent_at ? ["Sent", when(t.sent_at)] : null,
+      ["Reference", t.depository_reference],
+      t.filed_at ? ["Filed", when(t.filed_at)] : null,
+      t.rejection_reason ? ["Reason refused", t.rejection_reason] : null,
+    ]));
+    if (t.notes) body.appendChild(section("Notes", [["", t.notes]]));
+
+    const actions = $("dActions");
+    actions.innerHTML = "";
+    const mine = t.trader === me;
+    if (t.status === "draft" && mine) {
+      const send = el("button", "btn primary", "Send to depository");
+      send.type = "button";
+      send.addEventListener("click", function () { act(send, "POST", "/tickets/" + t.id + "/file"); });
+      actions.appendChild(send);
+    }
+    const print = el("a", "btn", "Print");
+    print.href = "/tickets/" + encodeURIComponent(t.id) + "/pdf";
+    print.target = "_blank";
+    print.rel = "noopener";
+    actions.appendChild(print);
+    const dl = el("a", "btn", "Download PDF");
+    dl.href = "/tickets/" + encodeURIComponent(t.id) + "/pdf?download=true";
+    actions.appendChild(dl);
+
+    $("reply").hidden = !(t.status === "sent" && mine);
+    $("refIn").value = "";
+    $("reasonIn").value = "";
+
+    if (message) setMsg($("dMsg"), message[0], message[1]);
+    else if (t.status === "sent" && !mine) setMsg($("dMsg"), "Waiting for the depository's reply; " + t.trader + " will record it.", "info");
+    else if (t.status === "draft" && !mine) setMsg($("dMsg"), t.trader + " hasn't sent this to the depository yet.", "info");
+    else setMsg($("dMsg"), "");
+  }
+
+  function act(button, method, url, body) {
+    button.disabled = true;
+    setMsg($("dMsg"), "Working…", "info");
+    return api(method, url, body).then(function (t) {
+      current = t;
+      renderDetail(outcomeText(t));
+      return loadTickets();
+    }, function (e) {
+      setMsg($("dMsg"), e.message, "err");
+    }).then(function () { button.disabled = false; });
+  }
+
+  document.querySelectorAll('input[name="outcome"]').forEach(function (r) {
+    r.addEventListener("change", function () {
+      const accepted = document.querySelector('input[name="outcome"]:checked').value === "accepted";
+      $("refField").hidden = !accepted;
+      $("reasonField").hidden = accepted;
+    });
+  });
+  $("replyBtn").addEventListener("click", function () {
+    const accepted = document.querySelector('input[name="outcome"]:checked').value === "accepted";
+    const body = accepted
+      ? { accepted: true, reference: $("refIn").value.trim() || null }
+      : { accepted: false, reason: $("reasonIn").value.trim() || null };
+    act($("replyBtn"), "POST", "/tickets/" + current.id + "/confirmation", body);
+  });
+
+  // ------------------------------------------------------------ notifications
+
+  function loadNotifications() {
+    return api("GET", "/notifications/me").then(function (list) { notifications = list; renderNotifications(); });
+  }
+  function renderNotifications() {
+    const unread = notifications.filter(function (n) { return !n.read; }).length;
+    $("unread").textContent = String(unread);
+    $("unread").hidden = unread === 0;
+    const panel = $("notesPanel");
+    panel.innerHTML = "";
+    if (!notifications.length) panel.appendChild(el("div", "empty", "Nothing yet."));
+    notifications.slice(0, 30).forEach(function (n) {
+      const b = el("button", "note" + (n.read ? "" : " unread"), n.message);
+      b.type = "button";
+      const t = el("time", null, when(n.created_at));
+      b.appendChild(t);
+      b.addEventListener("click", function () { readAndOpen(n); panel.hidden = true; });
+      panel.appendChild(b);
+    });
+  }
+  function readAndOpen(n) {
+    if (!n.read) {
+      n.read = true;
+      renderNotifications();
+      api("POST", "/notifications/me/" + n.id + "/read").catch(function () { /* stays read locally */ });
+    }
+    openTicket(n.ticket_id);
+  }
+  $("bellBtn").addEventListener("click", function (e) {
+    e.stopPropagation();
+    const panel = $("notesPanel");
+    panel.hidden = !panel.hidden;
+    $("bellBtn").setAttribute("aria-expanded", panel.hidden ? "false" : "true");
+  });
+  document.addEventListener("click", function (e) {
+    if (!$("notesPanel").hidden && !$("notesPanel").contains(e.target)) $("notesPanel").hidden = true;
+  });
+
+  function toast(n) {
+    const t = el("div", "toast " + n.kind, n.message);
+    t.addEventListener("click", function () { t.remove(); readAndOpen(n); });
+    $("toasts").appendChild(t);
+    setTimeout(function () { t.remove(); }, 9000);
+  }
+
+  function connect() {
+    const proto = location.protocol === "https:" ? "wss" : "ws";
+    const ws = new WebSocket(proto + "://" + location.host + "/ws/notifications");
+    ws.onopen = function () { $("liveDot").classList.add("on"); };
+    ws.onmessage = function (evt) {
+      const msg = JSON.parse(evt.data);
+      if (msg.type !== "notification") return;
+      const n = msg.notification;
+      notifications.unshift(n);
+      renderNotifications();
+      toast(n);
+      loadTickets();
+      if (current && current.id === n.ticket_id) {
+        api("GET", "/tickets/" + encodeURIComponent(current.id)).then(function (t) { current = t; renderDetail(); });
+      }
+    };
+    ws.onclose = function () {
+      $("liveDot").classList.remove("on");
+      // Catch up on anything missed while disconnected, then reconnect.
+      setTimeout(function () { loadNotifications(); loadTickets(); connect(); }, 3000);
+    };
+    ws.onerror = function () { ws.close(); };
+  }
+
+  // ------------------------------------------------------------ boot
+
+  // Opened from the Fixed Income tab or a bond page:
+  // /tickets?symbol=...&price=...&quantity=...&side=...
+  function prefill() {
+    const params = new URLSearchParams(location.search);
+    const symbol = params.get("symbol");
+    if (params.get("price")) $("priceIn").value = params.get("price");
+    if (params.get("quantity")) $("qtyIn").value = params.get("quantity");
+    const s = params.get("side");
+    if (s === "buy" || s === "sell") {
+      side = s;
+      document.querySelectorAll(".side-btn").forEach(function (x) { x.classList.toggle("on", x.dataset.side === s); });
+    }
+    const id = params.get("ticket");
+    if (params.toString()) history.replaceState(null, "", "/tickets");
+    if (id) return openTicket(id);
+    if (symbol) return choose(symbol).then(function () { $("cptyIn").focus(); });
+    $("secIn").focus();
+  }
+
+  $("dateIn").value = today();
+  renderInstrument();
+  loadMe().then(function () {
+    return Promise.all([loadTickets(), loadNotifications()]);
+  }).then(prefill).then(connect, function (e) {
+    setMsg($("formMsg"), "Couldn't load your tickets: " + e.message, "err");
+    connect();
+  });
+})();
+</script>
+</body>
+</html>
