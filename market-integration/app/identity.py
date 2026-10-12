@@ -18,8 +18,9 @@ for the Symphony identity later is a change to this one function.
 
 import re
 import uuid
+from typing import Optional
 
-from fastapi import HTTPException, Request, Response
+from fastapi import HTTPException, Request, Response, WebSocket
 
 USER_HEADER = "X-User-Id"
 USER_COOKIE = "mi_user"
@@ -49,3 +50,14 @@ def current_user_id(request: Request, response: Response) -> str:
         secure=request.url.scheme == "https",
     )
     return user_id
+
+
+def websocket_user_id(websocket: WebSocket) -> Optional[str]:
+    """The user on a WebSocket: the X-User-Id header or the cookie, as
+    for HTTP. None if it carries neither (or a malformed one): a socket
+    can't be issued a cookie, so the page must have made a request
+    first."""
+    for candidate in (websocket.headers.get(USER_HEADER), websocket.cookies.get(USER_COOKIE)):
+        if candidate is not None:
+            return candidate if _VALID_ID.fullmatch(candidate) else None
+    return None

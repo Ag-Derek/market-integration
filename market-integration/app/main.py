@@ -30,6 +30,7 @@ from app.company.index import BASE_LEVEL, simulated_gse_ci
 from app.company.performance import Day, days
 from app.company.store import CompanyStore
 from app.connectors.composite_connector import CompositeConnector
+from app.connectors.depository import MockDepository
 from app.connectors.fixed_income_connector import MockFixedIncomeConnector
 from app.connectors.fixed_income_mock import MockFixedIncomeMarket
 from app.connectors.load_connector import LoadConnector
@@ -39,8 +40,9 @@ from app.fx import BASE as FX_BASE, BASE_NAME as FX_BASE_NAME, BASE_SYMBOL as FX
 from app.fx.bog import HISTORY_PAGE_URL as FX_SOURCE_URL, SOURCE as FX_SOURCE, BankOfGhanaClient
 from app.fx.rates import RETRY_SECONDS as FX_RETRY_SECONDS, FxRates
 from app.fx.store import FxStore
+from app.gateways.notification_gateway import NotificationGateway
 from app.gateways.websocket_gateway import WebSocketGateway
-from app.identity import current_user_id
+from app.identity import current_user_id, websocket_user_id
 from app.instruments import INSTRUMENTS
 from app.instruments.search import InstrumentSearch
 from app.instruments.store import InstrumentStore
@@ -55,11 +57,15 @@ from app.models.candle import INTERVALS, Candle
 from app.models.fx import FxRate
 from app.models.instrument import AssetClass, Instrument
 from app.models.market_data import MarketData
+from app.models.ticket import Notification, Ticket, TicketRequest, TicketStatus
 from app.processors.market_processor import MarketProcessor
 from app.processors.movers import MoverType, change_percent, rank_movers
 from app.queue.market_buffer import MarketDataBuffer
 from app.session.calendar import load_calendar
 from app.session.status import market_status
+from app.tickets import TicketError
+from app.tickets.desk import TicketDesk
+from app.tickets.store import TicketStore
 from app.validation.market_validator import ValidatingStream
 from app.watchlists import DEFAULT_WATCHLIST, MAX_PINS, WatchlistError, validate as validate_watchlist
 from app.watchlists.store import WatchlistStore
@@ -216,6 +222,18 @@ watchlist_store = WatchlistStore(config.DB_PATH)
 # Bank of Ghana interbank FX fixes for showing prices in other
 # currencies: pulled from BoG's site and kept across restarts; see app/fx/.
 fx_rates = FxRates(FxStore(config.DB_PATH), BankOfGhanaClient())
+# Trade tickets filed with the depository, and notifications to both
+# parties (app/tickets/). User data, kept across restarts. The depository
+# is a mock until we have the CSD's interface.
+notification_gateway = NotificationGateway()
+ticket_desk = TicketDesk(
+    TicketStore(config.DB_PATH),
+    MockDepository(),
+    notification_gateway,
+    instruments=INSTRUMENTS,
+    calendar=calendar,
+    today=lambda: calendar.local_date(datetime.now(timezone.utc)),
+)
 
 # The buffer decouples ingestion (connector) from its downstream
 # consumers: conflated (latest tick per symbol) for the live display,
@@ -359,6 +377,64 @@ async def put_my_watchlist(update: WatchlistUpdate, user_id: str = Depends(curre
         raise HTTPException(status_code=422, detail={"message": str(e), "symbols": e.symbols})
     saved = await asyncio.to_thread(watchlist_store.put, user_id, symbols)
     return _watchlist_body(user_id, saved)
+
+
+async def _ticket_call(call):
+    try:
+        return await call
+    except TicketError as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e))
+
+
+@app.post("/tickets", response_model=Ticket, status_code=201)
+async def create_ticket(request: TicketRequest, user_id: str = Depends(current_user_id)):
+    """Write up a trade the requesting user (the trader) agreed with
+    `counterparty`, as a draft. The instrument, settlement date and
+    amounts are filled in: equities settle T+EQUITY_SETTLEMENT_LAG, bills
+    and bonds T+2 with the bond calculator's invoice. 422 for an unknown
+    or inactive instrument, a future or non-trading trade date,
+    fractional shares, or a bill or bond the bond math can't price. See
+    app/tickets/."""
+    return await _ticket_call(ticket_desk.create(request, user_id))
+
+
+@app.get("/tickets/me", response_model=list[Ticket])
+async def my_tickets(status: Optional[TicketStatus] = None, user_id: str = Depends(current_user_id)):
+    """Tickets the requesting user is a party to, as trader or
+    counterparty, newest first; optionally only those in one status."""
+    return await ticket_desk.list(user_id, status)
+
+
+@app.get("/tickets/{ticket_id}", response_model=Ticket)
+async def get_ticket(ticket_id: str, user_id: str = Depends(current_user_id)):
+    """One ticket, for its trader or counterparty; 404 for anyone else."""
+    return await _ticket_call(ticket_desk.get(ticket_id, user_id))
+
+
+@app.post("/tickets/{ticket_id}/file", response_model=Ticket)
+async def file_ticket(ticket_id: str, user_id: str = Depends(current_user_id)):
+    """Send a draft ticket to the depository. It comes back filed (with
+    the depository's reference) or rejected (with its reason), and both
+    parties are notified either way. 403 unless the requesting user is
+    the ticket's trader; 409 if it isn't a draft; 503 if the depository
+    can't be reached (it stays a draft, to send again)."""
+    return await _ticket_call(ticket_desk.file(ticket_id, user_id))
+
+
+@app.get("/notifications/me", response_model=list[Notification])
+async def my_notifications(unread: bool = False, user_id: str = Depends(current_user_id)):
+    """The requesting user's ticket notifications, newest first;
+    `unread=true` for only those not yet marked read. The same ones are
+    pushed live over /ws/notifications."""
+    return await asyncio.to_thread(ticket_desk.store.notifications, user_id, unread)
+
+
+@app.post("/notifications/me/{notification_id}/read", status_code=204)
+async def read_notification(notification_id: int, user_id: str = Depends(current_user_id)):
+    """Mark one of the requesting user's notifications read; 404 if they
+    have none with that ID."""
+    if not await asyncio.to_thread(ticket_desk.store.mark_read, user_id, notification_id):
+        raise HTTPException(status_code=404, detail=f"No notification {notification_id}")
 
 
 @app.get("/instruments", response_model=list[Instrument])
@@ -1001,6 +1077,19 @@ async def market_websocket(websocket: WebSocket):
     """Live quotes for the symbols a client subscribes to. See
     app/gateways/websocket_gateway.py for the protocol."""
     await gateway.serve(websocket)
+
+
+@app.websocket("/ws/notifications")
+async def notifications_websocket(websocket: WebSocket):
+    """The connected user's ticket notifications, live. The user is the
+    X-User-Id header or the identity cookie; closed with 1008 if there is
+    neither. See app/gateways/notification_gateway.py for the protocol."""
+    user_id = websocket_user_id(websocket)
+    if user_id is None:
+        await websocket.close(code=1008, reason="No user: send X-User-Id or the identity cookie")
+        return
+    unread = len(await asyncio.to_thread(ticket_desk.store.notifications, user_id, True))
+    await notification_gateway.serve(websocket, user_id, unread=unread)
 
 
 async def consumer_loop() -> None:

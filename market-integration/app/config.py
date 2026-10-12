@@ -175,6 +175,11 @@ FI_BURST_RATE: float = float(os.getenv("FI_BURST_RATE", "0"))
 FI_SESSION_OPEN: str = os.getenv("FI_SESSION_OPEN", "09:00")
 FI_SESSION_CLOSE: str = os.getenv("FI_SESSION_CLOSE", "16:00")
 
+# Trade tickets (app/tickets/): business days from trade to settlement
+# for equities. Bills and bonds use GFIM's T+2 (Rule 28). Not yet
+# confirmed against the GSE/CSD rule book: check before relying on it.
+EQUITY_SETTLEMENT_LAG: int = int(os.getenv("EQUITY_SETTLEMENT_LAG", "3"))
+
 # Placeholders for when a real provider is chosen — unused by the mock.
 MARKET_PROVIDER_URL: str = os.getenv("MARKET_PROVIDER_URL", "")
 MARKET_PROVIDER_API_KEY: str = os.getenv("MARKET_PROVIDER_API_KEY", "")
