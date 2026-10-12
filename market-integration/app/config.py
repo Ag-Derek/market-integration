@@ -180,6 +180,30 @@ FI_SESSION_CLOSE: str = os.getenv("FI_SESSION_CLOSE", "16:00")
 # confirmed against the GSE/CSD rule book: check before relying on it.
 EQUITY_SETTLEMENT_LAG: int = int(os.getenv("EQUITY_SETTLEMENT_LAG", "3"))
 
+# How tickets reach the depository (app/connectors/depository.py):
+# "email" sends each as a PDF to DEPOSITORY_EMAIL (copied to
+# DEPOSITORY_EMAIL_CC, comma separated), from MAIL_FROM, through
+# SMTP_HOST; with no SMTP_HOST the emails are saved as .eml files in
+# DEPOSITORY_OUTBOX to send by hand. "mock" files them at once with a
+# made-up reference, for development and tests.
+DEPOSITORY_MODE: str = os.getenv("DEPOSITORY_MODE", "mock").strip().lower()
+if DEPOSITORY_MODE not in ("mock", "email"):
+    raise ValueError(f"DEPOSITORY_MODE must be 'mock' or 'email', got {DEPOSITORY_MODE!r}")
+DEPOSITORY_EMAIL: str = os.getenv("DEPOSITORY_EMAIL", "").strip()
+DEPOSITORY_EMAIL_CC: tuple[str, ...] = tuple(
+    a.strip() for a in os.getenv("DEPOSITORY_EMAIL_CC", "").split(",") if a.strip()
+)
+if DEPOSITORY_MODE == "email" and not DEPOSITORY_EMAIL:
+    raise ValueError("DEPOSITORY_MODE=email needs DEPOSITORY_EMAIL, the depository's address")
+MAIL_FROM: str = os.getenv("MAIL_FROM", "").strip()
+SMTP_HOST: str = os.getenv("SMTP_HOST", "").strip()
+SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USERNAME: str = os.getenv("SMTP_USERNAME", "")
+SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
+DEPOSITORY_OUTBOX: Path = Path(os.getenv("DEPOSITORY_OUTBOX", "outbox"))
+if DEPOSITORY_MODE == "email" and SMTP_HOST and not MAIL_FROM:
+    raise ValueError("Sending through SMTP_HOST needs MAIL_FROM, the address tickets are sent from")
+
 # Placeholders for when a real provider is chosen — unused by the mock.
 MARKET_PROVIDER_URL: str = os.getenv("MARKET_PROVIDER_URL", "")
 MARKET_PROVIDER_API_KEY: str = os.getenv("MARKET_PROVIDER_API_KEY", "")

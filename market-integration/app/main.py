@@ -8,13 +8,14 @@ from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Literal, Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Query, WebSocket
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, WebSocket
 from fastapi.responses import (
     FileResponse,
     HTMLResponse,
     JSONResponse,
     PlainTextResponse,
     RedirectResponse,
+    Response,
     StreamingResponse,
 )
 from pydantic import BaseModel, ConfigDict
@@ -30,7 +31,7 @@ from app.company.index import BASE_LEVEL, simulated_gse_ci
 from app.company.performance import Day, days
 from app.company.store import CompanyStore
 from app.connectors.composite_connector import CompositeConnector
-from app.connectors.depository import MockDepository
+from app.connectors.depository import Depository, EmailDepository, MockDepository, OutboxSender, SmtpSender
 from app.connectors.fixed_income_connector import MockFixedIncomeConnector
 from app.connectors.fixed_income_mock import MockFixedIncomeMarket
 from app.connectors.load_connector import LoadConnector
@@ -42,7 +43,7 @@ from app.fx.rates import RETRY_SECONDS as FX_RETRY_SECONDS, FxRates
 from app.fx.store import FxStore
 from app.gateways.notification_gateway import NotificationGateway
 from app.gateways.websocket_gateway import WebSocketGateway
-from app.identity import current_user_id, websocket_user_id
+from app.identity import current_user_id, set_user_cookie, valid_user_id, websocket_user_id
 from app.instruments import INSTRUMENTS
 from app.instruments.search import InstrumentSearch
 from app.instruments.store import InstrumentStore
@@ -57,7 +58,7 @@ from app.models.candle import INTERVALS, Candle
 from app.models.fx import FxRate
 from app.models.instrument import AssetClass, Instrument
 from app.models.market_data import MarketData
-from app.models.ticket import Notification, Ticket, TicketRequest, TicketStatus
+from app.models.ticket import Notification, Ticket, TicketConfirmation, TicketRequest, TicketStatus
 from app.processors.market_processor import MarketProcessor
 from app.processors.movers import MoverType, change_percent, rank_movers
 from app.queue.market_buffer import MarketDataBuffer
@@ -65,6 +66,7 @@ from app.session.calendar import load_calendar
 from app.session.status import market_status
 from app.tickets import TicketError
 from app.tickets.desk import TicketDesk
+from app.tickets.pdf import render_ticket_pdf
 from app.tickets.store import TicketStore
 from app.validation.market_validator import ValidatingStream
 from app.watchlists import DEFAULT_WATCHLIST, MAX_PINS, WatchlistError, validate as validate_watchlist
@@ -222,13 +224,26 @@ watchlist_store = WatchlistStore(config.DB_PATH)
 # Bank of Ghana interbank FX fixes for showing prices in other
 # currencies: pulled from BoG's site and kept across restarts; see app/fx/.
 fx_rates = FxRates(FxStore(config.DB_PATH), BankOfGhanaClient())
+def _depository() -> Depository:
+    """Per DEPOSITORY_MODE: by email (through SMTP, or saved to the
+    outbox to send by hand), or the mock."""
+    if config.DEPOSITORY_MODE == "mock":
+        return MockDepository()
+    sender = (
+        SmtpSender(config.SMTP_HOST, config.SMTP_PORT, config.SMTP_USERNAME, config.SMTP_PASSWORD)
+        if config.SMTP_HOST else OutboxSender(config.DEPOSITORY_OUTBOX)
+    )
+    return EmailDepository(
+        config.DEPOSITORY_EMAIL, config.MAIL_FROM or "tickets@localhost", sender, cc=config.DEPOSITORY_EMAIL_CC,
+    )
+
+
 # Trade tickets filed with the depository, and notifications to both
-# parties (app/tickets/). User data, kept across restarts. The depository
-# is a mock until we have the CSD's interface.
+# parties (app/tickets/). User data, kept across restarts.
 notification_gateway = NotificationGateway()
 ticket_desk = TicketDesk(
     TicketStore(config.DB_PATH),
-    MockDepository(),
+    _depository(),
     notification_gateway,
     instruments=INSTRUMENTS,
     calendar=calendar,
@@ -379,9 +394,55 @@ async def put_my_watchlist(update: WatchlistUpdate, user_id: str = Depends(curre
     return _watchlist_body(user_id, saved)
 
 
+class IdentityUpdate(BaseModel):
+    """PUT /identity/me."""
+    model_config = ConfigDict(extra="forbid")
+
+    user_id: str
+
+
+@app.get("/identity/me")
+async def get_identity(user_id: str = Depends(current_user_id)):
+    """Who the requesting user is (app/identity.py): the name put on
+    tickets they write and the one their counterparties type."""
+    return {"user_id": user_id}
+
+
+@app.put("/identity/me")
+async def put_identity(update: IdentityUpdate, request: Request, response: Response):
+    """Use `user_id` for this browser from now on (a cookie). A stand-in
+    until Symphony sign-in: it is no more trusted than X-User-Id. 400 for
+    an ID that isn't 1-128 letters, digits or . _ @ : -."""
+    user_id = update.user_id.strip()
+    if not valid_user_id(user_id):
+        raise HTTPException(status_code=400, detail="A user ID is 1-128 letters, digits or . _ @ : -")
+    set_user_cookie(request, response, user_id)
+    return {"user_id": user_id}
+
+
 async def _ticket_call(call):
     try:
         return await call
+    except TicketError as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e))
+
+
+@app.get("/tickets", response_class=HTMLResponse)
+async def tickets_page():
+    """The Trade Tickets window: write a ticket, file it, print it and
+    follow it to the depository's reply, with live notifications. Opened
+    from the Fixed Income tab and bond pages with ?symbol=, &price= and
+    &quantity= to start a ticket for that security."""
+    return (STATIC_DIR / "tickets.html").read_text(encoding="utf-8")
+
+
+@app.post("/tickets/preview", response_model=Ticket)
+async def preview_ticket(request: TicketRequest, user_id: str = Depends(current_user_id)):
+    """What POST /tickets would write, without saving it: settlement
+    date and amounts for the form to show while it is filled in. Same
+    422s as POST /tickets."""
+    try:
+        return ticket_desk.preview(request, user_id)
     except TicketError as e:
         raise HTTPException(status_code=e.status_code, detail=str(e))
 
@@ -413,12 +474,42 @@ async def get_ticket(ticket_id: str, user_id: str = Depends(current_user_id)):
 
 @app.post("/tickets/{ticket_id}/file", response_model=Ticket)
 async def file_ticket(ticket_id: str, user_id: str = Depends(current_user_id)):
-    """Send a draft ticket to the depository. It comes back filed (with
-    the depository's reference) or rejected (with its reason), and both
-    parties are notified either way. 403 unless the requesting user is
-    the ticket's trader; 409 if it isn't a draft; 503 if the depository
-    can't be reached (it stays a draft, to send again)."""
+    """Send a draft ticket to the depository. Directly, it comes back
+    filed (with the depository's reference) or rejected (with its
+    reason); by email (DEPOSITORY_MODE=email), it comes back sent, the
+    PDF emailed, until the depository's reply is recorded at
+    /tickets/{id}/confirmation. Both parties are notified at each step.
+    403 unless the requesting user is the ticket's trader; 409 if it
+    isn't a draft; 503 if the depository or mail server can't be reached
+    (it stays a draft, to send again)."""
     return await _ticket_call(ticket_desk.file(ticket_id, user_id))
+
+
+@app.post("/tickets/{ticket_id}/confirmation", response_model=Ticket)
+async def confirm_ticket(
+    ticket_id: str, confirmation: TicketConfirmation, user_id: str = Depends(current_user_id),
+):
+    """Record the depository's reply to an emailed ticket: {"accepted":
+    true, "reference": ...} files it, {"accepted": false, "reason": ...}
+    rejects it; both parties are notified. 403 unless the requesting user
+    is the ticket's trader; 409 unless the ticket is sent (waiting for
+    the reply)."""
+    return await _ticket_call(ticket_desk.confirm(ticket_id, user_id, confirmation))
+
+
+@app.get("/tickets/{ticket_id}/pdf")
+async def ticket_pdf(ticket_id: str, download: bool = False, user_id: str = Depends(current_user_id)):
+    """The ticket as a printable A4 PDF, as it stands now: the same
+    document the depository is emailed. Opens in the browser to print;
+    `download=true` saves it instead. For the trader and counterparty
+    only."""
+    ticket = await _ticket_call(ticket_desk.get(ticket_id, user_id))
+    pdf = await asyncio.to_thread(render_ticket_pdf, ticket)
+    disposition = "attachment" if download else "inline"
+    return Response(
+        content=pdf, media_type="application/pdf",
+        headers={"Content-Disposition": f'{disposition}; filename="{ticket.id}.pdf"'},
+    )
 
 
 @app.get("/notifications/me", response_model=list[Notification])
