@@ -190,5 +190,177 @@
         "dividend_per_share": {"value": 0.0, "source": "No dividend: the value added statement in the ADB 2023 Annual Report (appendix I, p. 108) shows no dividends to shareholders in 2022", "as_of": "2022-12-31"}
       }
     ]
+  },
+  {
+    "symbol": "ACCESS",
+    "profile": {
+      "description_short": {"value": "Ghanaian universal bank providing corporate and retail banking; a subsidiary of Nigeria's Access Bank Plc.", "source": "Written by us from the Access Bank (Ghana) Plc 2025 Annual Report (reporting entity note)", "as_of": "2025-12-31"},
+      "description_full": {"value": "Access Bank (Ghana) Plc holds a universal banking licence from the Bank of Ghana. Its principal activity is corporate and retail banking. It was incorporated in Ghana in July 2008 and has been listed on the Ghana Stock Exchange since December 2016. Its parent, Access Bank Plc of Nigeria, held 93.4% of its shares at the end of 2025, with the bank's staff share scheme holding a further 2.6%.", "source": "Written by us from the Access Bank (Ghana) Plc 2025 Annual Report (reporting entity note; shareholder information) and the GSE listed-company page (incorporation and listing dates)", "as_of": "2025-12-31"},
+      "sector": {"value": "Banking", "source": "Our classification, from the reporting entity note in the Access Bank (Ghana) Plc 2025 Annual Report", "as_of": "2025-12-31"},
+      "industry": {"value": "Commercial banking", "source": "Our classification, from the reporting entity note in the Access Bank (Ghana) Plc 2025 Annual Report (corporate and retail banking)", "as_of": "2025-12-31"},
+      "website": {"value": "https://www.ghana.accessbankplc.com", "source": "GSE listed-company page for ACCESS", "as_of": "2026-10-12"},
+      "headquarters_city": {"value": "Accra", "source": "Access Bank (Ghana) Plc 2025 Annual Report, corporate information: Starlets '91 Road, opposite Accra Sports Stadium, Osu, Accra", "as_of": "2025-12-31"},
+      "headquarters_country": {"value": "Ghana", "source": "Access Bank (Ghana) Plc 2025 Annual Report, reporting entity note", "as_of": "2025-12-31"},
+      "shares_outstanding": {"value": 173947596, "source": "Access Bank (Ghana) Plc 2025 Annual Report, note 28 (capital and reserves) and shareholder information. The GSE listed-company page still shows 118,093,134", "as_of": "2025-12-31"},
+      "listing_date": {"value": "2016-12-21", "source": "GSE listed-company page for ACCESS", "as_of": "2026-10-12"},
+      "registrar": {"value": "Central Securities Depository (Gh) Limited", "source": "Access Bank (Ghana) Plc 2024 Annual Report, notice of the 17th AGM (p. 157)", "as_of": "2025-05-29"}
+    },
+    "officers": [
+      {"name": "Ama Sarpong Bawuah", "role": "Chairperson", "display_order": 1, "source": "Access Bank (Ghana) Plc 2025 Annual Report, corporate information", "as_of": "2025-12-31"},
+      {"name": "Pearl Nkrumah", "role": "Managing Director", "display_order": 2, "source": "Access Bank (Ghana) Plc 2025 Annual Report, board of directors: Managing Director from 1 October 2025", "as_of": "2025-12-31"},
+      {"name": "Akosua Biama Aboagye", "role": "Chief Finance Officer", "display_order": 3, "source": "Access Bank (Ghana) Plc 2025 Annual Report, management team", "as_of": "2025-12-31"},
+      {"name": "Helen De Cardi Nelson", "role": "Company Secretary", "display_order": 4, "source": "Access Bank (Ghana) Plc 2025 Annual Report, corporate information", "as_of": "2025-12-31"}
+    ],
+    "financials": [
+      {
+        "fiscal_year": 2025, "currency": "GHS",
+        "revenue": {"value": 1462579000, "source": "Access Bank (Ghana) Plc 2025 Annual Report, financial highlights (net operating income)", "as_of": "2025-12-31"},
+        "net_income": {"value": 286469000, "source": "Access Bank (Ghana) Plc 2025 Annual Report, financial highlights (profit after income tax)", "as_of": "2025-12-31"},
+        "eps": {"value": 1.65, "source": "Access Bank (Ghana) Plc 2025 Annual Report, note 15: basic EPS (165 pesewas)", "as_of": "2025-12-31"},
+        "book_value": {"value": 2044432000, "source": "Access Bank (Ghana) Plc 2025 Annual Report, statement of financial position (total equity)", "as_of": "2025-12-31"},
+        "dividend_per_share": {"value": 0.6241, "source": "Access Bank (Ghana) Plc 2025 Annual Report, note 29: recommended by the Board (GHS 108.55m), to be tabled at the AGM subject to Bank of Ghana approval", "as_of": "2026-04-30"}
+      },
+      {
+        "fiscal_year": 2024, "currency": "GHS",
+        "revenue": {"value": 1967987000, "source": "Access Bank (Ghana) Plc 2025 Annual Report, financial highlights (2024 net operating income)", "as_of": "2024-12-31"},
+        "net_income": {"value": 536912000, "source": "Access Bank (Ghana) Plc 2025 Annual Report, financial highlights (2024 profit after income tax)", "as_of": "2024-12-31"},
+        "eps": {"value": 3.09, "source": "Access Bank (Ghana) Plc 2025 Annual Report, note 15: 2024 basic EPS (309 pesewas)", "as_of": "2024-12-31"},
+        "book_value": {"value": 1757721000, "source": "Access Bank (Ghana) Plc 2025 Annual Report, statement of financial position (2024 total equity)", "as_of": "2024-12-31"},
+        "dividend_per_share": {"value": 0.3645, "source": "Access Bank (Ghana) Plc 2025 Annual Report, note 29 and statement of changes in equity: GHS 63.4m paid in 2025. The Board had recommended GHS 0.8890 in the 2024 Annual Report (note 29)", "as_of": "2025-12-31"}
+      },
+      {
+        "fiscal_year": 2023, "currency": "GHS",
+        "revenue": {"value": 1613156000, "source": "Access Bank (Ghana) Plc 2024 Annual Report, financial highlights (2023 net operating income)", "as_of": "2023-12-31"},
+        "net_income": {"value": 618465000, "source": "Access Bank (Ghana) Plc 2025 Annual Report, five-year financial summary", "as_of": "2023-12-31"},
+        "eps": {"value": 3.56, "source": "Access Bank (Ghana) Plc 2025 Annual Report, five-year financial summary: basic EPS (356 pesewas)", "as_of": "2023-12-31"},
+        "book_value": {"value": 1402737000, "source": "Access Bank (Ghana) Plc 2025 Annual Report, five-year financial summary (total equity)", "as_of": "2023-12-31"},
+        "dividend_per_share": {"value": 0.0, "source": "No dividend: Access Bank (Ghana) Plc 2024 Annual Report, note 29 (\"2023: Nil\")", "as_of": "2024-12-31"}
+      },
+      {
+        "fiscal_year": 2022, "currency": "GHS",
+        "net_income": {"value": -338135000, "source": "Access Bank (Ghana) Plc 2025 Annual Report, five-year financial summary (loss for the period)", "as_of": "2022-12-31"},
+        "eps": {"value": -1.94, "source": "Access Bank (Ghana) Plc 2025 Annual Report, five-year financial summary: basic EPS (-194 pesewas)", "as_of": "2022-12-31"},
+        "book_value": {"value": 1014203000, "source": "Access Bank (Ghana) Plc 2025 Annual Report, five-year financial summary (total equity)", "as_of": "2022-12-31"}
+      },
+      {
+        "fiscal_year": 2021, "currency": "GHS",
+        "net_income": {"value": 321578000, "source": "Access Bank (Ghana) Plc 2025 Annual Report, five-year financial summary", "as_of": "2021-12-31"},
+        "eps": {"value": 1.85, "source": "Access Bank (Ghana) Plc 2025 Annual Report, five-year financial summary: basic EPS (185 pesewas)", "as_of": "2021-12-31"},
+        "book_value": {"value": 1362569000, "source": "Access Bank (Ghana) Plc 2025 Annual Report, five-year financial summary (total equity)", "as_of": "2021-12-31"}
+      }
+    ]
+  },
+  {
+    "symbol": "ASG",
+    "profile": {
+      "description_short": {"value": "Gold miner operating the Bibiani and Chirano gold mines in Ghana, incorporated in British Columbia, Canada.", "source": "Written by us from the Asante Gold Corporation Annual Information Form for the period ended December 31, 2025", "as_of": "2026-03-31"},
+      "description_full": {"value": "Asante Gold Corporation operates two gold mines in Ghana, Bibiani and Chirano, through 90%-owned subsidiaries. It also explores for further resources, including the Kubi Gold Project and other concessions on the Bibiani and Ashanti gold belts. The company was incorporated in British Columbia in 2011 and has its head office in Vancouver. Its shares trade on the TSX Venture Exchange (ASE), the Ghana Stock Exchange (ASG), where they were listed by introduction in June 2022, the Frankfurt Stock Exchange and the OTCQX. It reports in US dollars, and in 2025 it changed its financial year end from January 31 to December 31.", "source": "Written by us from the Asante Gold Corporation AIF for the period ended December 31, 2025 (corporate structure), the audited consolidated financial statements for the 11 months ended December 31, 2025 (note 1) and the July 27, 2026 management change release", "as_of": "2026-07-27"},
+      "sector": {"value": "Mining", "source": "Our classification, from the nature of operations note in the Asante Gold Corporation financial statements for the 11 months ended December 31, 2025", "as_of": "2025-12-31"},
+      "industry": {"value": "Gold mining", "source": "Our classification, from the nature of operations note in the Asante Gold Corporation financial statements for the 11 months ended December 31, 2025", "as_of": "2025-12-31"},
+      "website": {"value": "https://www.asantegold.com", "source": "Asante Gold Corporation website", "as_of": "2026-10-12"},
+      "headquarters_city": {"value": "Vancouver", "source": "Asante Gold Corporation AIF for the period ended December 31, 2025, section 3.2: head and registered office in Vancouver, British Columbia", "as_of": "2026-03-31"},
+      "headquarters_country": {"value": "Canada", "source": "Asante Gold Corporation AIF for the period ended December 31, 2025, section 3.2", "as_of": "2026-03-31"},
+      "employees": {"value": 1452, "source": "Asante Gold Corporation AIF for the period ended December 31, 2025: full-time employees", "as_of": "2025-12-31"},
+      "shares_outstanding": {"value": 904549178, "source": "Asante Gold Corporation condensed interim consolidated financial statements for the six months ended June 30, 2026, statement of changes in shareholders' equity", "as_of": "2026-06-30"},
+      "listing_date": {"value": "2022-06-29", "source": "Asante Gold press release of June 29, 2022 on commencing trading on the GSE (listing by introduction); Graphic Online, \"Asante Gold commences trading on local bourse\"", "as_of": "2022-06-29"},
+      "registrar": {"value": "Computershare Investor Services Inc.", "source": "Asante Gold Corporation AIF for the period ended December 31, 2025, section 15 (transfer agent and registrar)", "as_of": "2026-03-31"}
+    },
+    "officers": [
+      {"name": "Malik Easah", "role": "Executive Chairman", "display_order": 1, "source": "Asante Gold management change release, July 27, 2026", "as_of": "2026-07-27"},
+      {"name": "Campbell Baird", "role": "Acting Chief Executive Officer", "display_order": 2, "source": "Asante Gold website, executive team; acting CEO from May 19, 2026 (release of that date)", "as_of": "2026-10-12"},
+      {"name": "Dindiok Chialin", "role": "Interim Chief Financial Officer", "display_order": 3, "source": "Asante Gold management change release, July 27, 2026: interim CFO after David Wiens left on August 14, 2026", "as_of": "2026-08-14"},
+      {"name": "Charlotte May", "role": "Corporate Secretary", "display_order": 4, "source": "Asante Gold Corporation AIF for the period ended December 31, 2025, section 10 (directors and officers)", "as_of": "2026-03-31"}
+    ],
+    "financials": [
+      {
+        "fiscal_year": 2025, "currency": "USD",
+        "revenue": {"value": 482594000, "source": "Asante Gold audited consolidated financial statements for the 11 months ended December 31, 2025 (a short year after the change of year end), statement of loss", "as_of": "2025-12-31"},
+        "net_income": {"value": -334437000, "source": "Asante Gold audited financial statements for the 11 months ended December 31, 2025: net loss attributable to shareholders of the Company (US$347.7m including non-controlling interest)", "as_of": "2025-12-31"},
+        "eps": {"value": -0.55, "source": "Asante Gold audited financial statements for the 11 months ended December 31, 2025: basic and diluted loss per share (US$)", "as_of": "2025-12-31"},
+        "book_value": {"value": 7035000, "source": "Asante Gold audited financial statements for the 11 months ended December 31, 2025: total shareholders' equity (US$3.2m attributable to shareholders of the Company)", "as_of": "2025-12-31"},
+        "dividend_per_share": {"value": 0.0, "source": "No dividend: Asante Gold AIF for the period ended December 31, 2025 (\"The Company has not paid dividends on its shares\")", "as_of": "2026-03-31"}
+      },
+      {
+        "fiscal_year": 2024, "currency": "USD",
+        "revenue": {"value": 458876000, "source": "Asante Gold audited consolidated financial statements for the year ended January 31, 2025 (fiscal year February 2024 to January 2025), statement of loss", "as_of": "2025-01-31"},
+        "net_income": {"value": -75199000, "source": "Asante Gold audited financial statements for the year ended January 31, 2025: net loss attributable to shareholders of the Company", "as_of": "2025-01-31"},
+        "eps": {"value": -0.16, "source": "Asante Gold audited financial statements for the year ended January 31, 2025: basic and diluted loss per share (US$)", "as_of": "2025-01-31"},
+        "book_value": {"value": 34844000, "source": "Asante Gold audited financial statements for the year ended January 31, 2025: total shareholders' equity", "as_of": "2025-01-31"},
+        "dividend_per_share": {"value": 0.0, "source": "No dividend: Asante Gold AIF for the period ended December 31, 2025 (\"The Company has not paid dividends on its shares\")", "as_of": "2026-03-31"}
+      },
+      {
+        "fiscal_year": 2023, "currency": "USD",
+        "revenue": {"value": 426126000, "source": "Asante Gold audited financial statements for the year ended January 31, 2025: comparative for the year ended January 31, 2024 (fiscal year February 2023 to January 2024), as restated (note 2(d))", "as_of": "2024-01-31"},
+        "net_income": {"value": -97386000, "source": "Asante Gold audited financial statements for the year ended January 31, 2025: comparative net loss attributable to shareholders for the year ended January 31, 2024", "as_of": "2024-01-31"},
+        "eps": {"value": -0.23, "source": "Asante Gold audited financial statements for the year ended January 31, 2025: comparative basic and diluted loss per share for the year ended January 31, 2024 (US$)", "as_of": "2024-01-31"},
+        "book_value": {"value": 42528000, "source": "Asante Gold audited financial statements for the year ended January 31, 2025: total shareholders' equity at January 31, 2024 (restated)", "as_of": "2024-01-31"},
+        "dividend_per_share": {"value": 0.0, "source": "No dividend: Asante Gold AIF for the period ended December 31, 2025 (\"The Company has not paid dividends on its shares\")", "as_of": "2026-03-31"}
+      }
+    ]
+  },
+  {
+    "symbol": "CAL",
+    "profile": {
+      "description_short": {"value": "Ghanaian universal bank serving corporate, SME and personal customers, with an asset management arm.", "source": "Written by us from the CalBank PLC 2025 Annual Report (reporting entity note, p. 70; our company, p. 42)", "as_of": "2026-02-19"},
+      "description_full": {"value": "CalBank PLC holds a universal banking licence in Ghana. It provides corporate banking, including project, structured and trade finance, as well as commercial banking for small and medium-sized businesses and personal banking for individuals. At the end of 2025 it had 38 branches in nine regions and about 2,500 agents. Its subsidiary CalAsset Management Company Limited manages assets for third parties, and the group also has a nominee company and a pension trustee. The bank began operating in 1990 and has been listed on the Ghana Stock Exchange since November 2004. Losses in 2022 and 2023 left its equity negative at the end of 2023. In 2025 it raised GHS 900 million by issuing about 3.1 billion new shares through a rights issue and private placement, which brought its capital adequacy ratio back to 19.8%. SSNIT is its largest shareholder, with about 35% of the shares.", "source": "Written by us from the CalBank PLC 2025 Annual Report (our company, p. 42; report of the directors, subsidiaries; five-year summary, p. 3; note 37(a) on stated capital; twenty largest shareholders, p. 166) and the GSE listed-company page (listing date)", "as_of": "2026-02-19"},
+      "sector": {"value": "Banking", "source": "Our classification, from the reporting entity note in the CalBank PLC 2025 Annual Report (p. 70)", "as_of": "2025-12-31"},
+      "industry": {"value": "Commercial banking", "source": "Our classification, from the reporting entity note in the CalBank PLC 2025 Annual Report (universal banking licence, p. 70)", "as_of": "2025-12-31"},
+      "website": {"value": "https://www.calbank.net", "source": "GSE listed-company page for CAL", "as_of": "2026-10-13"},
+      "headquarters_city": {"value": "Accra", "source": "CalBank PLC 2025 Annual Report, corporate information (p. 4): registered office, 23 Independence Avenue, Accra", "as_of": "2026-02-19"},
+      "headquarters_country": {"value": "Ghana", "source": "CalBank PLC 2025 Annual Report, corporate information (p. 4)", "as_of": "2026-02-19"},
+      "employees": {"value": 990, "source": "CalBank PLC 2025 Annual Report, personnel expenses note: group average number of employees (bank 909)", "as_of": "2025-12-31"},
+      "shares_outstanding": {"value": 4233901522, "source": "CalBank PLC 2025 Annual Report, twenty largest shareholders (p. 166, grand total) and note 37(a): 1,038,729 of these were held in treasury. The GSE listed-company page still shows 627,539,000", "as_of": "2025-12-31"},
+      "listing_date": {"value": "2004-11-05", "source": "GSE listed-company page for CAL", "as_of": "2026-10-13"},
+      "registrar": {"value": "Central Securities Depository (Gh) Limited", "source": "CalBank PLC 2025 Annual Report, corporate information (p. 4)", "as_of": "2026-02-19"}
+    },
+    "officers": [
+      {"name": "Daniel Nii Kwei-Kumah Sackey", "role": "Chairman", "display_order": 1, "source": "CalBank PLC 2025 Annual Report, corporate information (p. 4): Chairman, appointed March 2025", "as_of": "2026-02-19"},
+      {"name": "Carl Selasi Asem", "role": "Managing Director", "display_order": 2, "source": "CalBank PLC 2025 Annual Report, corporate information (p. 4) and statement of financial position (signed 19 February 2026)", "as_of": "2026-02-19"},
+      {"name": "Johnson Delali Oware", "role": "Deputy Managing Director", "display_order": 3, "source": "CalBank PLC 2025 Annual Report, corporate information (p. 4): appointed March 2025", "as_of": "2026-02-19"},
+      {"name": "Joshua Stachys Kofi Denteh", "role": "Financial Controller", "display_order": 4, "source": "CalBank PLC 2025 Annual Report, profile of executive management (p. 10): Financial Controller from January 2025", "as_of": "2026-02-19"},
+      {"name": "Veritas Advisors Limited", "role": "Company Secretary", "display_order": 5, "source": "CalBank PLC 2025 Annual Report, corporate information (p. 4)", "as_of": "2026-02-19"}
+    ],
+    "financials": [
+      {
+        "fiscal_year": 2025, "currency": "GHS",
+        "revenue": {"value": 886039000, "source": "CalBank PLC 2025 Annual Report, consolidated statement of profit or loss (group operating income)", "as_of": "2025-12-31"},
+        "net_income": {"value": 304911000, "source": "CalBank PLC 2025 Annual Report, consolidated statement of profit or loss (group profit for the year)", "as_of": "2025-12-31"},
+        "eps": {"value": 0.168, "source": "CalBank PLC 2025 Annual Report, note 20: group basic EPS", "as_of": "2025-12-31"},
+        "book_value": {"value": 1582169000, "source": "CalBank PLC 2025 Annual Report, consolidated statement of financial position (p. 65), group total shareholders' equity (bank only: GHS 1,528.4m)", "as_of": "2025-12-31"},
+        "dividend_per_share": {"value": 0.0, "source": "No dividend: CalBank PLC 2025 Annual Report, note 21 (\"The directors do not recommend the payment of a dividend for the financial year 2025\")", "as_of": "2026-02-19"}
+      },
+      {
+        "fiscal_year": 2024, "currency": "GHS",
+        "revenue": {"value": 802511000, "source": "CalBank PLC 2025 Annual Report, consolidated statement of profit or loss, group 2024 comparative operating income", "as_of": "2024-12-31"},
+        "net_income": {"value": 267720000, "source": "CalBank PLC 2025 Annual Report, consolidated statement of profit or loss, group 2024 comparative", "as_of": "2024-12-31"},
+        "eps": {"value": 0.207, "source": "CalBank PLC 2025 Annual Report, note 20: group 2024 basic EPS", "as_of": "2024-12-31"},
+        "book_value": {"value": 272564000, "source": "CalBank PLC 2025 Annual Report, consolidated statement of financial position (p. 65), group 2024 total shareholders' equity", "as_of": "2024-12-31"},
+        "dividend_per_share": {"value": 0.0, "source": "No dividend: CalBank PLC 2025 Annual Report, note 21 (\"2024: Nil\")", "as_of": "2026-02-19"}
+      },
+      {
+        "fiscal_year": 2023, "currency": "GHS",
+        "revenue": {"value": 832714000, "source": "CalBank PLC 2025 Annual Report, five-year consolidated financial summary (p. 3), operating income", "as_of": "2023-12-31"},
+        "net_income": {"value": -671068000, "source": "CalBank PLC 2025 Annual Report, five-year consolidated financial summary (p. 3), loss after tax", "as_of": "2023-12-31"},
+        "eps": {"value": -1.0711, "source": "CalBank PLC 2025 Annual Report, five-year consolidated financial summary (p. 3); not adjusted for the 2024 bonus issue", "as_of": "2023-12-31"},
+        "book_value": {"value": -141002000, "source": "CalBank PLC 2025 Annual Report, five-year consolidated financial summary (p. 3), total shareholders' equity (negative)", "as_of": "2023-12-31"},
+        "dividend_per_share": {"value": 0.0, "source": "No dividend: CalBank PLC 2025 Annual Report, five-year consolidated financial summary (p. 3), dividends per share nil", "as_of": "2023-12-31"}
+      },
+      {
+        "fiscal_year": 2022, "currency": "GHS",
+        "revenue": {"value": 791664000, "source": "CalBank PLC 2025 Annual Report, five-year consolidated financial summary (p. 3), operating income", "as_of": "2022-12-31"},
+        "net_income": {"value": -809810000, "source": "CalBank PLC 2025 Annual Report, five-year consolidated financial summary (p. 3), loss after tax (after domestic debt exchange impairments)", "as_of": "2022-12-31"},
+        "eps": {"value": -1.2926, "source": "CalBank PLC 2025 Annual Report, five-year consolidated financial summary (p. 3); not adjusted for the 2024 bonus issue", "as_of": "2022-12-31"},
+        "book_value": {"value": 531225000, "source": "CalBank PLC 2025 Annual Report, five-year consolidated financial summary (p. 3), total shareholders' equity", "as_of": "2022-12-31"},
+        "dividend_per_share": {"value": 0.0, "source": "No dividend: CalBank PLC 2025 Annual Report, five-year consolidated financial summary (p. 3), dividends per share nil", "as_of": "2022-12-31"}
+      },
+      {
+        "fiscal_year": 2021, "currency": "GHS",
+        "revenue": {"value": 745723000, "source": "CalBank PLC 2025 Annual Report, five-year consolidated financial summary (p. 3), operating income", "as_of": "2021-12-31"},
+        "net_income": {"value": 222852000, "source": "CalBank PLC 2025 Annual Report, five-year consolidated financial summary (p. 3), profit after tax", "as_of": "2021-12-31"},
+        "eps": {"value": 0.3564, "source": "CalBank PLC 2025 Annual Report, five-year consolidated financial summary (p. 3)", "as_of": "2021-12-31"},
+        "book_value": {"value": 1286682000, "source": "CalBank PLC 2025 Annual Report, five-year consolidated financial summary (p. 3), total shareholders' equity", "as_of": "2021-12-31"},
+        "dividend_per_share": {"value": 0.11, "source": "CalBank PLC 2025 Annual Report, five-year consolidated financial summary (p. 3), dividends per share", "as_of": "2021-12-31"}
+      }
+    ]
   }
 ]
