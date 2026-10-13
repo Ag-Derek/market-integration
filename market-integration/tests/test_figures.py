@@ -244,10 +244,10 @@ def test_description_has_performance_and_beta_from_the_stored_candles(client):
     assert perf["total_return_12m"]["dividends_recorded"] is True  # from the seed
     assert calc["beta"]["index"] == "GSE-CI (simulated)" and calc["beta"]["observations"] >= 30
     assert calc["market_cap"]["value"] > 0 and calc["pe_ratio"]["value"] > 0
-    # Nothing maintained for CAL, so valuation says why it's empty.
-    cal = client.get("/instruments/CAL/description").json()["calculated"]
-    assert cal["market_cap"]["reason"] == "no shares outstanding recorded"
-    assert cal["pe_ratio"]["reason"] == "no eps recorded"
+    # Nothing maintained for ETI, so valuation says why it's empty.
+    eti = client.get("/instruments/ETI/description").json()["calculated"]
+    assert eti["market_cap"]["reason"] == "no shares outstanding recorded"
+    assert eti["pe_ratio"]["reason"] == "no eps recorded"
 
 
 def test_simulated_gse_ci_endpoint(client):
@@ -261,7 +261,7 @@ def test_simulated_gse_ci_endpoint(client):
 def test_quote_cards_get_calculated_market_cap_not_a_placeholder(client):
     from app import main
 
-    assert main.processor.get_latest("CAL").market_cap is None  # no shares recorded
+    assert main.processor.get_latest("ETI").market_cap is None  # no shares recorded
     shares = main.COMPANIES["MTNGH"].profile.shares_outstanding.value  # from the seed
 
     def priced():
