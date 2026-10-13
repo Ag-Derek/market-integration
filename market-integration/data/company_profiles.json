@@ -362,5 +362,69 @@
         "dividend_per_share": {"value": 0.11, "source": "CalBank PLC 2025 Annual Report, five-year consolidated financial summary (p. 3), dividends per share", "as_of": "2021-12-31"}
       }
     ]
+  },
+  {
+    "symbol": "BOPP",
+    "profile": {
+      "description_short": {"value": "Oil palm grower and processor producing crude palm oil and palm kernel oil in Ghana; a subsidiary of Wilmar.", "source": "Written by us from the Benso Oil Palm Plantation PLC 2025 Annual Report (report of the directors, principal activities and parent company, p. 14)", "as_of": "2026-04-16"},
+      "description_full": {"value": "Benso Oil Palm Plantation PLC (BOPP) grows oil palm and processes the fruit at its own mill into crude palm oil and palm kernel oil. Its plantation at Adum Banso Estate had a mature area of 4,484 hectares at the end of 2025. It also buys fruit from smallholder and outgrower farmers, and has funded the development of about 3,030 hectares of smallholder and outgrower plantings around the estate. The company has been listed on the Ghana Stock Exchange since April 2004. Wilmar Africa Limited owns 76.6% of its shares, and its ultimate parent is Wilmar International Limited, which is listed in Singapore.", "source": "Written by us from the Benso Oil Palm Plantation PLC 2025 Annual Report (report of the directors, p. 14; biological assets and smallholder notes; twenty largest shareholders, p. 77) and the GSE listed-company page (listing date)", "as_of": "2026-04-16"},
+      "sector": {"value": "Agriculture", "source": "Our classification, from principal activities in the Benso Oil Palm Plantation PLC 2025 Annual Report (p. 14)", "as_of": "2025-12-31"},
+      "industry": {"value": "Palm oil production", "source": "Our classification, from principal activities in the Benso Oil Palm Plantation PLC 2025 Annual Report (p. 14)", "as_of": "2025-12-31"},
+      "website": {"value": "https://boppplc.com", "source": "Company website, which hosts its annual reports (the 2025 Annual Report's proxy notes still give www.boppltd.com)", "as_of": "2026-10-13"},
+      "headquarters_city": {"value": "Adum Banso", "source": "Benso Oil Palm Plantation PLC 2025 Annual Report, corporate information (p. 3): registered office, Adum Banso Estate, P.O. Box 470, Takoradi", "as_of": "2026-04-16"},
+      "headquarters_country": {"value": "Ghana", "source": "Benso Oil Palm Plantation PLC 2025 Annual Report, notes to the financial statements (reporting entity)", "as_of": "2026-04-16"},
+      "employees": {"value": 499, "source": "Benso Oil Palm Plantation PLC 2025 Annual Report, staff costs note: average number of persons employed during the year", "as_of": "2025-12-31"},
+      "shares_outstanding": {"value": 34800000, "source": "Benso Oil Palm Plantation PLC 2025 Annual Report, twenty largest shareholders (p. 77, grand total) and note 26; matches the GSE listed-company page (34.80 million)", "as_of": "2025-12-31"},
+      "listing_date": {"value": "2004-04-16", "source": "GSE listed-company page for BOPP", "as_of": "2026-10-13"},
+      "registrar": {"value": "NTHC Limited", "source": "Benso Oil Palm Plantation PLC 2025 Annual Report, corporate information (p. 3)", "as_of": "2026-04-16"}
+    },
+    "officers": [
+      {"name": "Alfred Mahamadu Braimah", "role": "Chairman", "display_order": 1, "source": "Benso Oil Palm Plantation PLC 2025 Annual Report, corporate information (p. 3)", "as_of": "2026-04-16"},
+      {"name": "Santosh Pillai", "role": "Managing Director", "display_order": 2, "source": "Benso Oil Palm Plantation PLC 2025 Annual Report, corporate information (p. 3) and statement of financial position (signed 16 April 2026)", "as_of": "2026-04-16"},
+      {"name": "Dehands Services Limited", "role": "Company Secretary", "display_order": 3, "source": "Benso Oil Palm Plantation PLC 2025 Annual Report, corporate information (p. 3)", "as_of": "2026-04-16"}
+    ],
+    "financials": [
+      {
+        "fiscal_year": 2025, "currency": "GHS",
+        "revenue": {"value": 369017000, "source": "Benso Oil Palm Plantation PLC 2025 Annual Report, statement of profit or loss (p. 29), revenue from contracts with customers", "as_of": "2025-12-31"},
+        "net_income": {"value": 84544000, "source": "Benso Oil Palm Plantation PLC 2025 Annual Report, statement of profit or loss (p. 29), profit for the year (total comprehensive income GHS 84.2m)", "as_of": "2025-12-31"},
+        "eps": {"value": 2.4202, "source": "Benso Oil Palm Plantation PLC 2025 Annual Report, note 26: basic EPS as reported, worked out on total comprehensive income (GHS 84.2m); on profit for the year it would be GHS 2.4294", "as_of": "2025-12-31"},
+        "book_value": {"value": 322707000, "source": "Benso Oil Palm Plantation PLC 2025 Annual Report, statement of financial position (p. 30), equity", "as_of": "2025-12-31"},
+        "dividend_per_share": {"value": 1.3047, "source": "Benso Oil Palm Plantation PLC 2025 Annual Report, note 12 and chairman's report: interim GHS 1.0627 plus proposed final GHS 0.2420", "as_of": "2026-04-16"},
+        "dividend_payment_dates": {"value": ["2025-12-19", "2026-07-14"], "source": "Interim: AfricanFinancials dividend notice for the GHS 1.0627 interim. Final: Benso Oil Palm Plantation PLC 2025 Annual Report, corporate information (p. 3)", "as_of": "2026-04-16"}
+      },
+      {
+        "fiscal_year": 2024, "currency": "GHS",
+        "revenue": {"value": 346893000, "source": "Benso Oil Palm Plantation PLC 2025 Annual Report, statement of profit or loss (p. 29), 2024 comparative", "as_of": "2024-12-31"},
+        "net_income": {"value": 95264000, "source": "Benso Oil Palm Plantation PLC 2025 Annual Report, statement of profit or loss (p. 29), 2024 comparative profit for the year", "as_of": "2024-12-31"},
+        "eps": {"value": 2.6719, "source": "Benso Oil Palm Plantation PLC 2025 Annual Report, note 26: 2024 basic EPS as reported, worked out on total comprehensive income (GHS 93.0m)", "as_of": "2024-12-31"},
+        "book_value": {"value": 307081000, "source": "Benso Oil Palm Plantation PLC 2025 Annual Report, statement of financial position (p. 30), 2024 equity", "as_of": "2024-12-31"},
+        "dividend_per_share": {"value": 2.1364, "source": "Benso Oil Palm Plantation PLC 2025 Annual Report, note 12: interim GHS 1.2279 (declared 2024) plus final GHS 0.9085 (declared 2025)", "as_of": "2025-12-31"}
+      },
+      {
+        "fiscal_year": 2023, "currency": "GHS",
+        "revenue": {"value": 351611000, "source": "Benso Oil Palm Plantation PLC 2024 Annual Report, statement of profit or loss, 2023 comparative", "as_of": "2023-12-31"},
+        "net_income": {"value": 102813000, "source": "Benso Oil Palm Plantation PLC 2024 Annual Report, statement of profit or loss, 2023 comparative profit for the year", "as_of": "2023-12-31"},
+        "eps": {"value": 2.9333, "source": "Benso Oil Palm Plantation PLC 2024 Annual Report, note 27: 2023 basic EPS as reported, worked out on total comprehensive income (GHS 102.1m)", "as_of": "2023-12-31"},
+        "book_value": {"value": 291883000, "source": "Benso Oil Palm Plantation PLC 2024 Annual Report, statement of financial position, 2023 equity", "as_of": "2023-12-31"},
+        "dividend_per_share": {"value": 2.332, "source": "Benso Oil Palm Plantation PLC 2024 Annual Report, note 12: interim GHS 1.3247 (declared 2023) plus final GHS 1.0073 (declared 2024)", "as_of": "2024-12-31"}
+      },
+      {
+        "fiscal_year": 2022, "currency": "GHS",
+        "revenue": {"value": 340496000, "source": "Benso Oil Palm Plantation PLC 2022 Annual Report, statement of profit or loss", "as_of": "2022-12-31"},
+        "net_income": {"value": 160354000, "source": "Benso Oil Palm Plantation PLC 2022 Annual Report, statement of profit or loss, profit for the year", "as_of": "2022-12-31"},
+        "eps": {"value": 4.6079, "source": "Benso Oil Palm Plantation PLC 2022 Annual Report, note 27: basic EPS", "as_of": "2022-12-31"},
+        "book_value": {"value": 268731000, "source": "Benso Oil Palm Plantation PLC 2022 Annual Report, statement of financial position, equity", "as_of": "2022-12-31"},
+        "dividend_per_share": {"value": 2.0742, "source": "Interim GHS 1.1308 (Benso Oil Palm Plantation PLC 2022 Annual Report, dividend note) plus final GHS 0.9434 (2024 Annual Report, note 12)", "as_of": "2023-12-31"}
+      },
+      {
+        "fiscal_year": 2021, "currency": "GHS",
+        "revenue": {"value": 214174000, "source": "Benso Oil Palm Plantation PLC 2022 Annual Report, statement of profit or loss, 2021 comparative", "as_of": "2021-12-31"},
+        "net_income": {"value": 92423000, "source": "Benso Oil Palm Plantation PLC 2022 Annual Report, statement of profit or loss, 2021 comparative profit for the year", "as_of": "2021-12-31"},
+        "eps": {"value": 2.6558, "source": "Benso Oil Palm Plantation PLC 2022 Annual Report, note 27: 2021 basic EPS", "as_of": "2021-12-31"},
+        "book_value": {"value": 184639000, "source": "Benso Oil Palm Plantation PLC 2022 Annual Report, statement of financial position, 2021 equity", "as_of": "2021-12-31"},
+        "dividend_per_share": {"value": 1.0623, "source": "Benso Oil Palm Plantation PLC 2022 Annual Report, dividend note: final GHS 1.0623 declared in 2022 for 2021; no interim for 2021 is shown", "as_of": "2022-12-31"}
+      }
+    ]
   }
 ]
