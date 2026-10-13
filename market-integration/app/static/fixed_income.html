@@ -50,7 +50,7 @@
     margin-bottom: 18px;
     flex-wrap: wrap;
   }
-  .brand { font-size: 13px; font-weight: 600; color: var(--ink-soft); letter-spacing: 0.02em; }
+  .brand { font-size: 18px; font-weight: 700; color: var(--ink); letter-spacing: 0.01em; flex-basis: 100%; }
   .tabs { display: flex; gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 3px; }
   .tab {
     font-size: 13px; font-weight: 600; color: var(--ink-soft); text-decoration: none;
@@ -58,19 +58,6 @@
   }
   .tab:hover { color: var(--ink); }
   .tab.active { color: var(--bg); background: var(--teal); }
-  .topbar .spacer { flex: 1; }
-  .sim-badge {
-    font-size: 11px; font-family: ui-monospace, monospace; color: var(--gold);
-    background: var(--gold-bg); border: 1px solid rgba(217, 164, 76, 0.35);
-    border-radius: 999px; padding: 4px 10px; white-space: nowrap;
-  }
-
-  .status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-soft); }
-  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--status-closed); }
-  [data-badge="live"] .status-dot { background: var(--status-live); box-shadow: 0 0 0 3px var(--status-live-halo); }
-  [data-badge="delayed"] .status-dot { background: var(--status-delayed); }
-  [data-badge="delayed"] .status-text { color: var(--status-delayed); }
-  [data-badge="disconnected"] .status-dot { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ink-faint); }
 
   /* Sub-tabs and toolbar */
 
@@ -182,11 +169,6 @@
       <a class="tab" href="/yield-curve">Yield Curve</a>
       <a class="tab" href="/tickets">Trade Tickets</a>
     </nav>
-    <span class="spacer"></span>
-    <span class="status" id="status" data-badge="disconnected">
-      <span class="status-dot"></span><span class="status-text" id="statusText">Connecting</span>
-    </span>
-    <span class="sim-badge" id="simBadge">Simulated data, not a live GFIM feed</span>
   </div>
 
   <div class="subbar" role="tablist">
@@ -702,33 +684,6 @@
   window.addEventListener("hashchange", showView);
   $("filter").addEventListener("input", applyFilter);
 
-  // ------------------------------------------------------------ status
-
-  const BADGE_TEXT = { live: "Live", delayed: "Delayed", closed: "Market closed", disconnected: "Disconnected" };
-  // While the server is retrying a dropped feed, say so: a bare
-  // "Disconnected" reads as if this page had lost its own connection.
-  function badgeText(badge) {
-    const retrying = badge === "disconnected" && socketOpen && market && market.feed &&
-      market.feed.state === "reconnecting" && Date.now() - marketAt <= STATUS_TIMEOUT_MS;
-    return retrying ? "Reconnecting…" : BADGE_TEXT[badge];
-  }
-  const STATUS_TIMEOUT_MS = 20000;
-  let market = null, marketAt = 0, socketOpen = false;
-
-  function renderStatus() {
-    let badge = "disconnected";
-    if (socketOpen && market && Date.now() - marketAt <= STATUS_TIMEOUT_MS) badge = market.badge;
-    $("status").dataset.badge = badge;
-    $("statusText").textContent = "GFIM · " + badgeText(badge);
-  }
-  function setMarket(status) {
-    // The Fixed Income tab follows GFIM's session, not the equity market's.
-    market = status.fixed_income || status;
-    marketAt = Date.now();
-    renderStatus();
-  }
-  setInterval(renderStatus, 5000);
-
   // ------------------------------------------------------------ data
 
   function renderAsOf() {
@@ -742,7 +697,6 @@
   function loadReport() {
     return fetch("/fixed-income/report").then(function (r) { return r.json(); }).then(function (body) {
       report = body;
-      if (body.exchange_label) $("simBadge").textContent = body.exchange_label + " · not a live GFIM feed";
       buildSections();
       buildSellBuyBack();
       renderAsOf();
@@ -779,18 +733,14 @@
   function connect() {
     const proto = location.protocol === "https:" ? "wss" : "ws";
     const ws = socket = new WebSocket(proto + "://" + location.host + "/ws/market");
-    ws.onopen = function () { socketOpen = true; renderStatus(); };
     ws.onmessage = function (evt) {
       const msg = JSON.parse(evt.data);
       if (msg.type === "welcome") {
-        if (msg.status) setMarket(msg.status);
         const classes = msg.asset_classes || {};
         fixedIncomeSymbols = msg.symbols.filter(function (s) { return classes[s] === "bill" || classes[s] === "bond"; });
         // After a reconnect, reload so the session so far is complete.
         (hadWelcome ? loadReport() : Promise.resolve()).then(subscribeAll);
         hadWelcome = true;
-      } else if (msg.type === "status") {
-        setMarket(msg);
       } else if (msg.type === "snapshot") {
         Object.values(msg.data).forEach(ingest);
       } else if (msg.type === "ticks") {
@@ -801,11 +751,7 @@
         console.warn("market feed:", msg.message);
       }
     };
-    ws.onclose = function () {
-      socketOpen = false;
-      renderStatus();
-      setTimeout(connect, 2000);
-    };
+    ws.onclose = function () { setTimeout(connect, 2000); };
     ws.onerror = function () { ws.close(); };
   }
 

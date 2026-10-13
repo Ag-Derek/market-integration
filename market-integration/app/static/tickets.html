@@ -44,7 +44,7 @@
   /* Top bar and tabs, as on the Fixed Income tab */
 
   .topbar { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
-  .brand { font-size: 13px; font-weight: 600; color: var(--ink-soft); letter-spacing: 0.02em; }
+  .brand { font-size: 18px; font-weight: 700; color: var(--ink); letter-spacing: 0.01em; flex-basis: 100%; }
   .tabs { display: flex; gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 3px; flex-wrap: wrap; }
   .tab { font-size: 13px; font-weight: 600; color: var(--ink-soft); text-decoration: none; padding: 6px 14px; border-radius: 6px; }
   .tab:hover { color: var(--ink); }
@@ -63,8 +63,6 @@
     color: #fff; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;
   }
   .badge[hidden] { display: none; }
-  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-faint); }
-  .live-dot.on { background: var(--blue); box-shadow: 0 0 0 3px rgba(90, 169, 230, 0.18); }
 
   /* Layout */
 
@@ -216,6 +214,15 @@
   .note.unread { color: var(--ink); box-shadow: inset 3px 0 0 var(--teal); }
   .note time { display: block; font-size: 11px; color: var(--ink-faint); margin-top: 3px; }
   .bell-wrap { position: relative; }
+  /* Reads as a button, not a label: icon, caret, hover fill, open state. */
+  .bell-btn { font-size: 13px; font-weight: 600; color: var(--ink); background: var(--panel-strong);
+              border-color: var(--ink-faint); padding: 6px 12px 6px 10px; }
+  .bell-btn svg { width: 14px; height: 14px; flex: none; }
+  .bell-btn::after { content: ""; border: 4px solid transparent; border-top-color: currentColor; margin: 4px 0 0 2px; }
+  .bell-btn:hover { background: var(--line); border-color: var(--ink-soft); }
+  .bell-btn:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+  .bell-btn[aria-expanded="true"] { color: var(--teal); border-color: var(--teal); }
+  .bell-btn[aria-expanded="true"]::after { border-top-color: transparent; border-bottom-color: currentColor; margin-top: -4px; }
 
   .toasts { position: fixed; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 50; max-width: 380px; }
   .toast {
@@ -244,9 +251,12 @@
     </nav>
     <span class="spacer"></span>
     <div class="bell-wrap">
-      <button class="chip-btn" id="bellBtn" type="button" aria-haspopup="true" aria-expanded="false"
+      <button class="chip-btn bell-btn" id="bellBtn" type="button" aria-haspopup="true" aria-expanded="false"
               title="Notifications about your tickets">
-        <span class="live-dot" id="liveDot"></span>Notifications <span class="badge" id="unread" hidden>0</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+             stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/>
+          <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+        Notifications <span class="badge" id="unread" hidden>0</span>
       </button>
       <div class="notes-panel" id="notesPanel" hidden></div>
     </div>
@@ -905,7 +915,10 @@
     $("bellBtn").setAttribute("aria-expanded", panel.hidden ? "false" : "true");
   });
   document.addEventListener("click", function (e) {
-    if (!$("notesPanel").hidden && !$("notesPanel").contains(e.target)) $("notesPanel").hidden = true;
+    if (!$("notesPanel").hidden && !$("notesPanel").contains(e.target)) {
+      $("notesPanel").hidden = true;
+      $("bellBtn").setAttribute("aria-expanded", "false");
+    }
   });
 
   function toast(n) {
@@ -918,7 +931,6 @@
   function connect() {
     const proto = location.protocol === "https:" ? "wss" : "ws";
     const ws = new WebSocket(proto + "://" + location.host + "/ws/notifications");
-    ws.onopen = function () { $("liveDot").classList.add("on"); };
     ws.onmessage = function (evt) {
       const msg = JSON.parse(evt.data);
       if (msg.type !== "notification") return;
@@ -932,7 +944,6 @@
       }
     };
     ws.onclose = function () {
-      $("liveDot").classList.remove("on");
       // Catch up on anything missed while disconnected, then reconnect.
       setTimeout(function () { loadNotifications(); loadTickets(); connect(); }, 3000);
     };

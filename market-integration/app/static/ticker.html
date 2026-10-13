@@ -58,10 +58,11 @@
   }
 
   .brand {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--ink-soft);
-    letter-spacing: 0.02em;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--ink);
+    letter-spacing: 0.01em;
+    flex-basis: 100%;  /* own row; tabs and controls wrap below */
   }
 
   .tabs { display: flex; gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 3px; }
@@ -72,16 +73,12 @@
   .tab:hover { color: var(--ink); }
   .tab.active { color: var(--bg); background: var(--teal); }
   .topbar .spacer { flex: 1; }
-
-  .sim-badge {
-    font-size: 11px;
-    font-family: ui-monospace, monospace;
-    color: var(--gold);
-    background: var(--gold-bg);
-    border: 1px solid rgba(217, 164, 76, 0.35);
-    border-radius: 999px;
-    padding: 4px 10px;
-    white-space: nowrap;
+  /* Search sits at the right here, so its results open leftward. */
+  #search .msearch-panel { left: auto; right: 0; }
+  /* As wide as its results panel, so the two line up. */
+  @media (min-width: 621px) {
+    #search { flex: 0 1 600px; max-width: 600px; }
+    #search .msearch-panel { width: 100%; }
   }
 
   /* Layout: collapsible equities sidebar + views */
@@ -164,12 +161,13 @@
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    gap: 6px;
+    flex-wrap: wrap;  /* long symbols (DASPHARMA) drop the change to a second line */
+    column-gap: 6px;
     text-align: left;
   }
   .watch-item:hover { color: var(--ink); background: var(--panel-strong); }
   .watch-item:focus-visible { outline: 2px solid var(--teal); outline-offset: 1px; }
-  .watch-item .chg { font-size: 11px; color: var(--ink-faint); }
+  .watch-item .chg { font-size: 11px; color: var(--ink-faint); margin-left: auto; }
   .watch-item .chg.up { color: var(--green); }
   .watch-item .chg.down { color: var(--red); }
   .watch-item.pinned { color: var(--ink); background: rgba(62, 156, 130, 0.14); border-color: rgba(62, 156, 130, 0.45); }
@@ -435,10 +433,9 @@
       <a class="tab" href="/yield-curve">Yield Curve</a>
       <a class="tab" href="/tickets">Trade Tickets</a>
     </nav>
-    <div id="search"></div>
     <span class="spacer"></span>
+    <div id="search"></div>
     <div id="currency"></div>
-    <span class="sim-badge">Simulated data, not a live GSE feed</span>
   </div>
 
   <div class="layout" id="layout">

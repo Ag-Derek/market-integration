@@ -58,16 +58,6 @@
     border-radius: 7px; padding: 6px 12px;
   }
   .ticket-btn:hover { filter: brightness(1.1); }
-  .sim-badge {
-    font-size: 11px;
-    font-family: ui-monospace, monospace;
-    color: var(--gold);
-    background: var(--gold-bg);
-    border: 1px solid rgba(217, 164, 76, 0.35);
-    border-radius: 999px;
-    padding: 4px 10px;
-    white-space: nowrap;
-  }
 
   .card {
     background: var(--panel);
@@ -300,7 +290,6 @@
     <a class="back" href="/fixed-income">&larr; Fixed Income</a>
     <span class="topbar-right">
       <a class="ticket-btn" id="ticketBtn" href="/tickets" title="New trade ticket at the calculator's price and face amount">New trade ticket</a>
-      <span class="sim-badge" id="simBadge">Simulated data, not a live GFIM feed</span>
     </span>
   </div>
 
@@ -457,7 +446,6 @@
     Render.text($("name"), t.name);
     Render.text($("isin"), SYMBOL);
     Render.text($("segment"), (SEGMENTS[t.segment] || t.segment) + " · " + t.currency);
-    if (t.exchange_label) Render.text($("simBadge"), t.exchange_label);
     Render.text($("faceCcy"), t.currency);
     renderTerms();
 
