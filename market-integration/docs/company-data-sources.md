@@ -7,7 +7,7 @@ conventions behind them and what is still missing.
 
 ## Coverage
 
-Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**. Every other listed equity has no entry
+Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**. Every other listed equity has no entry
 yet and is served as all-null.
 
 ## Conventions
@@ -45,3 +45,5 @@ Left out (served as null) because they couldn't be found or confirmed:
 | GCB | `employees` | Not in the summary financial statements. The full annual report is on gcbbank.com.gh, which blocks automated access. |
 | GCB | FY2022–FY2024 `dividend_payment_dates` | No dividend for those years. |
 | CAL | FY2021 `dividend_payment_dates` | The 2025 Annual Report gives the GHS 0.11 dividend per share but not when it was paid. No dividend for FY2022–FY2025. |
+| BOPP | FY2021–FY2024 `dividend_payment_dates` | The annual reports give only the final dividend's payment date, not the interim's. |
+| BOPP | `officers` (finance) | The annual report names no CFO or finance manager. |
