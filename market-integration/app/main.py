@@ -23,6 +23,19 @@ from pydantic import BaseModel, ConfigDict
 from app import config, metrics
 from app.aggregation.market_aggregator import MarketAggregator
 from app.aggregation.ranges import MAX_WARMUP, RANGES
+from app.analytics.graph import (
+    DEFAULT_RANGE,
+    GRAPH_RANGES,
+    MAX_SERIES,
+    MIN_OBSERVATIONS,
+    Change as GraphChange,
+    Frequency as GraphFrequency,
+    GraphRange,
+    Point as GraphPoint,
+    correlation_matrix,
+    rebase,
+    weekly,
+)
 from app.bond_math import settlement_date
 from app.bond_math.calculator import calculate, quoted_yield, security_for
 from app.company import COMPANIES
@@ -615,19 +628,22 @@ async def get_seasonality(symbol: str):
 # return and beta, plus slack for the reference close before it.
 FIGURES_HISTORY = timedelta(days=400)
 INDEX_TTL_SECONDS = 60
-_index_cache: Optional[tuple[float, list[Day]]] = None
+# history -> (built at, levels)
+_index_cache: dict[Optional[timedelta], tuple[float, list[Day]]] = {}
 
 
-async def gse_ci() -> list[Day]:
-    """The simulated GSE-CI over FIGURES_HISTORY, from every equity's
-    daily candles; rebuilt at most once a minute."""
-    global _index_cache
-    if _index_cache is not None and time_module.monotonic() - _index_cache[0] < INDEX_TTL_SECONDS:
-        return _index_cache[1]
-    start = datetime.now(timezone.utc) - FIGURES_HISTORY
+async def gse_ci(history: Optional[timedelta] = FIGURES_HISTORY) -> list[Day]:
+    """The simulated GSE-CI over `history` (None: every stored day, for
+    /graph), from every equity's daily candles; rebuilt at most once a
+    minute. It is 1,000 on its first day, so the levels depend on
+    `history`; returns don't."""
+    cached = _index_cache.get(history)
+    if cached is not None and time_module.monotonic() - cached[0] < INDEX_TTL_SECONDS:
+        return cached[1]
+    start = None if history is None else datetime.now(timezone.utc) - history
     constituents = {s: days(await aggregator.get_candles(s, "1d", start)) for s in equities.symbols}
     series = simulated_gse_ci(constituents)
-    _index_cache = (time_module.monotonic(), series)
+    _index_cache[history] = (time_module.monotonic(), series)
     return series
 
 
@@ -643,6 +659,163 @@ async def gse_ci_series():
         "method": "equal-weighted daily close-to-close returns of every listed equity, chained",
         "base_level": BASE_LEVEL,
         "series": [{"date": d.on.isoformat(), "level": d.close} for d in series],
+    }
+
+
+# ---------------------------------------------------------------- /graph
+
+GRAPH_INDEX_ID = "GSE-CI"
+GRAPH_FX_PREFIX = "FX:"
+# Read this far ahead of a range's start, so a series has a value to
+# rebase on when the start falls on a weekend, a holiday or a day a thin
+# stock didn't trade.
+GRAPH_BASE_SLACK = timedelta(days=14)
+
+
+def _graph_ids(series: str) -> list[str]:
+    """The comma-separated `series` parameter: ids upper-cased, in
+    order, duplicates dropped. 400 for none or more than MAX_SERIES."""
+    ids = list(dict.fromkeys(s.strip().upper() for s in series.split(",") if s.strip()))
+    if not ids:
+        raise HTTPException(status_code=400, detail="Give at least one series")
+    if len(ids) > MAX_SERIES:
+        raise HTTPException(status_code=400, detail=f"At most {MAX_SERIES} series on one graph, got {len(ids)}")
+    return ids
+
+
+def _graph_range(range_: str) -> GraphRange:
+    spec = GRAPH_RANGES.get(range_)
+    if spec is None:
+        raise HTTPException(
+            status_code=400, detail=f"Unknown range '{range_}'. Expected one of: {', '.join(GRAPH_RANGES)}",
+        )
+    return spec
+
+
+def _short_label(instrument: Instrument) -> str:
+    """A bill or bond as a legend can fit it: "GOG 8.65% Feb 2029",
+    "GOG bill 05 Oct 26", rather than the GFIM description."""
+    issuer = instrument.name.split("-")[0]
+    maturity = instrument.maturity_date
+    if maturity is None:
+        return instrument.symbol
+    if instrument.asset_class == "bill":
+        return f"{issuer} bill {maturity:%d %b %y}"
+    coupon = f" {instrument.coupon_rate:g}%" if instrument.coupon_rate else ""
+    return f"{issuer}{coupon} {maturity:%b %Y}"
+
+
+async def _graph_series(series_id: str, since: Optional[date]) -> tuple[dict, list[GraphPoint], GraphChange]:
+    """(description, daily points from `since`, how it changes) for one
+    /graph series id: an equity symbol (its daily closes, GHS), a bill or
+    bond ISIN (its closing yield; price for price-only corporates),
+    GSE-CI (the simulated index) or FX:<code> (the Bank of Ghana mid, in
+    cedis per unit). 404 for an unknown id; 400/503 for an FX code we
+    don't offer or have no rates for yet."""
+    start = None if since is None else datetime.combine(since, time(), tzinfo=timezone.utc)
+    if series_id == GRAPH_INDEX_ID:
+        levels = [d for d in await gse_ci(None) if since is None or d.on >= since]
+        meta = {"label": GRAPH_INDEX_ID, "name": f"{INDEX_NAME} (simulated, equal-weighted)",
+                "kind": "index", "unit": "points"}
+        return meta, [GraphPoint(d.on, d.close) for d in levels], "return"
+
+    if series_id.startswith(GRAPH_FX_PREFIX):
+        code = _fx_code(series_id[len(GRAPH_FX_PREFIX):])
+        if code == FX_BASE:
+            raise HTTPException(status_code=400, detail="The cedi is the base currency; pick another")
+        name = CURRENCIES[code][0]
+        meta = {"label": f"{code}/{FX_BASE}", "name": f"{name}, cedis per {code} (Bank of Ghana mid)",
+                "kind": "fx", "unit": f"GHS per {code}"}
+        return meta, [GraphPoint(r.date, r.mid) for r in fx_rates.history(code, since)], "return"
+
+    instrument = INSTRUMENTS.get(series_id)
+    if instrument is None or series_id not in connector.symbols:
+        raise HTTPException(status_code=404, detail=f"Unknown series '{series_id}'")
+    candles = await aggregator.get_candles(series_id, "1d", start)
+    if asset_class(series_id) == "equity":
+        meta = {"label": series_id, "name": instrument.name, "kind": "equity", "unit": FX_BASE}
+        return meta, [GraphPoint(c.window_start.date(), c.close, c.volume > 0) for c in candles], "return"
+    label = _short_label(instrument)
+    if candles and all(c.yield_close is not None for c in candles):
+        meta = {"label": label, "name": f"{instrument.name} ({series_id}), closing yield",
+                "kind": "yield", "unit": "% a year"}
+        points = [GraphPoint(c.window_start.date(), c.yield_close, c.volume > 0) for c in candles]
+        return meta, points, "difference"
+    meta = {"label": label, "name": f"{instrument.name} ({series_id}), clean price",
+            "kind": "price", "unit": "per 100"}
+    return meta, [GraphPoint(c.window_start.date(), c.close, c.volume > 0) for c in candles], "return"
+
+
+async def _graph_inputs(ids: list[str], spec: GraphRange) -> tuple[Optional[date], list]:
+    """The range's start and, per id, (description, points, change)."""
+    today = datetime.now(timezone.utc).date()
+    start = spec.start(today)
+    since = None if start is None else start - GRAPH_BASE_SLACK
+    return start, [(i, *await _graph_series(i, since)) for i in ids]
+
+
+@app.get("/graph/series")
+async def graph_series(series: str, range_: str = Query(DEFAULT_RANGE, alias="range")):
+    """Up to MAX_SERIES series on one chart, each rebased to 100 at the
+    range's start (Bloomberg's G); see app/analytics/graph.py. `series`
+    is comma-separated ids: equity symbols (daily close, GHS), bill and
+    bond ISINs (closing yield; clean price for price-only corporates),
+    GSE-CI (the simulated index) and FX:USD etc. (Bank of Ghana mid,
+    cedis per unit). `range` is 1M, 3M, 6M, YTD, 1Y, 2Y, 5Y or Max; 5Y
+    and Max give one point a week. Each point is [date, value, rebased].
+    400 for a bad range or too many series, 404 for an unknown id."""
+    spec = _graph_range(range_)
+    start, inputs = await _graph_inputs(_graph_ids(series), spec)
+    out = []
+    for series_id, meta, points, kind in inputs:
+        shown = rebase(points, start)
+        rows = [] if shown is None else shown["points"]
+        if spec.weekly:
+            rows = weekly(rows)
+        in_range = [p for p in points if start is None or p.on >= start]
+        out.append({
+            "id": series_id,
+            **meta,
+            "change": kind,
+            "base": shown["base"] if shown else None,
+            "late_start": shown["late_start"] if shown else False,
+            "last": None if not rows else {"date": rows[-1][0], "value": rows[-1][1], "rebased": rows[-1][2]},
+            # How thinly it trades: days with a print, of days with a value.
+            "observed_days": sum(p.observed for p in in_range),
+            "days": len(in_range),
+            "points": rows,
+        })
+    return {
+        "range": range_,
+        "start": start.isoformat() if start else None,
+        "step": "1w" if spec.weekly else "1d",
+        "series": out,
+    }
+
+
+@app.get("/graph/correlation")
+async def graph_correlation(
+    series: str,
+    range_: str = Query(DEFAULT_RANGE, alias="range"),
+    frequency: GraphFrequency = "daily",
+):
+    """The correlation matrix (Bloomberg's CORR) of the /graph series
+    over `range`: Pearson correlation of each pair's changes (returns;
+    change in yield for yields), measured between the days both were
+    observed, so a thin stock's no-trade days don't dilute it.
+    `frequency=weekly` correlates week-on-week changes instead. Each
+    cell is {value, observations}; value is null below
+    min_observations. Same ids, ranges and errors as /graph/series."""
+    start, inputs = await _graph_inputs(_graph_ids(series), _graph_range(range_))
+    matrix = correlation_matrix([(points, kind) for _, _, points, kind in inputs], start, frequency)
+    return {
+        "range": range_,
+        "start": start.isoformat() if start else None,
+        "frequency": frequency,
+        "min_observations": MIN_OBSERVATIONS,
+        "series": [{"id": i, "label": meta["label"], "name": meta["name"], "change": kind}
+                   for i, meta, _, kind in inputs],
+        "matrix": matrix,
     }
 
 
@@ -1059,6 +1232,15 @@ async def yield_curve_page():
     """The Yield Curve tab: the GoG curve from /curve against the
     previous day, week or month, live over /ws/market."""
     return (STATIC_DIR / "yield_curve.html").read_text(encoding="utf-8")
+
+
+@app.get("/graph", response_class=HTMLResponse)
+async def graph_page():
+    """The Graph tab (Bloomberg's G and CORR): up to eight series rebased
+    to 100 on one chart, from /graph/series, and their correlation
+    matrix from /graph/correlation. The series and range are in the URL
+    (?series=MTNGH,GSE-CI&range=1Y), so a graph can be shared."""
+    return (STATIC_DIR / "graph.html").read_text(encoding="utf-8")
 
 
 @app.get("/bond/{symbol}/analytics")

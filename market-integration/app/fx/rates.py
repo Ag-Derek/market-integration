@@ -14,7 +14,7 @@ stored stay in use, and the caller tries again later (main.fx_loop).
 import asyncio
 import logging
 import threading
-from bisect import bisect_right
+from bisect import bisect_left, bisect_right
 from datetime import date, datetime, timedelta, timezone
 from typing import Callable, Optional, Protocol
 
@@ -131,6 +131,15 @@ class FxRates:
             return None
         dates, rates = entry
         return rates[max(bisect_right(dates, day) - 1, 0)]
+
+    def history(self, code: str, since: Optional[date] = None) -> list[FxRate]:
+        """Every fix held for `code` published on or after `since` (all
+        if None), oldest first; empty if we have no rate for it."""
+        entry = self._index.get(code)
+        if not entry:
+            return []
+        dates, rates = entry
+        return rates[bisect_left(dates, since):] if since else list(rates)
 
     def per_ghs(self, code: str, day: Optional[date] = None) -> Optional[float]:
         """Units of `code` one cedi buys at the mid: on `day`, or at the

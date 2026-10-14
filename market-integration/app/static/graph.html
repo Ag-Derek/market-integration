@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Graph</title>
+<style>
+  :root {
+    --bg: #0E1613;
+    --panel: #16211B;
+    --panel-strong: #1C2921;
+    --ink: #EAE7DA;
+    --ink-soft: #AEB6A9;
+    --ink-faint: #6F766D;
+    --line: #26362F;
+    --teal: #3E9C82;
+    --gold: #D9A44C;
+    --green: #34C57F;
+    --red: #E5675A;
+    --status-live: #5AA9E6;
+    --status-live-halo: rgba(90, 169, 230, 0.18);
+    --status-delayed: var(--gold);
+    --status-closed: var(--ink-faint);
+    /* Series: the eight categorical slots, validated as a set on --panel
+       (dataviz validate_palette.js, dark, adjacent pairs). A series keeps
+       its slot while it is on the graph: removing one never repaints the
+       others. */
+    --s1: #3987e5;
+    --s2: #d95926;
+    --s3: #199e70;
+    --s4: #c98500;
+    --s5: #d55181;
+    --s6: #008300;
+    --s7: #9085e9;
+    --s8: #e66767;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .num {
+    font-family: ui-monospace, "SFMono-Regular", "Cascadia Mono", Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .page { max-width: 1360px; margin: 0 auto; padding: 28px 20px 60px; }
+
+  /* Top bar and tabs */
+
+  .topbar { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
+  .brand { font-size: 18px; font-weight: 700; color: var(--ink); letter-spacing: 0.01em; flex-basis: 100%; }
+  .tabs { display: flex; gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 3px; flex-wrap: wrap; }
+  .tab {
+    font-size: 13px; font-weight: 600; color: var(--ink-soft); text-decoration: none;
+    padding: 6px 14px; border-radius: 6px;
+  }
+  .tab:hover { color: var(--ink); }
+  .tab.active { color: var(--bg); background: var(--teal); }
+
+  /* Controls: series and range, one block above the chart */
+
+  .controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .controls .label { font-size: 12px; color: var(--ink-faint); }
+  .controls .spacer { flex: 1; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ink);
+    background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 4px 6px 4px 10px;
+  }
+  .chip .swatch { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+  .chip .kind { color: var(--ink-faint); font-size: 11px; }
+  .chip button {
+    font: inherit; font-size: 13px; line-height: 1; color: var(--ink-faint); background: none; border: 0;
+    border-radius: 50%; width: 20px; height: 20px; cursor: pointer; padding: 0;
+  }
+  .chip button:hover, .chip button:focus-visible { color: var(--ink); background: var(--panel-strong); outline: none; }
+
+  .picker { position: relative; flex: 0 1 300px; min-width: 200px; }
+  .picker input {
+    width: 100%; font: inherit; font-size: 13px; color: var(--ink); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; outline: none;
+  }
+  .picker input::placeholder { color: var(--ink-faint); }
+  .picker input:focus { border-color: var(--teal); }
+  .picker input:disabled { opacity: 0.5; }
+  .picker ul {
+    position: absolute; z-index: 5; top: calc(100% + 4px); left: 0; right: 0; margin: 0; padding: 4px;
+    list-style: none; background: var(--panel-strong); border: 1px solid var(--line); border-radius: 8px;
+    max-height: 340px; overflow-y: auto; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4); min-width: 300px;
+  }
+  .picker li {
+    display: flex; gap: 10px; align-items: baseline; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 12.5px;
+  }
+  .picker li.active { background: var(--line); }
+  .picker li .sym { font-family: ui-monospace, monospace; color: var(--ink); flex: none; }
+  .picker li .name { color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .picker li .badge { color: var(--ink-faint); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; flex: none; }
+  .picker li.empty { color: var(--ink-faint); cursor: default; }
+
+  .seg { display: inline-flex; gap: 2px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 2px; }
+  .seg button {
+    font: inherit; font-size: 12px; color: var(--ink-soft); background: none; border: 0;
+    border-radius: 6px; padding: 5px 10px; cursor: pointer;
+  }
+  .seg button:hover { color: var(--ink); }
+  .seg button.active { color: var(--bg); background: var(--teal); }
+
+  /* Panels */
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  .panel + .panel { margin-top: 16px; }
+  .panel-head { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
+  .panel-head h2 { font-size: 14px; margin: 0; }
+  .panel-head .sub { font-size: 12px; color: var(--ink-faint); }
+  .panel-head .seg { margin-left: auto; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--ink-soft); margin-left: auto; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { display: inline-block; width: 14px; height: 2px; border-radius: 1px; }
+  .note { font-size: 12px; color: var(--ink-faint); margin: 10px 0 0; line-height: 1.5; }
+
+  /* Chart */
+
+  .chart-wrap { position: relative; }
+  #chart { display: block; width: 100%; height: 440px; touch-action: pan-y; }
+  #chart .grid line { stroke: var(--line); stroke-width: 1; }
+  #chart .grid line.base { stroke: var(--ink-faint); stroke-dasharray: 3 3; }
+  #chart .axis text { fill: var(--ink-faint); font-size: 11px; font-family: ui-monospace, monospace; }
+  #chart .series { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  #chart .end-label { fill: var(--ink-soft); font-size: 11px; }
+  #chart .end-dot { stroke: var(--panel); stroke-width: 2; }
+  #chart .cross { stroke: var(--ink-faint); stroke-width: 1; }
+  #chart .hover-dot { stroke: var(--panel); stroke-width: 2; }
+  .empty-msg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--ink-faint); font-size: 13px; pointer-events: none; text-align: center; padding: 0 20px; }
+  .tooltip {
+    position: absolute; pointer-events: none; display: none; z-index: 2;
+    background: var(--panel-strong); border: 1px solid var(--line); border-radius: 8px;
+    padding: 8px 10px; font-size: 12px; color: var(--ink); min-width: 230px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  }
+  .tooltip .t-head { font-size: 11px; color: var(--ink-faint); margin-bottom: 4px; }
+  .tooltip .t-row { display: grid; grid-template-columns: 10px 1fr auto auto; gap: 8px; align-items: center; padding: 1px 0; }
+  .tooltip .t-row .swatch { width: 10px; height: 2px; border-radius: 1px; }
+  .tooltip .t-row .lbl { color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+  .tooltip .t-row .val { color: var(--ink-faint); text-align: right; }
+  .tooltip .t-row b { font-weight: 600; text-align: right; min-width: 52px; }
+
+  /* Tables */
+
+  details.table-view { margin-top: 12px; border-top: 1px solid var(--line); }
+  details.table-view summary { cursor: pointer; padding: 12px 0 4px; font-size: 13px; font-weight: 600; color: var(--ink-soft); }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--ink-faint); text-align: right; padding: 8px 12px; white-space: nowrap; background: var(--panel-strong);
+  }
+  th:first-child, td:first-child { text-align: left; }
+  td { padding: 6px 12px; text-align: right; white-space: nowrap; border-top: 1px solid var(--line); }
+  td .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 8px; vertical-align: -1px; }
+  .muted { color: var(--ink-faint); }
+  .up { color: var(--green); }
+  .down { color: var(--red); }
+
+  /* Correlation matrix */
+
+  .corr-wrap { overflow-x: auto; }
+  table.corr { width: auto; border-collapse: separate; border-spacing: 2px; }
+  table.corr th { background: none; padding: 4px 8px; text-transform: none; letter-spacing: 0; font-size: 11.5px; color: var(--ink-soft); font-weight: 500; }
+  table.corr th.col { text-align: center; max-width: 110px; white-space: normal; vertical-align: bottom; line-height: 1.25; }
+  table.corr th.row { text-align: left; }
+  table.corr th .swatch { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; }
+  table.corr td {
+    border: 0; border-radius: 4px; width: 76px; min-width: 64px; height: 40px; padding: 0 6px;
+    text-align: center; font-family: ui-monospace, monospace; font-size: 12.5px; color: var(--ink);
+  }
+  table.corr td small { display: block; font-size: 9.5px; color: var(--ink-soft); opacity: 0.85; }
+  table.corr td.diag { color: var(--ink-faint); background: var(--panel-strong); }
+  table.corr td.na { color: var(--ink-faint); background: var(--panel-strong); }
+  .scale { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--ink-faint); margin-top: 10px; }
+  .scale .bar { width: 180px; height: 8px; border-radius: 4px; }
+
+  footer { margin-top: 26px; font-size: 12px; color: var(--ink-faint); line-height: 1.6; }
+  footer code {
+    font-family: ui-monospace, monospace; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px;
+  }
+
+  @media (max-width: 640px) {
+    .page { padding: 20px 16px 48px; }
+    #chart { height: 320px; }
+    .legend { margin-left: 0; }
+    .picker { flex-basis: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <div class="topbar">
+    <span class="brand">Market Integration</span>
+    <nav class="tabs" aria-label="Markets">
+      <a class="tab" href="/ticker">Equities</a>
+      <a class="tab" href="/fixed-income">Fixed Income</a>
+      <a class="tab" href="/yield-curve">Yield Curve</a>
+      <a class="tab active" href="/graph" aria-current="page">Graph</a>
+      <a class="tab" href="/tickets">Trade Tickets</a>
+    </nav>
+  </div>
+
+  <div id="strip"></div>
+
+  <div class="controls">
+    <div class="chips" id="chips" aria-label="Series on the graph"></div>
+    <div class="picker" id="picker">
+      <input id="pickerInput" type="search" autocomplete="off" spellcheck="false"
+        placeholder="Add a stock, bond, GSE-CI or currency" aria-label="Add a series"
+        role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="pickerList">
+      <ul id="pickerList" role="listbox" aria-label="Series to add" hidden></ul>
+    </div>
+    <span class="spacer"></span>
+    <div class="seg" role="group" aria-label="Range" id="ranges"></div>
+  </div>
+
+  <section class="panel" aria-labelledby="chartTitle">
+    <div class="panel-head">
+      <h2 id="chartTitle">Rebased to 100</h2>
+      <span class="sub" id="chartSub"></span>
+      <div class="legend" id="legend"></div>
+    </div>
+    <div class="chart-wrap" id="chartWrap">
+      <svg id="chart" role="img" aria-label="The chosen series, each rebased to 100 at the start of the range"></svg>
+      <div class="empty-msg" id="emptyMsg">Loading&hellip;</div>
+      <div class="tooltip" id="tooltip"></div>
+    </div>
+    <p class="note" id="chartNote">
+      Each series is divided by its value at the start of the range and multiplied by 100, so 112 means up 12% since
+      then. Stocks are daily closes in cedis; bonds and bills are their closing yield, so a yield rising from 20% to 22%
+      reads 110; currencies are cedis per unit at the Bank of Ghana mid, so a rising line is a weakening cedi. GSE-CI is
+      the simulated, equal-weighted index. Hover for each series' actual value.
+    </p>
+    <details class="table-view">
+      <summary>Show the series as a table</summary>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Series</th><th>Base date</th><th>Base</th><th>Latest date</th><th>Latest</th><th>Rebased</th>
+            <th>Change</th><th>Days traded</th></tr></thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </details>
+  </section>
+
+  <section class="panel" id="correlation" aria-labelledby="corrTitle">
+    <div class="panel-head">
+      <h2 id="corrTitle">Correlation</h2>
+      <span class="sub" id="corrSub"></span>
+      <div class="seg" role="group" aria-label="Frequency" id="freq">
+        <button type="button" data-freq="daily">Daily</button>
+        <button type="button" data-freq="weekly">Weekly</button>
+      </div>
+    </div>
+    <div class="corr-wrap" id="corrWrap"></div>
+    <div class="scale" aria-hidden="true">
+      <span class="num">−1</span><span class="bar" id="scaleBar"></span><span class="num">+1</span>
+    </div>
+    <p class="note">
+      Correlation of changes, not levels: returns for stocks, the index and currencies, and the change in yield for
+      bonds and bills. Thinly traded stocks go days without a trade, and their carried-over close would show as a run of
+      zero returns followed by the whole move at once, so each pair is measured only between days <em>both</em> traded:
+      both changes then cover the same span. The small figure is how many such changes each cell rests on; below
+      <span id="minObs">20</span> it shows —. Weekly uses each series' last trade of the week, for names too thin even
+      for that.
+    </p>
+  </section>
+
+  <footer>
+    From <code>/graph/series</code> and <code>/graph/correlation</code>, over the daily candles, the simulated GSE-CI
+    (<code>/indices/gse-ci</code>) and the Bank of Ghana fixes (<code>/fx/rates</code>). The chosen series and range are
+    in the address, so a graph can be bookmarked or shared; 5Y and Max draw one point a week. Up to eight series.
+  </footer>
+
+</div>
+
+<script src="/static/render.js"></script>
+<script src="/static/strip.js"></script>
+<script>MarketStrip.mount(document.getElementById("strip"), { crawl: "equity" });</script>
+<script>
+(function () {
+  "use strict";
+
+  const $ = function (id) { return document.getElementById(id); };
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  const MAX_SERIES = 8;
+  const RANGES = ["1M", "3M", "6M", "YTD", "1Y", "2Y", "5Y", "Max"];
+  const DEFAULT_SERIES = ["GSE-CI", "MTNGH", "GCB", "SCB"];
+  const INDEX_ID = "GSE-CI";
+  const KIND_LABEL = { equity: "Stock", index: "Index", yield: "Yield", price: "Price", fx: "FX" };
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  // Diverging scale for the matrix: blue (moves together) and red
+  // (opposite) poles, a neutral grey at 0, never a hue in the middle.
+  const POS = [31, 95, 174], NEG = [184, 64, 63], MID = [44, 54, 49];
+
+  // ------------------------------------------------------------ state
+
+  const params = new URLSearchParams(location.search);
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem("graph.state") || "{}") || {}; } catch (e) { /* storage unavailable */ }
+
+  function parseIds(s) {
+    const seen = {};
+    return (s || "").split(",").map(function (x) { return x.trim().toUpperCase(); })
+      .filter(function (x) { if (!x || seen[x]) return false; seen[x] = true; return true; })
+      .slice(0, MAX_SERIES);
+  }
+
+  // The address wins (a shared link), then what this browser last had.
+  let ids = parseIds(params.get("series"));
+  if (!ids.length && Array.isArray(saved.series)) ids = parseIds(saved.series.join(","));
+  if (!ids.length) ids = DEFAULT_SERIES.slice();
+  let range = params.get("range") || saved.range || "1Y";
+  if (RANGES.indexOf(range) < 0) range = "1Y";
+  let freq = (params.get("freq") || saved.freq) === "weekly" ? "weekly" : "daily";
+
+  // Each series keeps its colour slot while it is on the graph.
+  const slots = {};
+  function assignSlots() {
+    Object.keys(slots).forEach(function (k) { if (ids.indexOf(k) < 0) delete slots[k]; });
+    ids.forEach(function (id) {
+      if (slots[id] != null) return;
+      const used = Object.keys(slots).map(function (k) { return slots[k]; });
+      for (let s = 1; s <= MAX_SERIES; s++) if (used.indexOf(s) < 0) { slots[id] = s; break; }
+    });
+  }
+  function color(id) { return "var(--s" + slots[id] + ")"; }
+
+  let data = null;          // /graph/series response
+  let corr = null;          // /graph/correlation response
+  let labels = {};          // id -> label, from the last response or the picker
+  let fxCurrencies = [];    // [{code, name}] from /fx/rates
+
+  function persist() {
+    const q = new URLSearchParams();
+    if (ids.length) q.set("series", ids.join(","));
+    q.set("range", range);
+    if (freq !== "daily") q.set("freq", freq);
+    history.replaceState(null, "", location.pathname + "?" + q.toString() + location.hash);
+    try { localStorage.setItem("graph.state", JSON.stringify({ series: ids, range: range, freq: freq })); } catch (e) { /* storage unavailable */ }
+  }
+
+  // ------------------------------------------------------------ format
+
+  function dateText(iso, withYear) {
+    const p = iso.split("-");
+    return Number(p[2]) + " " + MONTHS[Number(p[1]) - 1] + (withYear === false ? "" : " " + p[0]);
+  }
+  function fmtValue(s, v) {
+    if (v == null) return "—";
+    if (s.kind === "yield") return v.toFixed(2) + "%";
+    if (s.kind === "index") return v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (s.kind === "fx") return v.toFixed(4);
+    return v.toFixed(2);
+  }
+  function unitText(s) {
+    if (s.kind === "equity") return "GH₵";
+    if (s.kind === "fx") return s.unit;
+    return "";
+  }
+  function pct(rebased) {
+    if (rebased == null) return { text: "—", cls: "muted" };
+    const v = rebased - 100;
+    return { text: (v > 0 ? "+" : "") + v.toFixed(2) + "%", cls: v > 0 ? "up" : v < 0 ? "down" : "muted" };
+  }
+
+  // ------------------------------------------------------------ data
+
+  function getJson(url) {
+    return fetch(url).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (b) {
+        if (!r.ok) {
+          const d = b && b.detail;
+          throw new Error(typeof d === "string" ? d : (d && d.message) || r.statusText);
+        }
+        return b;
+      });
+    });
+  }
+
+  let seq = 0;
+  function load() {
+    persist();
+    assignSlots();
+    renderControls();
+    const mine = ++seq;
+    if (!ids.length) {
+      data = corr = null;
+      renderChart("Add a series to start.");
+      renderCorr("Add two or more series to see how they move together.");
+      return;
+    }
+    const q = "series=" + encodeURIComponent(ids.join(",")) + "&range=" + encodeURIComponent(range);
+    $("emptyMsg").textContent = "Loading…";
+    $("emptyMsg").style.display = "flex";
+    getJson("/graph/series?" + q).then(function (b) {
+      if (mine !== seq) return;
+      data = b;
+      b.series.forEach(function (s) { labels[s.id] = s.label; });
+      renderControls();
+      renderChart();
+    }).catch(function (e) {
+      if (mine !== seq) return;
+      data = null;
+      renderChart("Could not load the graph: " + e.message);
+    });
+    loadCorr(mine);
+  }
+
+  function loadCorr(mine) {
+    mine = mine || seq;
+    if (ids.length < 2) {
+      corr = null;
+      renderCorr("Add two or more series to see how they move together.");
+      return;
+    }
+    const q = "series=" + encodeURIComponent(ids.join(",")) + "&range=" + encodeURIComponent(range) + "&frequency=" + freq;
+    $("corrWrap").textContent = "";
+    getJson("/graph/correlation?" + q).then(function (b) {
+      if (mine !== seq) return;
+      corr = b;
+      renderCorr();
+    }).catch(function (e) {
+      if (mine !== seq) return;
+      corr = null;
+      renderCorr("Could not load the correlation: " + e.message);
+    });
+  }
+
+  // ------------------------------------------------------------ controls
+
+  function renderControls() {
+    const chips = $("chips");
+    chips.innerHTML = "";
+    ids.forEach(function (id) {
+      const s = data && data.series.find(function (x) { return x.id === id; });
+      const chip = document.createElement("span");
+      chip.className = "chip";
+      chip.title = s ? s.name : id;
+      const sw = document.createElement("span");
+      sw.className = "swatch";
+      sw.style.background = color(id);
+      const lbl = document.createElement("span");
+      lbl.textContent = labels[id] || id;
+      chip.appendChild(sw);
+      chip.appendChild(lbl);
+      if (s) {
+        const kind = document.createElement("span");
+        kind.className = "kind";
+        kind.textContent = KIND_LABEL[s.kind] || "";
+        chip.appendChild(kind);
+      }
+      const x = document.createElement("button");
+      x.type = "button";
+      x.textContent = "✕";
+      x.setAttribute("aria-label", "Remove " + (labels[id] || id));
+      x.addEventListener("click", function () {
+        ids = ids.filter(function (k) { return k !== id; });
+        load();
+      });
+      chip.appendChild(x);
+      chips.appendChild(chip);
+    });
+    const input = $("pickerInput");
+    input.disabled = ids.length >= MAX_SERIES;
+    input.placeholder = ids.length >= MAX_SERIES ? "Eight series at most: remove one to add another"
+      : "Add a stock, bond, GSE-CI or currency";
+
+    const seg = $("ranges");
+    if (!seg.children.length) {
+      RANGES.forEach(function (r) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = r;
+        b.dataset.range = r;
+        b.addEventListener("click", function () { range = r; load(); });
+        seg.appendChild(b);
+      });
+    }
+    seg.querySelectorAll("button").forEach(function (b) {
+      const on = b.dataset.range === range;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+    document.querySelectorAll("#freq button").forEach(function (b) {
+      const on = b.dataset.freq === freq;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+  }
+
+  document.querySelectorAll("#freq button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      if (freq === b.dataset.freq) return;
+      freq = b.dataset.freq;
+      persist();
+      renderControls();
+      loadCorr();
+    });
+  });
+
+  // ------------------------------------------------------------ picker
+
+  const picker = { results: [], active: -1, timer: null, seq: 0 };
+
+  function fixedMatches(q) {
+    const out = [];
+    const needle = q.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const indexName = "gse-ci gse composite index";
+    if (!needle || indexName.replace(/[^a-z0-9]/g, "").indexOf(needle) >= 0 || "index".indexOf(needle) === 0) {
+      out.push({ id: INDEX_ID, label: INDEX_ID, name: "GSE Composite Index (simulated)", badge: "Index" });
+    }
+    fxCurrencies.forEach(function (c) {
+      const hay = (c.code + c.name + "fx" + c.code + "ghs").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const major = ["USD", "EUR", "GBP"].indexOf(c.code) >= 0;
+      if ((!needle && major) || (needle && hay.indexOf(needle) >= 0)) {
+        out.push({ id: "FX:" + c.code, label: c.code + "/GHS", name: c.name + ", cedis per " + c.code, badge: "FX" });
+      }
+    });
+    return out;
+  }
+
+  function pickerSearch() {
+    const q = $("pickerInput").value.trim();
+    const mine = ++picker.seq;
+    const fixed = fixedMatches(q);
+    if (!q) { showResults(fixed); return; }
+    getJson("/search?limit=10&q=" + encodeURIComponent(q)).then(function (rows) {
+      if (mine !== picker.seq) return;
+      showResults(fixed.concat(rows.map(function (r) {
+        return {
+          id: r.symbol, label: r.symbol, name: r.name,
+          badge: r.asset_class === "equity" ? "Stock" : r.asset_class === "bill" ? "Bill yield" : "Bond yield",
+        };
+      })));
+    }).catch(function () { if (mine === picker.seq) showResults(fixed); });
+  }
+
+  function showResults(rows) {
+    rows = rows.filter(function (r) { return ids.indexOf(r.id) < 0; });
+    picker.results = rows;
+    picker.active = rows.length ? 0 : -1;
+    const list = $("pickerList");
+    list.innerHTML = "";
+    if (!rows.length) {
+      const li = document.createElement("li");
+      li.className = "empty";
+      li.textContent = $("pickerInput").value.trim() ? "No matches" : "Type a symbol, name, ISIN or currency";
+      list.appendChild(li);
+    }
+    rows.forEach(function (r, i) {
+      const li = document.createElement("li");
+      li.id = "pick-" + i;
+      li.setAttribute("role", "option");
+      const sym = document.createElement("span");
+      sym.className = "sym";
+      sym.textContent = r.label;
+      const name = document.createElement("span");
+      name.className = "name";
+      name.textContent = r.name;
+      const badge = document.createElement("span");
+      badge.className = "badge";
+      badge.textContent = r.badge;
+      li.appendChild(sym); li.appendChild(name); li.appendChild(badge);
+      li.addEventListener("mousedown", function (e) { e.preventDefault(); add(r); });
+      li.addEventListener("mousemove", function () { setActive(i); });
+      list.appendChild(li);
+    });
+    setActive(picker.active);
+    openPicker(true);
+  }
+
+  function setActive(i) {
+    picker.active = i;
+    const opts = $("pickerList").querySelectorAll("li[role=option]");
+    opts.forEach(function (o, j) {
+      o.classList.toggle("active", j === i);
+      o.setAttribute("aria-selected", j === i ? "true" : "false");
+    });
+    if (i >= 0 && opts[i]) {
+      $("pickerInput").setAttribute("aria-activedescendant", opts[i].id);
+      opts[i].scrollIntoView({ block: "nearest" });
+    } else {
+      $("pickerInput").removeAttribute("aria-activedescendant");
+    }
+  }
+
+  function openPicker(open) {
+    $("pickerList").hidden = !open;
+    $("pickerInput").setAttribute("aria-expanded", open ? "true" : "false");
+  }
+
+  function add(r) {
+    if (ids.length >= MAX_SERIES || ids.indexOf(r.id) >= 0) return;
+    labels[r.id] = r.label;
+    ids = ids.concat([r.id]);
+    $("pickerInput").value = "";
+    openPicker(false);
+    load();
+  }
+
+  $("pickerInput").addEventListener("input", function () {
+    clearTimeout(picker.timer);
+    picker.timer = setTimeout(pickerSearch, 150);
+  });
+  $("pickerInput").addEventListener("focus", pickerSearch);
+  $("pickerInput").addEventListener("blur", function () { openPicker(false); });
+  $("pickerInput").addEventListener("keydown", function (e) {
+    const n = picker.results.length;
+    if (e.key === "ArrowDown" && n) { e.preventDefault(); setActive((picker.active + 1) % n); }
+    else if (e.key === "ArrowUp" && n) { e.preventDefault(); setActive((picker.active - 1 + n) % n); }
+    else if (e.key === "Enter" && picker.active >= 0) { e.preventDefault(); add(picker.results[picker.active]); }
+    else if (e.key === "Escape") { openPicker(false); }
+  });
+
+  // ------------------------------------------------------------ chart
+
+  let geom = null;   // what the hover layer needs from the last draw
+
+  function el(name, attrs, parent) {
+    const e = document.createElementNS(SVG_NS, name);
+    Object.keys(attrs || {}).forEach(function (k) { e.setAttribute(k, attrs[k]); });
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+
+  function ms(iso) {
+    const p = iso.split("-");
+    return Date.UTC(+p[0], +p[1] - 1, +p[2]);
+  }
+
+  // Round tick steps for the rebased axis.
+  function niceStep(span, target) {
+    const raw = span / target;
+    const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    const n = raw / mag;
+    return (n < 1.5 ? 1 : n < 3 ? 2 : n < 7 ? 5 : 10) * mag;
+  }
+
+  function timeTicks(t0, t1, width) {
+    const days = (t1 - t0) / 864e5;
+    const maxTicks = Math.max(2, Math.floor(width / 90));
+    const steps = [1, 2, 3, 6, 12, 24, 36, 60];   // months
+    let months = steps[steps.length - 1];
+    for (let i = 0; i < steps.length; i++) {
+      if (days / (steps[i] * 30.4) <= maxTicks) { months = steps[i]; break; }
+    }
+    const out = [];
+    if (days < 50) {
+      // Short ranges: weekly ticks on Mondays.
+      const d = new Date(t0);
+      d.setUTCDate(d.getUTCDate() + ((8 - d.getUTCDay()) % 7));
+      const every = days / 7 > maxTicks ? 14 : 7;
+      for (; d.getTime() <= t1; d.setUTCDate(d.getUTCDate() + every)) {
+        out.push({ t: d.getTime(), text: d.getUTCDate() + " " + MONTHS[d.getUTCMonth()] });
+      }
+      return out;
+    }
+    const d = new Date(t0);
+    d.setUTCDate(1);
+    d.setUTCMonth(d.getUTCMonth() + 1);
+    while (d.getUTCMonth() % months !== 0 && months <= 12) d.setUTCMonth(d.getUTCMonth() + 1);
+    if (months > 12) { d.setUTCMonth(0); d.setUTCFullYear(d.getUTCFullYear() + 1); }
+    for (; d.getTime() <= t1; d.setUTCMonth(d.getUTCMonth() + months)) {
+      const jan = d.getUTCMonth() === 0;
+      out.push({ t: d.getTime(), text: jan || months >= 12 ? String(d.getUTCFullYear()) : MONTHS[d.getUTCMonth()] });
+    }
+    return out;
+  }
+
+  function buildLegend(series) {
+    const host = $("legend");
+    host.innerHTML = "";
+    if (series.length < 2) return;
+    series.forEach(function (s) {
+      const item = document.createElement("span");
+      const sw = document.createElement("i");
+      sw.style.background = color(s.id);
+      item.appendChild(sw);
+      item.appendChild(document.createTextNode(s.label));
+      host.appendChild(item);
+    });
+  }
+
+  function renderChart(message) {
+    showTooltip(null);
+    const svg = $("chart");
+    svg.innerHTML = "";
+    geom = null;
+    const series = data ? data.series.filter(function (s) { return s.points.length && slots[s.id]; }) : [];
+    buildLegend(series);
+    renderTable();
+    const msg = $("emptyMsg");
+
+    if (data) {
+      const start = data.start ? "Since " + dateText(data.start) : "All stored history";
+      $("chartSub").textContent = start + (data.step === "1w" ? " · one point a week" : " · daily");
+    } else {
+      $("chartSub").textContent = "";
+    }
+    if (!series.length) {
+      msg.textContent = message || (data ? "No history for these series in this range." : "Loading…");
+      msg.style.display = "flex";
+      return;
+    }
+    msg.style.display = "none";
+
+    const W = svg.clientWidth || 900, H = svg.clientHeight || 440;
+    // Direct-label the line ends (besides the legend) when there are few
+    // lines and room for the labels beside the plot.
+    function endText(s) {
+      const last = s.points[s.points.length - 1];
+      const label = s.label.length > 16 ? s.label.slice(0, 15) + "…" : s.label;
+      return last[2] == null ? null : label + "  " + last[2].toFixed(1);
+    }
+    let labelWidth = 0;
+    series.forEach(function (s) { labelWidth = Math.max(labelWidth, (endText(s) || "").length * 6.3 + 16); });
+    const direct = series.length <= 4 && W >= 560;
+    const m = { top: 14, right: direct ? Math.ceil(labelWidth) : 18, bottom: 28, left: 50 };
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+
+    let t0 = Infinity, t1 = -Infinity, lo = Infinity, hi = -Infinity;
+    series.forEach(function (s) {
+      s._t = s.points.map(function (p) { return ms(p[0]); });
+      t0 = Math.min(t0, s._t[0]); t1 = Math.max(t1, s._t[s._t.length - 1]);
+      s.points.forEach(function (p) {
+        if (p[2] == null) return;
+        lo = Math.min(lo, p[2]); hi = Math.max(hi, p[2]);
+      });
+    });
+    if (!isFinite(lo)) { lo = 90; hi = 110; }
+    lo = Math.min(lo, 100); hi = Math.max(hi, 100);
+    const pad = Math.max((hi - lo) * 0.06, 1);
+    lo -= pad; hi += pad;
+    if (t1 === t0) t1 = t0 + 864e5;
+
+    const X = function (t) { return m.left + (t - t0) / (t1 - t0) * (W - m.left - m.right); };
+    const Y = function (v) { return H - m.bottom - (v - lo) / (hi - lo) * (H - m.top - m.bottom); };
+
+    const grid = el("g", { class: "grid" }, svg);
+    const axis = el("g", { class: "axis" }, svg);
+    const step = niceStep(hi - lo, Math.max(3, Math.floor((H - m.top - m.bottom) / 55)));
+    for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) {
+      const y = Y(v);
+      el("line", { x1: m.left, x2: W - m.right, y1: y, y2: y, class: Math.abs(v - 100) < 1e-9 ? "base" : "" }, grid);
+      const t = el("text", { x: m.left - 8, y: y + 4, "text-anchor": "end" }, axis);
+      t.textContent = Number(v.toFixed(6)).toString();
+    }
+    if (Math.abs(Math.round(100 / step) * step - 100) > 1e-9) {
+      el("line", { x1: m.left, x2: W - m.right, y1: Y(100), y2: Y(100), class: "base" }, grid);
+    }
+    timeTicks(t0, t1, W - m.left - m.right).forEach(function (tk) {
+      const t = el("text", { x: X(tk.t), y: H - m.bottom + 18, "text-anchor": "middle" }, axis);
+      t.textContent = tk.text;
+    });
+
+    series.forEach(function (s) {
+      let d = "", pen = false;
+      s.points.forEach(function (p, i) {
+        if (p[2] == null) { pen = false; return; }
+        d += (pen ? "L" : "M") + X(s._t[i]).toFixed(1) + " " + Y(p[2]).toFixed(1);
+        pen = true;
+      });
+      el("path", { d: d, class: "series", stroke: color(s.id) }, svg);
+    });
+
+    // End labels: each line's latest rebased value, nudged apart so they
+    // don't overlap; the dot sits on the line, the text in the margin.
+    if (direct) {
+      const ends = series.map(function (s) {
+        const last = s.points[s.points.length - 1];
+        return { s: s, x: X(s._t[s._t.length - 1]), y: last[2] == null ? null : Y(last[2]), text: endText(s) };
+      }).filter(function (e) { return e.y != null; }).sort(function (a, b) { return a.y - b.y; });
+      let prev = -Infinity;
+      ends.forEach(function (e) { e.ly = Math.max(e.y, prev + 14); prev = e.ly; });
+      const overflow = prev - (H - m.bottom);
+      if (overflow > 0) ends.forEach(function (e) { e.ly -= overflow; });
+      ends.forEach(function (e) {
+        el("circle", { cx: e.x, cy: e.y, r: 4, fill: color(e.s.id), class: "end-dot" }, svg);
+        const t = el("text", { x: W - m.right + 10, y: e.ly + 4, class: "end-label" }, svg);
+        t.textContent = e.text;
+      });
+    }
+
+    const hover = el("g", { "pointer-events": "none" }, svg);
+    geom = { series: series, X: X, Y: Y, t0: t0, t1: t1, m: m, W: W, H: H, hover: hover };
+  }
+
+  // The last point on or before t (a series that didn't trade that day
+  // shows its carried value), or null before the series starts.
+  function pointAt(s, t) {
+    let a = 0, b = s._t.length - 1;
+    if (t < s._t[0]) return null;
+    while (a < b) {
+      const mid = (a + b + 1) >> 1;
+      if (s._t[mid] <= t) a = mid; else b = mid - 1;
+    }
+    return { i: a, p: s.points[a] };
+  }
+
+  function onMove(e) {
+    if (!geom) return;
+    const svg = $("chart");
+    const box = svg.getBoundingClientRect();
+    const scale = geom.W / box.width;
+    const x = (e.clientX - box.left) * scale;
+    if (x < geom.m.left || x > geom.W - geom.m.right) { showTooltip(null); return; }
+    const t = geom.t0 + (x - geom.m.left) / (geom.W - geom.m.left - geom.m.right) * (geom.t1 - geom.t0);
+    // Snap to the nearest date any series has.
+    let best = null;
+    geom.series.forEach(function (s) {
+      const hit = pointAt(s, t + 43200e3);
+      if (hit && (best == null || Math.abs(s._t[hit.i] - t) < Math.abs(best - t))) best = s._t[hit.i];
+    });
+    if (best == null) { showTooltip(null); return; }
+    showTooltip(best, e.clientX - box.left, e.clientY - box.top);
+  }
+
+  function showTooltip(t, px, py) {
+    const tip = $("tooltip");
+    if (geom) geom.hover.innerHTML = "";
+    if (t == null || !geom) { tip.style.display = "none"; return; }
+    const x = geom.X(t);
+    el("line", { x1: x, x2: x, y1: geom.m.top, y2: geom.H - geom.m.bottom, class: "cross" }, geom.hover);
+
+    tip.innerHTML = "";
+    const head = document.createElement("div");
+    head.className = "t-head";
+    head.textContent = new Date(t).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+    tip.appendChild(head);
+    const rows = geom.series.map(function (s) {
+      const hit = pointAt(s, t);
+      return { s: s, p: hit && hit.p, stale: hit && s._t[hit.i] !== t };
+    }).sort(function (a, b) { return (b.p && b.p[2] || -Infinity) - (a.p && a.p[2] || -Infinity); });
+    rows.forEach(function (r) {
+      if (r.p && r.p[2] != null) {
+        el("circle", { cx: x, cy: geom.Y(r.p[2]), r: 4, fill: color(r.s.id), class: "hover-dot" }, geom.hover);
+      }
+      const row = document.createElement("div");
+      row.className = "t-row";
+      const sw = document.createElement("span");
+      sw.className = "swatch";
+      sw.style.background = color(r.s.id);
+      const lbl = document.createElement("span");
+      lbl.className = "lbl";
+      lbl.textContent = r.s.label;
+      const val = document.createElement("span");
+      val.className = "val num";
+      val.textContent = r.p ? (unitText(r.s) ? unitText(r.s) + " " : "") + fmtValue(r.s, r.p[1]) + (r.stale ? "*" : "") : "—";
+      if (r.stale) val.title = "Last value, from " + dateText(r.p[0]);
+      const b = document.createElement("b");
+      b.className = "num";
+      b.textContent = r.p && r.p[2] != null ? r.p[2].toFixed(2) : "—";
+      row.appendChild(sw); row.appendChild(lbl); row.appendChild(val); row.appendChild(b);
+      tip.appendChild(row);
+    });
+    if (rows.some(function (r) { return r.stale; })) {
+      const foot = document.createElement("div");
+      foot.className = "t-head";
+      foot.style.margin = "4px 0 0";
+      foot.textContent = "* no value that day: the last one shown";
+      tip.appendChild(foot);
+    }
+    tip.style.display = "block";
+    const wrap = $("chartWrap").getBoundingClientRect();
+    let left = px + 16;
+    if (left + tip.offsetWidth > wrap.width - 4) left = px - tip.offsetWidth - 16;
+    tip.style.left = Math.max(left, 4) + "px";
+    tip.style.top = Math.max(Math.min(py - tip.offsetHeight / 2, wrap.height - tip.offsetHeight - 4), 4) + "px";
+  }
+
+  $("chart").addEventListener("pointermove", onMove);
+  $("chart").addEventListener("pointerdown", onMove);
+  $("chart").addEventListener("pointerleave", function () { showTooltip(null); });
+  let resizeTimer = null;
+  window.addEventListener("resize", function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function () { renderChart(); }, 100);
+  });
+
+  // ------------------------------------------------------------ table
+
+  function renderTable() {
+    const body = $("tableBody");
+    body.innerHTML = "";
+    if (!data) return;
+    data.series.forEach(function (s) {
+      const tr = document.createElement("tr");
+      const first = document.createElement("td");
+      const sw = document.createElement("span");
+      sw.className = "swatch";
+      sw.style.background = color(s.id);
+      first.appendChild(sw);
+      first.appendChild(document.createTextNode(s.label));
+      first.title = s.name;
+      tr.appendChild(first);
+      const c = pct(s.last && s.last.rebased);
+      const traded = s.kind === "equity" || s.kind === "yield" || s.kind === "price";
+      [
+        [s.base ? dateText(s.base.date) + (s.late_start ? " (first)" : "") : "—", "muted"],
+        [s.base ? fmtValue(s, s.base.value) : "—", "num"],
+        [s.last ? dateText(s.last.date) : "—", "muted"],
+        [s.last ? fmtValue(s, s.last.value) : "—", "num"],
+        [s.last && s.last.rebased != null ? s.last.rebased.toFixed(2) : "—", "num"],
+        [c.text, "num " + c.cls],
+        [traded && s.days ? s.observed_days + " of " + s.days : "—", "num muted"],
+      ].forEach(function (cell) {
+        const td = document.createElement("td");
+        td.textContent = cell[0];
+        td.className = cell[1];
+        tr.appendChild(td);
+      });
+      body.appendChild(tr);
+    });
+  }
+
+  // ------------------------------------------------------------ correlation
+
+  function mix(a, b, f) {
+    return "rgb(" + a.map(function (v, i) { return Math.round(v + (b[i] - v) * f); }).join(",") + ")";
+  }
+  function corrColor(r) {
+    return r >= 0 ? mix(MID, POS, Math.min(r, 1)) : mix(MID, NEG, Math.min(-r, 1));
+  }
+  $("scaleBar").style.background = "linear-gradient(90deg," + corrColor(-1) + "," + corrColor(0) + "," + corrColor(1) + ")";
+
+  function renderCorr(message) {
+    const wrap = $("corrWrap");
+    wrap.innerHTML = "";
+    if (!corr) {
+      $("corrSub").textContent = "";
+      const p = document.createElement("p");
+      p.className = "note";
+      p.textContent = message || "Loading…";
+      wrap.appendChild(p);
+      return;
+    }
+    $("minObs").textContent = corr.min_observations;
+    $("corrSub").textContent = (corr.start ? "Since " + dateText(corr.start) : "All stored history") + " · " +
+      (corr.frequency === "weekly" ? "week-on-week changes" : "day-on-day changes, between days both traded");
+
+    const table = document.createElement("table");
+    table.className = "corr";
+    const thead = document.createElement("thead");
+    const hr = document.createElement("tr");
+    hr.appendChild(document.createElement("th"));
+    function head(s, cls) {
+      const th = document.createElement("th");
+      th.className = cls;
+      th.title = s.name;
+      const sw = document.createElement("span");
+      sw.className = "swatch";
+      sw.style.background = slots[s.id] ? color(s.id) : "var(--ink-faint)";
+      th.appendChild(sw);
+      th.appendChild(document.createTextNode(s.label));
+      return th;
+    }
+    corr.series.forEach(function (s) { const th = head(s, "col"); th.scope = "col"; hr.appendChild(th); });
+    thead.appendChild(hr);
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    corr.series.forEach(function (s, i) {
+      const tr = document.createElement("tr");
+      const th = head(s, "row");
+      th.scope = "row";
+      tr.appendChild(th);
+      corr.matrix[i].forEach(function (cell, j) {
+        const td = document.createElement("td");
+        const other = corr.series[j];
+        if (i === j) {
+          td.className = "diag";
+          td.textContent = cell.value == null ? "—" : "1";
+          td.title = s.label + ": " + cell.observations + " changes of its own" +
+            (cell.value == null ? ", too few (or it never moved) to correlate" : "");
+        } else if (cell.value == null) {
+          td.className = "na";
+          td.textContent = "—";
+          td.title = s.label + " and " + other.label + ": only " + cell.observations +
+            " changes on days both traded (" + corr.min_observations + " needed)";
+        } else {
+          td.style.background = corrColor(cell.value);
+          const shown = Math.round(cell.value * 100) / 100;
+          td.textContent = (shown > 0 ? "+" : shown < 0 ? "−" : "") + Math.abs(shown).toFixed(2);
+          td.title = s.label + " and " + other.label + ": " + cell.value.toFixed(4) + " over " + cell.observations + " changes";
+        }
+        const small = document.createElement("small");
+        small.textContent = "n " + cell.observations;
+        td.appendChild(small);
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+  }
+
+  // ------------------------------------------------------------ boot
+
+  // Currencies for the picker; without BoG rates the picker just offers
+  // none.
+  getJson("/fx/rates").then(function (b) {
+    fxCurrencies = b.currencies.map(function (c) { return { code: c.code, name: c.name }; });
+  }).catch(function () { /* no rates yet */ });
+
+  load();
+})();
+</script>
+</body>
+</html>
