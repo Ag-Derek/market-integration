@@ -37,13 +37,18 @@ RANGES: dict[str, RangeSpec] = {
     "Max": RangeSpec("1w", None),
 }
 
+# Most candles /candles?warmup= returns ahead of a range: enough for the
+# longest indicator the chart offers (a 200-period moving average).
+MAX_WARMUP = 200
+
 # How far back to ask the connector for history per interval at startup.
-# Must cover the longest range served from that interval (with a little
-# slack). None = everything the provider has.
+# Must cover the longest range served from that interval plus MAX_WARMUP
+# candles ahead of it, so indicators have a value from the chart's first
+# candle. None = everything the provider has.
 HISTORY_DEPTH: dict[str, Optional[timedelta]] = {
-    "5m": timedelta(days=2),
-    "15m": timedelta(days=7),
-    "1h": timedelta(days=35),
-    "1d": timedelta(days=400),
+    "5m": timedelta(days=2),    # 1D + a day (288 candles)
+    "15m": timedelta(days=10),  # 5D + 5 days (480)
+    "1h": timedelta(days=44),   # 1M + 14 days (336)
+    "1d": timedelta(days=665),  # 1Y + ~300 days (200 trading days)
     "1w": None,
 }

@@ -22,7 +22,7 @@ from pydantic import BaseModel, ConfigDict
 
 from app import config, metrics
 from app.aggregation.market_aggregator import MarketAggregator
-from app.aggregation.ranges import RANGES
+from app.aggregation.ranges import MAX_WARMUP, RANGES
 from app.bond_math import settlement_date
 from app.bond_math.calculator import calculate, quoted_yield, security_for
 from app.company import COMPANIES
@@ -869,6 +869,7 @@ async def get_candles(
     range_: str = Query("1D", alias="range"),
     interval: Optional[str] = None,
     currency: Optional[str] = None,
+    warmup: int = Query(0, ge=0, le=MAX_WARMUP),
 ):
     """OHLCV candles as JSON for charting. `range` is one of the chart
     selector ranges (1D, 5D, 1M, 6M, YTD, 1Y, 5Y, Max) and picks both the
@@ -878,6 +879,11 @@ async def get_candles(
     for equities and price-only corporates), so a chart can toggle.
     `possibly_incomplete` is true where the live feed lost a tick in
     that window under load.
+
+    `warmup` asks for up to that many candles before the range as well,
+    in their own `warmup` list (oldest first, same shape): what a moving
+    average or RSI needs to have a value from the chart's first candle.
+    Fewer come back where history runs out, none for Max.
 
     `currency` (an equity only) gives prices in that currency at the
     Bank of Ghana mid (`fx` says how): daily and weekly candles at the
@@ -915,7 +921,25 @@ async def get_candles(
     now = datetime.now(timezone.utc)
     start = spec.start(now)
     candles = await aggregator.get_candles(symbol, interval, start)
+    earlier = []
+    if warmup and start is not None:
+        earlier = await aggregator.get_candles_before(symbol, interval, start, warmup)
     to_currency, fx = _candle_converter(currency, interval, now.date())
+
+    def as_json(c: Candle) -> dict:
+        return {
+            "time": c.window_start.isoformat(),
+            **{k: getattr(c, k) * to_currency(c) for k in ("open", "high", "low", "close")},
+            "volume": c.volume,
+            "yield": None if c.yield_close is None else {
+                "open": c.yield_open,
+                "high": c.yield_high,
+                "low": c.yield_low,
+                "close": c.yield_close,
+            },
+            "possibly_incomplete": c.possibly_incomplete,
+        }
+
     return {
         "symbol": symbol,
         "range": range_,
@@ -925,21 +949,8 @@ async def get_candles(
         # (per 100 of face value).
         "currency": (currency or FX_BASE) if equity else None,
         "fx": fx,
-        "candles": [
-            {
-                "time": c.window_start.isoformat(),
-                **{k: getattr(c, k) * to_currency(c) for k in ("open", "high", "low", "close")},
-                "volume": c.volume,
-                "yield": None if c.yield_close is None else {
-                    "open": c.yield_open,
-                    "high": c.yield_high,
-                    "low": c.yield_low,
-                    "close": c.yield_close,
-                },
-                "possibly_incomplete": c.possibly_incomplete,
-            }
-            for c in candles
-        ],
+        "warmup": [as_json(c) for c in earlier],
+        "candles": [as_json(c) for c in candles],
     }
 
 
@@ -1128,6 +1139,12 @@ async def search_script():
 async def description_script():
     """The stock page's Description view (#64)."""
     return FileResponse(STATIC_DIR / "description.js", media_type="text/javascript")
+
+
+@app.get("/static/indicators.js")
+async def indicators_script():
+    """Moving averages, Bollinger bands, RSI and MACD for the stock chart."""
+    return FileResponse(STATIC_DIR / "indicators.js", media_type="text/javascript")
 
 
 @app.get("/static/render.js")
