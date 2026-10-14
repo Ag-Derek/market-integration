@@ -21,6 +21,28 @@ def test_the_ticker_shows_the_watchlist_not_a_fixed_symbol_list(client):
     assert "MarketSearch.loadWatchlist()" in page and "MarketSearch.saveWatchlist(" in page
 
 
+def test_the_market_strip_is_served(client):
+    script = client.get("/static/strip.js")
+    assert script.status_code == 200
+    assert "javascript" in script.headers["content-type"]
+    assert "window.MarketStrip = { mount: mount }" in script.text
+
+
+@pytest.mark.parametrize("path, crawl", [
+    ("/ticker", "equity"),
+    ("/fixed-income", "fixed_income"),
+    ("/yield-curve", "fixed_income"),
+    ("/bond/GHGGOG069931", "fixed_income"),
+])
+def test_pages_mount_the_market_strip_after_the_render_helpers(client, path, crawl):
+    page = client.get(path).text
+    render = '<script src="/static/render.js"></script>'
+    strip = '<script src="/static/strip.js"></script>'
+    assert 'id="strip"' in page
+    assert page.index(render) < page.index(strip)
+    assert f'{{ crawl: "{crawl}" }}' in page
+
+
 @pytest.mark.parametrize("path", ["/ticker", "/stock/MTNGH", "/fixed-income", "/bond/GHGGOG069931"])
 def test_live_pages_load_the_render_helpers_first(client, path):
     page = client.get(path).text

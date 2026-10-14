@@ -171,6 +171,8 @@
     </nav>
   </div>
 
+  <div id="strip"></div>
+
   <div class="subbar" role="tablist">
     <a class="subtab" href="#monitor" data-view="monitor" role="tab">Bills &amp; Bonds</a>
     <a class="subtab" href="#sell-buy-back" data-view="sell-buy-back" role="tab">Sell/Buy Back</a>
@@ -202,6 +204,8 @@
 </div>
 
 <script src="/static/render.js"></script>
+<script src="/static/strip.js"></script>
+<script>MarketStrip.mount(document.getElementById("strip"), { crawl: "fixed_income" });</script>
 <script>
 (function () {
   "use strict";

@@ -189,15 +189,7 @@
 
   /* Market status badge: session and connection state only. */
   .status { display: flex; align-items: center; gap: 5px; }
-  .status-dot {
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: var(--status-closed);
-  }
-  [data-badge="live"] .status-dot { background: var(--status-live); box-shadow: 0 0 0 3px var(--status-live-halo); }
-  [data-badge="delayed"] .status-dot { background: var(--status-delayed); }
   [data-badge="delayed"] #statusText { color: var(--status-delayed); }
-  [data-badge="disconnected"] .status-dot { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ink-faint); }
 
   .name {
     font-size: 22px;
@@ -474,7 +466,7 @@
   <section class="card">
     <div class="exchange-row">
       <span id="exchange">Connecting…</span>
-      <span class="status" id="status" data-badge="disconnected"><span class="status-dot"></span><span id="statusText">Connecting…</span></span>
+      <span class="status" id="status" data-badge="disconnected"><span id="statusText">Connecting…</span></span>
     </div>
     <h1 class="name"><span id="nameText">—</span><span class="symbol" id="symbolText"></span></h1>
     <p class="idline" id="idline"></p>

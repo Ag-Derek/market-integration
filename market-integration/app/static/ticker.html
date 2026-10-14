@@ -300,15 +300,7 @@
 
   /* Market status badge: session and connection state only. */
   .pane-status { display: flex; align-items: center; gap: 5px; }
-  .status-dot {
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: var(--status-closed);
-  }
-  [data-badge="live"] .status-dot { background: var(--status-live); box-shadow: 0 0 0 3px var(--status-live-halo); }
-  [data-badge="delayed"] .status-dot { background: var(--status-delayed); }
   [data-badge="delayed"] .status-text { color: var(--status-delayed); }
-  [data-badge="disconnected"] .status-dot { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ink-faint); }
 
   .pane-name {
     display: block;
@@ -438,6 +430,8 @@
     <div id="currency"></div>
   </div>
 
+  <div id="strip"></div>
+
   <div class="layout" id="layout">
     <aside class="sidebar" aria-label="Equities">
       <div class="sidebar-head">
@@ -477,6 +471,8 @@
 <script src="/static/render.js"></script>
 <script src="/static/currency.js"></script>
 <script src="/static/search.js"></script>
+<script src="/static/strip.js"></script>
+<script>MarketStrip.mount(document.getElementById("strip"), { crawl: "equity" });</script>
 <script>
 (function () {
   "use strict";
@@ -908,7 +904,7 @@
     exchangeLabel.textContent = "Connecting…";
     const status = document.createElement("span");
     status.className = "pane-status";
-    status.innerHTML = '<span class="status-dot"></span><span class="status-text"></span>';
+    status.innerHTML = '<span class="status-text"></span>';
     exchangeRow.appendChild(exchangeLabel);
     exchangeRow.appendChild(status);
     root.appendChild(exchangeRow);
