@@ -126,7 +126,9 @@ Each branch validates ticks itself.
   - **`ranges.py`** — the chart range selector. `RANGES` maps each range
     to the candle interval it is drawn from (coarsest that still gives
     roughly 100–750 points) and its lookback; `HISTORY_DEPTH` is how far
-    back backfill fetches per interval so every range is fully covered:
+    back backfill fetches per interval so every range is fully covered,
+    plus `MAX_WARMUP` (200) candles ahead of it for the chart's
+    indicators (`/candles?warmup=`):
 
     | Range | Interval | Lookback |
     |---|---|---|
@@ -141,10 +143,10 @@ Each branch validates ticks itself.
 
     | Interval | Backfill depth |
     |---|---|
-    | `5m` | 2 days |
-    | `15m` | 7 days |
-    | `1h` | 35 days |
-    | `1d` | 400 days |
+    | `5m` | 2 days (1D + 288 warm-up candles) |
+    | `15m` | 10 days (5D + 480) |
+    | `1h` | 44 days (1M + 336) |
+    | `1d` | 665 days (1Y + ~200 trading days) |
     | `1w` | everything the provider has |
 
   - Volume: the mock reports *cumulative* session volume, so each tick
@@ -180,6 +182,9 @@ Each branch validates ticks itself.
 
 - Python 3.10+ (3.12 recommended)
 - Windows PowerShell, macOS/Linux shell — instructions below cover both
+- Node.js (optional) — only to run the chart indicator tests
+  (`tests/test_indicators.py` runs `indicators.js` under Node); they're
+  skipped without it
 
 ## Setup (virtual environment)
 
@@ -398,8 +403,8 @@ Uvicorn running on http://127.0.0.1:8000
 | `http://127.0.0.1:8000/market/{symbol}` | Latest snapshot for a tracked symbol (e.g. `/market/MTNGH`); 404 if unknown |
 | `ws://127.0.0.1:8000/ws/market`   | WebSocket — live quotes for the symbols a client subscribes to (protocol below) |
 | `http://127.0.0.1:8000/ticker`    | Live quote card UI (`app/static/ticker.html`), driven by the WebSocket feed above. The cards are your watchlist (`/watchlists/me`), in your order: pin from the search bar, unpin with ✕, reorder by dragging a card's ⠿ handle (or focusing it and using the arrow keys); the collapsible sidebar lists every listed equity, pinned ones highlighted with their day change; click another to pin it. Only pinned symbols are subscribed. The header search (press `/`; ↑/↓, Enter to open, Shift+Enter to pin, Esc to close) is also on `/stock/{symbol}`. The currency picker (top right, also on `/stock/{symbol}`) shows prices in another currency at the latest BoG mid; it's remembered per browser |
-| `http://127.0.0.1:8000/stock/{symbol}` | Single-stock page (`app/static/stock.html`) for an equity: live quote over `/ws/market` plus a chart from `/candles` with the 1D–Max range selector. 404 for bills, bonds and unknown symbols. `/stock` redirects to the first equity |
-| `http://127.0.0.1:8000/candles?symbol=MTNGH&range=1D` | OHLCV candles as JSON for charting. `symbol` is required (404 if not in the feed). `range` is `1D`, `5D`, `1M`, `6M`, `YTD`, `1Y`, `5Y` or `Max` (default `1D`) and picks the lookback and candle interval (see `ranges.py` above); `interval` (`5m`, `15m`, `1h`, `1d`, `1w`) overrides the interval. 400 for an unknown range or interval. Returns `symbol`, `range`, `interval`, `start` and `candles` — each `time`, `open`, `high`, `low`, `close`, `volume` and `yield` (`{open, high, low, close}` for bills and bonds, `null` for equities and price-only corporates). The newest candle is the live, still-open one. `currency` (equities only; 400 for bills and bonds) converts OHLC at the BoG mid: daily and weekly candles each at their day's fix, intraday ones at the latest; `currency` and `fx` in the response say how |
+| `http://127.0.0.1:8000/stock/{symbol}` | Single-stock page (`app/static/stock.html`) for an equity: live quote over `/ws/market` plus a chart from `/candles` with the 1D–Max range selector. The **Indicators** menu next to the ranges adds SMA (two), EMA and Bollinger bands on the price, and RSI and MACD in panes below the volume, each with editable periods; they're calculated in the browser (`app/static/indicators.js`) on closes, follow live ticks, show in the hover tooltip, and are remembered per browser. 404 for bills, bonds and unknown symbols. `/stock` redirects to the first equity |
+| `http://127.0.0.1:8000/candles?symbol=MTNGH&range=1D` | OHLCV candles as JSON for charting. `symbol` is required (404 if not in the feed). `range` is `1D`, `5D`, `1M`, `6M`, `YTD`, `1Y`, `5Y` or `Max` (default `1D`) and picks the lookback and candle interval (see `ranges.py` above); `interval` (`5m`, `15m`, `1h`, `1d`, `1w`) overrides the interval. 400 for an unknown range or interval. Returns `symbol`, `range`, `interval`, `start` and `candles` — each `time`, `open`, `high`, `low`, `close`, `volume` and `yield` (`{open, high, low, close}` for bills and bonds, `null` for equities and price-only corporates). The newest candle is the live, still-open one. `currency` (equities only; 400 for bills and bonds) converts OHLC at the BoG mid: daily and weekly candles each at their day's fix, intraday ones at the latest; `currency` and `fx` in the response say how. `warmup` (0–200, default 0) also returns up to that many earlier candles in a separate `warmup` list (same shape, oldest first), so a moving average or RSI has a value from the range's first candle; empty for `Max`, and shorter where stored history runs out; 422 outside 0–200 |
 | `http://127.0.0.1:8000/candles/export` | Stored OHLCV candles from `market_candles` as a CSV download (opens in Excel), ordered by symbol then time. Optional `?symbol=MTNGH` (default: all symbols) and `?interval=` (`5m`, `15m`, `1h`, `1d`, `1w`; default `15m`). Columns: `symbol`, `interval`, `window_start`, `window_end`, `open`, `high`, `low`, `close`, `volume`, `tick_count`, `yield_open`, `yield_high`, `yield_low`, `yield_close`. Reads the database only, so the open window is as of the last flush (up to 60 s old) |
 
 `127.0.0.1` means "this machine only" — the service isn't reachable from
@@ -412,6 +417,7 @@ curl http://127.0.0.1:8000/health
 curl http://127.0.0.1:8000/market/status
 curl http://127.0.0.1:8000/market/MTNGH
 curl "http://127.0.0.1:8000/candles?symbol=MTNGH&range=5D"
+curl "http://127.0.0.1:8000/candles?symbol=MTNGH&range=1Y&warmup=200"
 curl http://127.0.0.1:8000/fx/rates
 curl "http://127.0.0.1:8000/fx/convert?amount=100&to=USD"
 curl "http://127.0.0.1:8000/candles?symbol=MTNGH&range=5Y&currency=USD"
@@ -566,7 +572,8 @@ market-integration/
 │   └── static/
 │       ├── search.js              # header search bar (autocomplete over /search) on /ticker and /stock
 │       ├── ticker.html            # live quote card UI, served at /ticker
-│       ├── stock.html             # single-stock page + range chart, served at /stock/{symbol}
+│       ├── stock.html             # single-stock page + range chart and indicators, served at /stock/{symbol}
+│       ├── indicators.js          # SMA, EMA, Bollinger, RSI (Wilder), MACD for the stock chart
 │       ├── fixed_income.html      # bills and bonds by GFIM segment, served at /fixed-income
 │       ├── yield_curve.html       # GoG yield curve vs. a past day, served at /yield-curve
 │       └── bond.html              # bill/bond page (simplified YAS), served at /bond/{symbol}
@@ -621,6 +628,18 @@ change — that's the point of the connector interface.
 - [x] Bounded queue + backpressure policy for high-throughput feeds
       (`MarketDataBuffer`, drop-oldest per subscriber)
 - [x] OHLCV aggregation + persistence, with CSV export of historical candles
+- Charting and analytics (Bloomberg GP/GIP, G, SEAG, CORR equivalents):
+  - [x] Technical indicators on the stock chart: SMA, EMA, Bollinger, RSI, MACD
+  - [ ] Seasonality view on the stock page (`#seasonality`): average
+        return by month, year-over-year lines, monthly returns table
+  - [ ] `/graph` page: several series (equities, GSE-CI, bond yields, FX)
+        rebased to 100 on one chart
+  - [ ] Correlation matrix of the selected series, on returns
+  - [ ] Drawing tools on the stock chart (trend lines, levels, Fibonacci),
+        saved per user
+  - [ ] Finer intraday (1-minute candles or stored ticks)
+  - [ ] Adjusted history for corporate actions (splits, bonus issues),
+        once real multi-year history is loaded
 - [ ] Observability: connection status, dropped messages, queue depth,
       clients and validation rejections are on `/metrics` (messages/sec is
       `rate(market_buffer_received_ticks_total[1m])`); end-to-end latency
