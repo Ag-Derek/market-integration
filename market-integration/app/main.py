@@ -1143,6 +1143,13 @@ async def currency_script():
     return FileResponse(STATIC_DIR / "currency.js", media_type="text/javascript")
 
 
+@app.get("/static/strip.js")
+async def strip_script():
+    """The market strip under the header of /ticker and the fixed income
+    pages: index, FX and bill yields in place over a scrolling crawl."""
+    return FileResponse(STATIC_DIR / "strip.js", media_type="text/javascript")
+
+
 @app.get("/stock")
 async def stock_page_default():
     return RedirectResponse(url=f"/stock/{equities.symbols[0]}")
