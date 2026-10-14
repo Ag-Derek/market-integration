@@ -146,7 +146,7 @@ Each branch validates ticks itself.
     | `5m` | 2 days (1D + 288 warm-up candles) |
     | `15m` | 10 days (5D + 480) |
     | `1h` | 44 days (1M + 336) |
-    | `1d` | 665 days (1Y + ~200 trading days) |
+    | `1d` | everything the provider has (the Seasonality view reads every year) |
     | `1w` | everything the provider has |
 
   - Volume: the mock reports *cumulative* session volume, so each tick
@@ -403,7 +403,8 @@ Uvicorn running on http://127.0.0.1:8000
 | `http://127.0.0.1:8000/market/{symbol}` | Latest snapshot for a tracked symbol (e.g. `/market/MTNGH`); 404 if unknown |
 | `ws://127.0.0.1:8000/ws/market`   | WebSocket — live quotes for the symbols a client subscribes to (protocol below) |
 | `http://127.0.0.1:8000/ticker`    | Live quote card UI (`app/static/ticker.html`), driven by the WebSocket feed above. The cards are your watchlist (`/watchlists/me`), in your order: pin from the search bar, unpin with ✕, reorder by dragging a card's ⠿ handle (or focusing it and using the arrow keys); the collapsible sidebar lists every listed equity, pinned ones highlighted with their day change; click another to pin it. Only pinned symbols are subscribed. The header search (press `/`; ↑/↓, Enter to open, Shift+Enter to pin, Esc to close) is also on `/stock/{symbol}`. The currency picker (top right, also on `/stock/{symbol}`) shows prices in another currency at the latest BoG mid; it's remembered per browser |
-| `http://127.0.0.1:8000/stock/{symbol}` | Single-stock page (`app/static/stock.html`) for an equity: live quote over `/ws/market` plus a chart from `/candles` with the 1D–Max range selector. The **Indicators** menu next to the ranges adds SMA (two), EMA and Bollinger bands on the price, and RSI and MACD in panes below the volume, each with editable periods; they're calculated in the browser (`app/static/indicators.js`) on closes, follow live ticks, show in the hover tooltip, and are remembered per browser. 404 for bills, bonds and unknown symbols. `/stock` redirects to the first equity |
+| `http://127.0.0.1:8000/stock/{symbol}` | Single-stock page (`app/static/stock.html`) for an equity: live quote over `/ws/market` plus a chart from `/candles` with the 1D–Max range selector. The **Indicators** menu next to the ranges adds SMA (two), EMA and Bollinger bands on the price, and RSI and MACD in panes below the volume, each with editable periods; they're calculated in the browser (`app/static/indicators.js`) on closes, follow live ticks, show in the hover tooltip, and are remembered per browser. The **Seasonality** view (`#seasonality`, from `/seasonality/{symbol}`) shows the average return for each calendar month with how many years it rose, this year's path from 1 January against past years and their average, and the table of monthly returns. 404 for bills, bonds and unknown symbols. `/stock` redirects to the first equity |
+| `http://127.0.0.1:8000/seasonality/{symbol}` | An equity's seasonality from every stored daily close, in cedis (`app/company/seasonality.py`): `months` (each month's return, last close against the previous month's), `annual`, `by_month` (per calendar month: `mean`, `median`, `positive` of `count`, `best` and `worst` year), `paths` (each year's cumulative return by day of year, from the previous year's last close) and `average` (the mean path of the finished years, `average_years` of them). The current month and year are to date, flagged `partial` and left out of the averages; a month with no previous month to measure from has a null return. 404 for unknown symbols, bills and bonds; empty for a suspended equity |
 | `http://127.0.0.1:8000/candles?symbol=MTNGH&range=1D` | OHLCV candles as JSON for charting. `symbol` is required (404 if not in the feed). `range` is `1D`, `5D`, `1M`, `6M`, `YTD`, `1Y`, `5Y` or `Max` (default `1D`) and picks the lookback and candle interval (see `ranges.py` above); `interval` (`5m`, `15m`, `1h`, `1d`, `1w`) overrides the interval. 400 for an unknown range or interval. Returns `symbol`, `range`, `interval`, `start` and `candles` — each `time`, `open`, `high`, `low`, `close`, `volume` and `yield` (`{open, high, low, close}` for bills and bonds, `null` for equities and price-only corporates). The newest candle is the live, still-open one. `currency` (equities only; 400 for bills and bonds) converts OHLC at the BoG mid: daily and weekly candles each at their day's fix, intraday ones at the latest; `currency` and `fx` in the response say how. `warmup` (0–200, default 0) also returns up to that many earlier candles in a separate `warmup` list (same shape, oldest first), so a moving average or RSI has a value from the range's first candle; empty for `Max`, and shorter where stored history runs out; 422 outside 0–200 |
 | `http://127.0.0.1:8000/candles/export` | Stored OHLCV candles from `market_candles` as a CSV download (opens in Excel), ordered by symbol then time. Optional `?symbol=MTNGH` (default: all symbols) and `?interval=` (`5m`, `15m`, `1h`, `1d`, `1w`; default `15m`). Columns: `symbol`, `interval`, `window_start`, `window_end`, `open`, `high`, `low`, `close`, `volume`, `tick_count`, `yield_open`, `yield_high`, `yield_low`, `yield_close`. Reads the database only, so the open window is as of the last flush (up to 60 s old) |
 
@@ -418,6 +419,7 @@ curl http://127.0.0.1:8000/market/status
 curl http://127.0.0.1:8000/market/MTNGH
 curl "http://127.0.0.1:8000/candles?symbol=MTNGH&range=5D"
 curl "http://127.0.0.1:8000/candles?symbol=MTNGH&range=1Y&warmup=200"
+curl http://127.0.0.1:8000/seasonality/MTNGH
 curl http://127.0.0.1:8000/fx/rates
 curl "http://127.0.0.1:8000/fx/convert?amount=100&to=USD"
 curl "http://127.0.0.1:8000/candles?symbol=MTNGH&range=5Y&currency=USD"
@@ -513,7 +515,7 @@ market-integration/
 │   ├── __init__.py
 │   ├── main.py                    # FastAPI app, wires everything together
 │   ├── config.py                  # env-driven settings
-│   ├── company/                   # company profiles for description pages: seed, SQLite store, calculated figures
+│   ├── company/                   # company profiles for description pages: seed, SQLite store, calculated figures, seasonality
 │   ├── watchlists/                # per-user pinned equities: validation, SQLite store behind /watchlists/me
 │   ├── identity.py                # who's asking: X-User-Id or anonymous cookie, until Symphony auth
 │   ├── metrics.py                 # /metrics snapshot + Prometheus rendering
@@ -574,6 +576,7 @@ market-integration/
 │       ├── ticker.html            # live quote card UI, served at /ticker
 │       ├── stock.html             # single-stock page + range chart and indicators, served at /stock/{symbol}
 │       ├── indicators.js          # SMA, EMA, Bollinger, RSI (Wilder), MACD for the stock chart
+│       ├── seasonality.js         # the stock page's Seasonality view (#seasonality)
 │       ├── fixed_income.html      # bills and bonds by GFIM segment, served at /fixed-income
 │       ├── yield_curve.html       # GoG yield curve vs. a past day, served at /yield-curve
 │       └── bond.html              # bill/bond page (simplified YAS), served at /bond/{symbol}
@@ -630,7 +633,7 @@ change — that's the point of the connector interface.
 - [x] OHLCV aggregation + persistence, with CSV export of historical candles
 - Charting and analytics (Bloomberg GP/GIP, G, SEAG, CORR equivalents):
   - [x] Technical indicators on the stock chart: SMA, EMA, Bollinger, RSI, MACD
-  - [ ] Seasonality view on the stock page (`#seasonality`): average
+  - [x] Seasonality view on the stock page (`#seasonality`): average
         return by month, year-over-year lines, monthly returns table
   - [ ] `/graph` page: several series (equities, GSE-CI, bond yields, FX)
         rebased to 100 on one chart

@@ -49,6 +49,8 @@ HISTORY_DEPTH: dict[str, Optional[timedelta]] = {
     "5m": timedelta(days=2),    # 1D + a day (288 candles)
     "15m": timedelta(days=10),  # 5D + 5 days (480)
     "1h": timedelta(days=44),   # 1M + 14 days (336)
-    "1d": timedelta(days=665),  # 1Y + ~300 days (200 trading days)
+    # Everything: the stock page's Seasonality view reads every year of
+    # daily closes. Costs startup next to nothing (~0.2 s for 10 mock years).
+    "1d": None,
     "1w": None,
 }

@@ -29,6 +29,7 @@ from app.company import COMPANIES
 from app.company.figures import INDEX_NAME, calculated_figures, with_market_cap
 from app.company.index import BASE_LEVEL, simulated_gse_ci
 from app.company.performance import Day, days
+from app.company.seasonality import seasonality
 from app.company.store import CompanyStore
 from app.connectors.composite_connector import CompositeConnector
 from app.connectors.depository import Depository, EmailDepository, MockDepository, OutboxSender, SmtpSender
@@ -588,6 +589,28 @@ async def instrument_description(symbol: str):
     }
 
 
+@app.get("/seasonality/{symbol}")
+async def get_seasonality(symbol: str):
+    """An equity's seasonality (Bloomberg's SEAG) from every stored daily
+    close, in cedis: each month's return (`months`) and year's
+    (`annual`); per calendar month the mean, median, how many were up and
+    the best and worst year (`by_month`); each year's path from
+    1 January (`paths`) and the finished years' average path
+    (`average`). The current month and year are to date, flagged
+    `partial` and left out of the averages; see app/company/seasonality.py.
+    404 for unknown symbols and for bills and bonds."""
+    symbol = symbol.upper()
+    instrument = INSTRUMENTS.get(symbol)
+    if instrument is None:
+        raise HTTPException(status_code=404, detail=f"Unknown instrument '{symbol}'")
+    if instrument.asset_class != "equity":
+        raise HTTPException(
+            status_code=404, detail=f"'{symbol}' is a {instrument.asset_class}; seasonality is for equities"
+        )
+    series = days(await aggregator.get_candles(symbol, "1d")) if symbol in connector.symbols else []
+    return {"symbol": symbol, "currency": FX_BASE, **seasonality(series, datetime.now(timezone.utc).date())}
+
+
 # Daily history the figures need: a year for the 52-week range, total
 # return and beta, plus slack for the reference close before it.
 FIGURES_HISTORY = timedelta(days=400)
@@ -1139,6 +1162,12 @@ async def search_script():
 async def description_script():
     """The stock page's Description view (#64)."""
     return FileResponse(STATIC_DIR / "description.js", media_type="text/javascript")
+
+
+@app.get("/static/seasonality.js")
+async def seasonality_script():
+    """The stock page's Seasonality view, over /seasonality/{symbol}."""
+    return FileResponse(STATIC_DIR / "seasonality.js", media_type="text/javascript")
 
 
 @app.get("/static/indicators.js")

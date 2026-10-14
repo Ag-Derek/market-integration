@@ -222,7 +222,7 @@
   .view-link:hover { color: var(--ink); background: var(--panel); }
   .view-link[aria-current="page"] { color: var(--ink); background: var(--panel); border-color: var(--line); }
   .view-link:focus-visible { outline: 2px solid var(--teal); outline-offset: 1px; }
-  #description { margin-top: 16px; }
+  #description, #seasonality { margin-top: 16px; }
 
   .price-row {
     display: flex;
@@ -530,12 +530,14 @@
   <nav class="views" aria-label="View">
     <a class="view-link" id="viewOverview" href="#overview">Overview</a>
     <a class="view-link" id="viewDescription" href="#description">Description</a>
+    <a class="view-link" id="viewSeasonality" href="#seasonality">Seasonality</a>
   </nav>
 
   <p class="des-ccy-note" id="desCcyNote" hidden>
     Company figures here are in the currency they were reported in (cedis unless marked), not converted.
   </p>
   <div id="description" hidden></div>
+  <div id="seasonality" hidden></div>
 
   <div id="overview">
   <section class="card chart-card">
@@ -606,6 +608,7 @@
 <script src="/static/currency.js"></script>
 <script src="/static/search.js"></script>
 <script src="/static/description.js"></script>
+<script src="/static/seasonality.js"></script>
 <script>
 (function () {
   "use strict";
@@ -1730,7 +1733,7 @@
   let resizeTimer = null;
   window.addEventListener("resize", function () {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(function () { drawChart(); drawSpark(); des.resize(); }, 120);
+    resizeTimer = setTimeout(function () { drawChart(); drawSpark(); des.resize(); sea.resize(); }, 120);
   });
 
   setInterval(renderAsOf, 1000);
@@ -1777,23 +1780,26 @@
     },
   });
 
+  const sea = Seasonality.mount($("seasonality"), { symbol: SYMBOL });
+
   function route() {
     const parts = location.hash.replace(/^#/, "").split("/");
-    const describing = parts[0] === "description";
-    $("overview").hidden = describing;
-    $("description").hidden = !describing;
-    if (describing) {
-      $("viewOverview").removeAttribute("aria-current");
-      $("viewDescription").setAttribute("aria-current", "page");
+    const view = parts[0] === "description" || parts[0] === "seasonality" ? parts[0] : "overview";
+    $("overview").hidden = view !== "overview";
+    $("description").hidden = view !== "description";
+    $("seasonality").hidden = view !== "seasonality";
+    [["overview", "viewOverview"], ["description", "viewDescription"], ["seasonality", "viewSeasonality"]].forEach(function (v) {
+      if (v[0] === view) $(v[1]).setAttribute("aria-current", "page"); else $(v[1]).removeAttribute("aria-current");
+    });
+    if (view === "description") {
       des.show(parts[1] || "profile");
       if (quote) des.update(quote);
     } else {
-      $("viewDescription").removeAttribute("aria-current");
-      $("viewOverview").setAttribute("aria-current", "page");
       des.hide();
-      // Canvases hidden while describing have no size; draw them now.
-      requestAnimationFrame(function () { drawChart(); drawSpark(); });
     }
+    if (view === "seasonality") sea.show(); else sea.hide();
+    // Canvases hidden in another view have no size; draw them now.
+    if (view === "overview") requestAnimationFrame(function () { drawChart(); drawSpark(); });
     renderCurrencyLabels();
   }
   window.addEventListener("hashchange", route);
@@ -1806,7 +1812,7 @@
     toggle.innerHTML = collapsed ? "&rsaquo;" : "&lsaquo;";
     toggle.title = collapsed ? "Show the equities list" : "Collapse the list";
     // The charts are sized from their canvases, which just changed width.
-    requestAnimationFrame(function () { drawChart(); drawSpark(); des.resize(); });
+    requestAnimationFrame(function () { drawChart(); drawSpark(); des.resize(); sea.resize(); });
   }
   let sidebarCollapsed = false;
   try { sidebarCollapsed = localStorage.getItem("sidebar.collapsed") === "1"; } catch (e) { /* storage unavailable */ }
