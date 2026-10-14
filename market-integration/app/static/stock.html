@@ -306,6 +306,52 @@
   }
   .range-btn:focus-visible { outline: 2px solid var(--teal); outline-offset: 1px; }
 
+  .chart-tools {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .chart-tools .ranges { margin-bottom: 0; }
+
+  /* Indicators menu */
+
+  .ind-menu { position: relative; }
+  .ind-menu > summary { list-style: none; display: inline-block; }
+  .ind-menu > summary::-webkit-details-marker { display: none; }
+  .ind-menu[open] > summary { color: var(--ink); background: var(--panel-strong); border-color: var(--line); }
+  .ind-count { color: var(--teal); margin-left: 5px; }
+  .ind-panel {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    z-index: 5;
+    min-width: 260px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 6px 12px 10px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+  }
+  .ind-row { display: flex; align-items: center; gap: 6px; padding: 5px 0; font-size: 12.5px; }
+  .ind-name { flex: 1; display: flex; align-items: center; gap: 8px; color: var(--ink-soft); cursor: pointer; }
+  .ind-name:hover { color: var(--ink); }
+  .ind-name input { accent-color: var(--teal); margin: 0; }
+  .ind-swatch { width: 12px; height: 3px; border-radius: 2px; flex: none; }
+  .ind-param {
+    width: 52px;
+    background: var(--panel-strong);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    color: var(--ink);
+    font-size: 12px;
+    padding: 3px 5px;
+  }
+  .ind-param:focus-visible { outline: 2px solid var(--teal); outline-offset: 0; }
+  .ind-note { font-size: 11px; color: var(--ink-faint); margin: 6px 0 0; line-height: 1.45; }
+
   .chart-wrap {
     position: relative;
     background: var(--panel-strong);
@@ -493,7 +539,13 @@
 
   <div id="overview">
   <section class="card chart-card">
-    <div class="ranges" id="ranges" role="tablist" aria-label="Chart range"></div>
+    <div class="chart-tools">
+      <div class="ranges" id="ranges" role="tablist" aria-label="Chart range"></div>
+      <details class="ind-menu" id="indMenu">
+        <summary class="range-btn">Indicators<span class="ind-count" id="indCount"></span></summary>
+        <div class="ind-panel" id="indPanel"></div>
+      </details>
+    </div>
     <div class="chart-wrap" id="chartWrap">
       <canvas class="chart" id="chart"></canvas>
       <div class="chart-msg" id="chartMsg">Loading chart…</div>
@@ -534,7 +586,8 @@
   </div>
 
   <footer>
-    Quote over <code>/ws/market</code>; chart from <code>/candles?symbol=…&amp;range=…</code>. History is backfilled
+    Quote over <code>/ws/market</code>; chart from <code>/candles?symbol=…&amp;range=…</code>, with up to 200 earlier
+    candles (<code>&amp;warmup=</code>) so indicators have a value from the first candle shown. History is backfilled
     by the mock connector on startup and extended live as ticks arrive. As on the GSE, the headline price is the
     session's volume-weighted average (the closing price) and its change is against the previous VWAP close; the
     chart plots individual trades. The status badge reflects the trading session and the feed's connection
@@ -549,6 +602,7 @@
 </div>
 
 <script src="/static/render.js"></script>
+<script src="/static/indicators.js"></script>
 <script src="/static/currency.js"></script>
 <script src="/static/search.js"></script>
 <script src="/static/description.js"></script>
@@ -602,6 +656,8 @@
     range: "1D",
     interval: null,
     candles: [],             // [{ts, open, high, low, close, volume}], in the display currency
+    warmup: [],              // candles before the range, for indicators only (never drawn)
+    ind: {},                 // indicator key -> its series, aligned with candles (drawChart)
     fx: null,                // /candles' fx: how they were converted (null: cedis)
     lastCumVolume: null,     // cumulative session volume on the last tick
     hoverIndex: null,
@@ -893,8 +949,9 @@
     $("chartMsg").style.display = "flex";
 
     const ccy = Currency.code();
+    // Always with the warm-up, so turning an indicator on needs no refetch.
     fetch("/candles?symbol=" + encodeURIComponent(SYMBOL) + "&range=" + encodeURIComponent(range) +
-      (ccy === "GHS" ? "" : "&currency=" + encodeURIComponent(ccy)))
+      "&warmup=" + MAX_PERIOD + (ccy === "GHS" ? "" : "&currency=" + encodeURIComponent(ccy)))
       .then(function (res) {
         if (!res.ok) {
           const err = new Error("HTTP " + res.status);
@@ -907,9 +964,11 @@
       .then(function (body) {
         if (seq !== chart.requestSeq) return; // a newer range was picked meanwhile
         chart.interval = body.interval;
-        chart.candles = body.candles.map(function (c) {
+        function toPoint(c) {
           return { ts: Date.parse(c.time), open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume };
-        });
+        }
+        chart.candles = body.candles.map(toPoint);
+        chart.warmup = (body.warmup || []).map(toPoint);
         chart.lastCumVolume = null;
         chart.hoverIndex = null;
         $("chartMsg").style.display = chart.candles.length ? "none" : "flex";
@@ -1001,6 +1060,249 @@
     chartDirty = true;
   }
 
+  // ------------------------------------------------------------ indicators
+  // Computed over the closes of warm-up + range candles on every draw
+  // (/static/indicators.js), so they follow live ticks like the price
+  // line. Overlays share the price scale; RSI and MACD get a pane each
+  // under the volume strip. Choices are kept per browser.
+
+  const MAX_PERIOD = 200; // = /candles' MAX_WARMUP
+  function period(value) { return { name: "Period", value: value, min: 2, max: MAX_PERIOD, step: 1 }; }
+
+  const IND_DEFS = [
+    { key: "sma1", kind: "sma", label: "SMA", params: [period(20)], color: "#D9A44C" },
+    { key: "sma2", kind: "sma", label: "SMA", params: [period(50)], color: "#5AA9E6" },
+    { key: "ema", kind: "ema", label: "EMA", params: [period(20)], color: "#E58FC0" },
+    { key: "bb", kind: "bollinger", label: "Bollinger", color: "#9FB0A6",
+      params: [period(20), { name: "Std devs", value: 2, min: 0.5, max: 4, step: 0.5 }] },
+    { key: "rsi", kind: "rsi", label: "RSI", params: [period(14)], color: "#C792EA", pane: true },
+    { key: "macd", kind: "macd", label: "MACD", pane: true, color: "#5AA9E6", signalColor: "#D9A44C",
+      params: [
+        { name: "Fast", value: 12, min: 2, max: MAX_PERIOD, step: 1 },
+        { name: "Slow", value: 26, min: 2, max: MAX_PERIOD, step: 1 },
+        { name: "Signal", value: 9, min: 2, max: MAX_PERIOD, step: 1 },
+      ] },
+  ];
+
+  // key -> {on, params}; a saved choice is kept only where it still fits
+  // the definitions.
+  const indState = {};
+  (function loadIndicators() {
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem("stock.indicators") || "{}") || {}; } catch (e) { /* storage unavailable */ }
+    IND_DEFS.forEach(function (def) {
+      const s = saved[def.key] || {};
+      indState[def.key] = {
+        on: s.on === true,
+        params: def.params.map(function (p, j) {
+          const v = s.params && Number(s.params[j]);
+          return isFinite(v) && v >= p.min && v <= p.max ? v : p.value;
+        }),
+      };
+    });
+  })();
+  function saveIndicators() {
+    try { localStorage.setItem("stock.indicators", JSON.stringify(indState)); } catch (e) { /* storage unavailable */ }
+  }
+
+  function indName(def) { return def.label + " " + indState[def.key].params.join(" "); }
+  function activeIndicators() { return IND_DEFS.filter(function (d) { return indState[d.key].on; }); }
+
+  function buildIndicatorMenu() {
+    const panel = $("indPanel");
+    IND_DEFS.forEach(function (def) {
+      const s = indState[def.key];
+      const row = document.createElement("div");
+      row.className = "ind-row";
+
+      const name = document.createElement("label");
+      name.className = "ind-name";
+      const box = document.createElement("input");
+      box.type = "checkbox";
+      box.checked = s.on;
+      box.addEventListener("change", function () { s.on = box.checked; indicatorsChanged(); });
+      const swatch = document.createElement("span");
+      swatch.className = "ind-swatch";
+      swatch.style.background = def.color;
+      name.appendChild(box);
+      name.appendChild(swatch);
+      name.appendChild(document.createTextNode(def.label));
+      row.appendChild(name);
+
+      def.params.forEach(function (p, j) {
+        const input = document.createElement("input");
+        input.type = "number";
+        input.className = "ind-param num";
+        input.min = p.min; input.max = p.max; input.step = p.step;
+        input.value = s.params[j];
+        input.title = p.name;
+        input.setAttribute("aria-label", def.label + " " + p.name.toLowerCase());
+        input.addEventListener("change", function () {
+          let v = Number(input.value);
+          if (!isFinite(v) || input.value === "") v = s.params[j];
+          v = Math.min(p.max, Math.max(p.min, Math.round(v / p.step) * p.step));
+          input.value = v;
+          s.params[j] = v;
+          if (!s.on) { s.on = true; box.checked = true; }
+          indicatorsChanged();
+        });
+        row.appendChild(input);
+      });
+      panel.appendChild(row);
+    });
+    const note = document.createElement("p");
+    note.className = "ind-note";
+    note.textContent = "Calculated on closes. Periods are candles, so they follow the range: 50 on 1Y is 50 days, on 1D 50 five-minute bars.";
+    panel.appendChild(note);
+
+    // Close on a click outside or Escape, as a menu would.
+    document.addEventListener("click", function (e) {
+      if (!$("indMenu").contains(e.target)) $("indMenu").open = false;
+    });
+    $("indMenu").addEventListener("keydown", function (e) {
+      if (e.key === "Escape") { $("indMenu").open = false; $("indMenu").querySelector("summary").focus(); }
+    });
+    renderIndicatorCount();
+  }
+
+  function renderIndicatorCount() {
+    const n = activeIndicators().length;
+    $("indCount").textContent = n ? String(n) : "";
+  }
+
+  function indicatorsChanged() {
+    saveIndicators();
+    renderIndicatorCount();
+    drawChart();
+    if (chart.hoverIndex != null) showTooltip();
+  }
+
+  // key -> {line} or bollinger's {mid, upper, lower} or macd's
+  // {macd, signal, hist}, each aligned with chart.candles.
+  function computeIndicators() {
+    const closes = chart.warmup.concat(chart.candles).map(function (c) { return c.close; });
+    const skip = chart.warmup.length;
+    const out = {};
+    activeIndicators().forEach(function (def) {
+      const p = indState[def.key].params;
+      let r;
+      if (def.kind === "sma") r = { line: Indicators.sma(closes, p[0]) };
+      else if (def.kind === "ema") r = { line: Indicators.ema(closes, p[0]) };
+      else if (def.kind === "bollinger") r = Indicators.bollinger(closes, p[0], p[1]);
+      else if (def.kind === "rsi") r = { line: Indicators.rsi(closes, p[0]) };
+      else r = Indicators.macd(closes, p[0], p[1], p[2]);
+      Object.keys(r).forEach(function (k) { r[k] = r[k].slice(skip); });
+      out[def.key] = r;
+    });
+    return out;
+  }
+
+  // MACD is in price units but small; RSI is 0-100.
+  function indValue(def, v) {
+    if (v == null) return "—";
+    if (def.kind === "rsi") return v.toFixed(1);
+    if (def.kind === "macd") return v.toFixed(Math.abs(v) >= 1 ? 2 : 3);
+    return chartPrice(v);
+  }
+
+  // A series as a line, lifting the pen over its nulls.
+  function strokeSeries(ctx, series, xAt, yAt, color, width, dash) {
+    ctx.beginPath();
+    let pen = false;
+    series.forEach(function (v, i) {
+      if (v == null) { pen = false; return; }
+      if (pen) ctx.lineTo(xAt(i), yAt(v)); else { ctx.moveTo(xAt(i), yAt(v)); pen = true; }
+    });
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.setLineDash(dash || []);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // "SMA 20 4.52 · RSI 14 61.3" style labels, at the hovered candle or the newest.
+  function drawLegend(ctx, x, y, items) {
+    ctx.font = "10.5px ui-monospace, monospace";
+    ctx.textBaseline = "middle";
+    items.forEach(function (it) {
+      const text = it.name + " " + it.value;
+      const w = ctx.measureText(text).width;
+      ctx.fillStyle = "rgba(14, 22, 19, 0.72)";
+      ctx.fillRect(x - 3, y - 7, w + 6, 14);
+      ctx.fillStyle = it.color;
+      ctx.fillText(text, x, y);
+      x += w + 14;
+    });
+  }
+
+  function drawPane(ctx, def, r, top, h, g, at) {
+    const left = g.padL, right = g.padL + g.plotW;
+    ctx.strokeStyle = COLORS.grid;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(left, Math.round(top - PANE_GAP / 2) + 0.5);
+    ctx.lineTo(right, Math.round(top - PANE_GAP / 2) + 0.5);
+    ctx.stroke();
+
+    let lo = 0, hi = 100;
+    if (def.kind === "macd") {
+      lo = 0; hi = 0;
+      [r.macd, r.signal, r.hist].forEach(function (s) {
+        s.forEach(function (v) { if (v != null) { if (v < lo) lo = v; if (v > hi) hi = v; } });
+      });
+      if (hi === lo) { hi = 1; lo = -1; }
+      const pad = (hi - lo) * 0.1;
+      lo -= pad; hi += pad;
+    }
+    function yAt(v) { return top + (1 - (v - lo) / (hi - lo)) * h; }
+
+    ctx.font = "10px ui-monospace, monospace";
+    ctx.textBaseline = "middle";
+    function guide(v, label) {
+      const y = Math.round(yAt(v)) + 0.5;
+      ctx.strokeStyle = COLORS.baseline;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(left, y);
+      ctx.lineTo(right, y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = COLORS.axis;
+      ctx.fillText(label, right + 8, y);
+    }
+
+    const legend = [{ name: indName(def), value: indValue(def, (r.line || r.macd)[at]), color: def.color }];
+    if (def.kind === "rsi") {
+      ctx.fillStyle = "rgba(199, 146, 234, 0.06)";
+      ctx.fillRect(left, yAt(70), g.plotW, yAt(30) - yAt(70));
+      guide(70, "70");
+      guide(30, "30");
+      strokeSeries(ctx, r.line, g.xAt, yAt, def.color, 1.4);
+    } else {
+      guide(0, "0");
+      const barW = Math.max(1, g.plotW / r.hist.length - 1);
+      r.hist.forEach(function (v, i) {
+        if (v == null) return;
+        ctx.fillStyle = v >= 0 ? "rgba(52,197,127,0.45)" : "rgba(229,103,90,0.45)";
+        const y0 = yAt(0), y1 = yAt(v);
+        ctx.fillRect(g.xAt(i) - barW / 2, Math.min(y0, y1), barW, Math.abs(y1 - y0));
+      });
+      strokeSeries(ctx, r.macd, g.xAt, yAt, def.color, 1.4);
+      strokeSeries(ctx, r.signal, g.xAt, yAt, def.signalColor, 1.2);
+      legend.push({ name: "Signal", value: indValue(def, r.signal[at]), color: def.signalColor });
+    }
+    drawLegend(ctx, left + 6, top + 9, legend);
+  }
+
+  // The canvas grows by a pane per RSI/MACD.
+  const PANE_GAP = 10;
+  function smallScreen() { return window.matchMedia("(max-width: 620px)").matches; }
+  function paneHeight() { return smallScreen() ? 66 : 84; }
+  function chartHeight() {
+    const panes = activeIndicators().filter(function (d) { return d.pane; }).length;
+    return (smallScreen() ? 260 : 340) + panes * (paneHeight() + PANE_GAP);
+  }
+
   function niceStep(span, target) {
     const raw = span / target;
     const mag = Math.pow(10, Math.floor(Math.log10(raw)));
@@ -1016,15 +1318,24 @@
   function drawChart() {
     const canvas = $("chart");
     const pts = chart.candles;
-    const surface = setupCanvas(canvas, 340);
+    const height = chartHeight() + "px";
+    if (canvas.style.height !== height) canvas.style.height = height;
+    const surface = setupCanvas(canvas, chartHeight());
     chart.geometry = null;
     if (!surface || pts.length < 2) return;
     const ctx = surface.ctx, W = surface.w, H = surface.h;
 
+    const active = activeIndicators();
+    const overlays = active.filter(function (d) { return !d.pane; });
+    const panes = active.filter(function (d) { return d.pane; });
+    const ind = chart.ind = computeIndicators();
+
     const padL = 6, padR = 58, padT = 10, padB = 22;
-    const volH = Math.round((H - padT - padB) * 0.17);
+    const paneH = paneHeight();
+    const mainH = H - padT - padB - panes.length * (paneH + PANE_GAP);
+    const volH = Math.round(mainH * 0.17);
     const gap = 8;
-    const priceH = H - padT - padB - volH - gap;
+    const priceH = mainH - volH - gap;
     const plotW = W - padL - padR;
 
     const base = chartBaseline();
@@ -1033,6 +1344,13 @@
       if (c.close < min) min = c.close;
       if (c.close > max) max = c.close;
       if (c.volume > maxVol) maxVol = c.volume;
+    });
+    // Overlays share the price scale, so keep them on it.
+    overlays.forEach(function (def) {
+      const r = ind[def.key];
+      Object.keys(r).forEach(function (k) {
+        r[k].forEach(function (v) { if (v != null) { if (v < min) min = v; if (v > max) max = v; } });
+      });
     });
     if (chart.range === "1D" && base != null) { min = Math.min(min, base); max = Math.max(max, base); }
     const pad = (max - min) * 0.08 || max * 0.01 || 1;
@@ -1101,6 +1419,20 @@
       });
     }
 
+    // Bollinger band fill, under the price.
+    if (ind.bb) {
+      const bb = ind.bb;
+      const first = bb.upper.findIndex(function (v) { return v != null; });
+      if (first !== -1) {
+        ctx.beginPath();
+        for (let i = first; i < pts.length; i++) ctx.lineTo(xAt(i), yAt(bb.upper[i]));
+        for (let i = pts.length - 1; i >= first; i--) ctx.lineTo(xAt(i), yAt(bb.lower[i]));
+        ctx.closePath();
+        ctx.fillStyle = "rgba(159, 176, 166, 0.08)";
+        ctx.fill();
+      }
+    }
+
     // Area + line.
     const grad = ctx.createLinearGradient(0, padT, 0, padT + priceH);
     grad.addColorStop(0, fill + "0.26)");
@@ -1114,13 +1446,40 @@
     ctx.fillStyle = grad;
     ctx.fill();
 
+    ctx.lineJoin = "round";
+    overlays.forEach(function (def) {
+      const r = ind[def.key];
+      if (def.kind === "bollinger") {
+        strokeSeries(ctx, r.upper, xAt, yAt, def.color, 1);
+        strokeSeries(ctx, r.lower, xAt, yAt, def.color, 1);
+        strokeSeries(ctx, r.mid, xAt, yAt, def.color, 1, [4, 3]);
+      } else {
+        strokeSeries(ctx, r.line, xAt, yAt, def.color, 1.3);
+      }
+    });
+
     ctx.beginPath();
     ctx.moveTo(xAt(0), yAt(pts[0].close));
     pts.forEach(function (c, i) { ctx.lineTo(xAt(i), yAt(c.close)); });
     ctx.strokeStyle = lineColor;
     ctx.lineWidth = 1.6;
-    ctx.lineJoin = "round";
     ctx.stroke();
+
+    // Indicator legends and panes, read at the hovered candle or the newest.
+    const at = chart.hoverIndex != null && pts[chart.hoverIndex] ? chart.hoverIndex : pts.length - 1;
+    if (overlays.length) {
+      drawLegend(ctx, padL + 6, padT + 9, overlays.map(function (def) {
+        const r = ind[def.key];
+        return { name: indName(def), value: indValue(def, (r.line || r.mid)[at]), color: def.color };
+      }));
+    }
+    const geo = { padL: padL, plotW: plotW, xAt: xAt };
+    let paneTop = padT + priceH + gap + volH + PANE_GAP;
+    panes.forEach(function (def) {
+      drawPane(ctx, def, ind[def.key], paneTop, paneH, geo, at);
+      paneTop += paneH + PANE_GAP;
+    });
+    const plotBottom = paneTop - PANE_GAP;
 
     // Live price tag on the axis.
     const lastY = yAt(last);
@@ -1145,7 +1504,7 @@
       ctx.setLineDash([2, 3]);
       ctx.beginPath();
       ctx.moveTo(x, padT);
-      ctx.lineTo(x, volTop + volH);
+      ctx.lineTo(x, plotBottom);
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.beginPath();
@@ -1170,8 +1529,20 @@
     time.className = "t-time";
     time.textContent = tooltipLabel(c.ts, chart.interval);
     tip.appendChild(time);
-    [["Open", chartPrice(c.open)], ["High", chartPrice(c.high)], ["Low", chartPrice(c.low)],
-     ["Close", chartPrice(c.close)], ["Volume", fmtLarge(c.volume)]].forEach(function (r) {
+    const rows = [["Open", chartPrice(c.open)], ["High", chartPrice(c.high)], ["Low", chartPrice(c.low)],
+     ["Close", chartPrice(c.close)], ["Volume", fmtLarge(c.volume)]];
+    activeIndicators().forEach(function (def) {
+      const r = chart.ind[def.key];
+      if (!r) return;
+      if (def.kind === "bollinger") {
+        rows.push([indName(def), indValue(def, r.lower[i]) + " – " + indValue(def, r.upper[i])]);
+      } else if (def.kind === "macd") {
+        rows.push([indName(def), indValue(def, r.macd[i]) + " / " + indValue(def, r.signal[i])]);
+      } else {
+        rows.push([indName(def), indValue(def, r.line[i])]);
+      }
+    });
+    rows.forEach(function (r) {
       const row = document.createElement("div");
       row.className = "t-row";
       const a = document.createElement("span"); a.textContent = r[0];
@@ -1349,6 +1720,7 @@
   $("csvLink").href = "/candles/export?symbol=" + encodeURIComponent(SYMBOL);
   buildStats();
   buildRangeButtons();
+  buildIndicatorMenu();
 
   const canvas = $("chart");
   canvas.addEventListener("pointermove", onPointer);
@@ -1457,6 +1829,7 @@
     selectRange(initialRange);
     Currency.onChange(function () {
       chart.candles = [];
+      chart.warmup = [];
       chart.fx = null;
       drawChart();
       loadCandles();

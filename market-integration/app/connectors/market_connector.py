@@ -80,7 +80,7 @@ TICK_SIZE = 0.01
 # cover everything older, back to the "Max" range. Walking 5 weeks of
 # 5m bars instead would cost ~2.5x the startup time across the GSE
 # universe for bars no range ever shows.
-INTRADAY_SEGMENTS: tuple[tuple[str, int], ...] = (("1h", 35), ("15m", 7), ("5m", 2))
+INTRADAY_SEGMENTS: tuple[tuple[str, int], ...] = (("1h", 44), ("15m", 10), ("5m", 2))
 DAILY_HISTORY_YEARS = 10
 
 # The mock trades 24/7, so volatility is annualized over calendar time.

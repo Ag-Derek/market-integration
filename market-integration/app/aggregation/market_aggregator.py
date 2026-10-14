@@ -80,6 +80,33 @@ _INSERT_CANDLES = (
     f"INSERT OR REPLACE INTO market_candles ({', '.join(_CANDLE_COLUMNS)}) "
     f"VALUES ({', '.join('?' * len(_CANDLE_COLUMNS))})"
 )
+# What reads select, in _from_row's order.
+_READ_COLUMNS = (
+    "window_start, window_end, open, high, low, close, volume, tick_count, "
+    "yield_open, yield_high, yield_low, yield_close, possibly_incomplete"
+)
+
+
+def _from_row(symbol: str, interval: str, r: tuple) -> Candle:
+    return Candle(
+        symbol=symbol,
+        interval=interval,
+        window_start=datetime.fromisoformat(r[0]),
+        window_end=datetime.fromisoformat(r[1]),
+        open=r[2],
+        high=r[3],
+        low=r[4],
+        close=r[5],
+        volume=r[6],
+        tick_count=r[7],
+        yield_open=r[8],
+        yield_high=r[9],
+        yield_low=r[10],
+        yield_close=r[11],
+        possibly_incomplete=bool(r[12]),
+    )
+
+
 # Added after the table first shipped; _init_db adds them to older databases.
 _ADDED_COLUMNS = {
     "yield_open": "REAL",
@@ -415,26 +442,10 @@ class MarketAggregator:
         first = bucket_start(start, interval) if start is not None else None
         rows = await asyncio.to_thread(self._read_rows, symbol, interval, first)
 
-        by_start: dict[datetime, Candle] = {
-            datetime.fromisoformat(r[0]): Candle(
-                symbol=symbol,
-                interval=interval,
-                window_start=datetime.fromisoformat(r[0]),
-                window_end=datetime.fromisoformat(r[1]),
-                open=r[2],
-                high=r[3],
-                low=r[4],
-                close=r[5],
-                volume=r[6],
-                tick_count=r[7],
-                yield_open=r[8],
-                yield_high=r[9],
-                yield_low=r[10],
-                yield_close=r[11],
-                possibly_incomplete=bool(r[12]),
-            )
-            for r in rows
-        }
+        by_start: dict[datetime, Candle] = {}
+        for r in rows:
+            c = _from_row(symbol, interval, r)
+            by_start[c.window_start] = c
         live = [c for c in self._pending if c.symbol == symbol and c.interval == interval]
         window = self._windows.get((symbol, interval))
         if window is not None:
@@ -445,12 +456,23 @@ class MarketAggregator:
 
         return [by_start[k] for k in sorted(by_start)]
 
+    async def get_candles_before(
+        self,
+        symbol: str,
+        interval: str,
+        before: datetime,
+        limit: int,
+    ) -> list[Candle]:
+        """Up to `limit` stored candles ending before the bucket containing
+        `before`, oldest first: the warm-up an indicator (a 200-day
+        average, say) needs ahead of a chart's first candle. Stored rows
+        only, as everything not yet flushed is newer than any chart's start."""
+        first = bucket_start(before, interval)
+        rows = await asyncio.to_thread(self._read_rows_before, symbol, interval, first, limit)
+        return [_from_row(symbol, interval, r) for r in reversed(rows)]
+
     def _read_rows(self, symbol: str, interval: str, first: Optional[datetime]) -> list[tuple]:
-        query = (
-            "SELECT window_start, window_end, open, high, low, close, volume, tick_count, "
-            "yield_open, yield_high, yield_low, yield_close, possibly_incomplete "
-            "FROM market_candles WHERE symbol = ? AND interval = ?"
-        )
+        query = f"SELECT {_READ_COLUMNS} FROM market_candles WHERE symbol = ? AND interval = ?"
         params: list = [symbol, interval]
         if first is not None:
             query += " AND window_start >= ?"
@@ -459,6 +481,18 @@ class MarketAggregator:
         conn = sqlite3.connect(self._db_path)
         try:
             return conn.execute(query, params).fetchall()
+        finally:
+            conn.close()
+
+    def _read_rows_before(self, symbol: str, interval: str, first: datetime, limit: int) -> list[tuple]:
+        conn = sqlite3.connect(self._db_path)
+        try:
+            return conn.execute(
+                f"SELECT {_READ_COLUMNS} FROM market_candles "
+                "WHERE symbol = ? AND interval = ? AND window_start < ? "
+                "ORDER BY window_start DESC LIMIT ?",
+                (symbol, interval, first.isoformat(), limit),
+            ).fetchall()
         finally:
             conn.close()
 
