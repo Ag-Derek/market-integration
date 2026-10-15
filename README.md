@@ -390,6 +390,9 @@ Uvicorn running on http://127.0.0.1:8000
 | `http://127.0.0.1:8000/instruments/{symbol}` | One instrument's reference data (e.g. `/instruments/MTNGH`); 404 if unknown |
 | `http://127.0.0.1:8000/instruments/{symbol}/description` | Everything an equity's description page needs: instrument, company profile, officers, annual financials (from `data/company_profiles.json`, every value as `{value, source, as_of}`, null when not filled in) and figures calculated from them, the live quote and the stored daily candles: market cap, P/E, P/B, dividend yield, return on equity, 1-day, YTD and 52-week figures, 12-month total return and beta against the simulated GSE-CI (each with its formula, and a reason when null). 404 for unknown symbols and for bills and bonds |
 | `http://127.0.0.1:8000/indices/gse-ci` | The simulated GSE Composite Index used for beta: daily levels from every equity's daily closes, equal-weighted, from 1,000. A stand-in until the feed carries the published index |
+| `http://127.0.0.1:8000/graph` | The Graph tab (`app/static/graph.html`; Bloomberg's G and CORR): up to eight series on one chart, each rebased to 100 at the start of the range (1M–Max), with a crosshair tooltip giving each one's actual value, and below it their correlation matrix (daily or weekly). Add stocks, bills and bonds (their yield), GSE-CI and currencies from the picker; the series and range are kept in the address (`?series=MTNGH,GSE-CI,FX:USD&range=1Y`), so a graph can be shared |
+| `http://127.0.0.1:8000/graph/series?series=MTNGH,GSE-CI&range=1Y` | The chart's data (`app/analytics/graph.py`). `series` is up to 8 comma-separated ids: an equity symbol (daily close, GHS), a bill or bond ISIN (closing yield; clean price for price-only corporates), `GSE-CI` (the simulated index, over all stored history) or `FX:USD` etc. (Bank of Ghana mid, cedis per unit). `range` is `1M`, `3M`, `6M`, `YTD`, `1Y` (default), `2Y`, `5Y` or `Max`; `5Y` and `Max` give one point a week. Per series: `kind`, `unit`, `base` (the last value on or before the start, or the first one, flagged `late_start`), `last`, `observed_days` of `days` (how thinly it trades) and `points`, each `[date, value, rebased]`. 400 for a bad range or more than 8 series, 404 for an unknown id, 400/503 for a currency we don't offer or have no rates for yet |
+| `http://127.0.0.1:8000/graph/correlation?series=MTNGH,GCB,GSE-CI&range=1Y` | The correlation matrix of the same series: Pearson correlation of changes (returns; the change in yield for yields), each pair measured between the days *both* were observed, so a thin stock's no-trade days (a carried close: zero, then the whole move at once) don't dilute it. `frequency=weekly` uses week-on-week changes. Each cell is `{value, observations}`; `value` is null below `min_observations` (20). Same ids, ranges and errors as `/graph/series` |
 | `http://127.0.0.1:8000/search?q=gc` | Typeahead for the search bar: `symbol`, `name`, `asset_class`, `price` and `change` (null until quoted). Matches symbol, name, ISIN, tenor, issuer and maturity date (`?q=2027`), ignoring case and punctuation (`?q=fan milk`); ranked exact symbol, symbol prefix, name word prefix, then substring. Optional `limit` (1–50, default 10), `asset_class` and `sector` (case-insensitive; with an empty `q` it lists the whole sector) |
 | `http://127.0.0.1:8000/sectors` | Every sector in the instrument master with its instrument count, for the search bar's Sector filter |
 | `http://127.0.0.1:8000/watchlists/me` | The requesting user's pinned equities, in order: `symbols`, `max_pins` (`WATCHLIST_MAX_PINS`, default 12) and `is_default` (true until the user saves one; a new user gets `WATCHLIST_DEFAULT`). `PUT` with `{"symbols": [...]}` replaces the whole list; unknown symbols, bills and bonds, duplicates or too many pins get a 422 naming them. Until Symphony sign-in, the user is the `X-User-Id` header if sent, else an anonymous ID kept in the `mi_user` cookie (`app/identity.py`) — an identifier, not authentication. Saved in the SQLite database, so watchlists survive restarts |
@@ -564,6 +567,9 @@ market-integration/
 │   │   ├── market_aggregator.py   # backfill + live OHLCV candles -> SQLite (market_data.db)
 │   │   └── ranges.py              # chart ranges -> candle interval, backfill depth
 │   │
+│   ├── analytics/
+│   │   └── graph.py               # /graph: rebasing to 100, correlation between days both traded
+│   │
 │   ├── gateways/
 │   │   └── websocket_gateway.py   # client tracking + concurrent broadcast
 │   │
@@ -579,6 +585,7 @@ market-integration/
 │       ├── seasonality.js         # the stock page's Seasonality view (#seasonality)
 │       ├── fixed_income.html      # bills and bonds by GFIM segment, served at /fixed-income
 │       ├── yield_curve.html       # GoG yield curve vs. a past day, served at /yield-curve
+│       ├── graph.html             # several series rebased to 100 + correlation matrix, served at /graph
 │       └── bond.html              # bill/bond page (simplified YAS), served at /bond/{symbol}
 │
 ├── data/
@@ -635,9 +642,10 @@ change — that's the point of the connector interface.
   - [x] Technical indicators on the stock chart: SMA, EMA, Bollinger, RSI, MACD
   - [x] Seasonality view on the stock page (`#seasonality`): average
         return by month, year-over-year lines, monthly returns table
-  - [ ] `/graph` page: several series (equities, GSE-CI, bond yields, FX)
+  - [x] `/graph` page: several series (equities, GSE-CI, bond yields, FX)
         rebased to 100 on one chart
-  - [ ] Correlation matrix of the selected series, on returns
+  - [x] Correlation matrix of the selected series, on returns, measured
+        between days both traded (`/graph/correlation`)
   - [ ] Drawing tools on the stock chart (trend lines, levels, Fibonacci),
         saved per user
   - [ ] Finer intraday (1-minute candles or stored ticks)
