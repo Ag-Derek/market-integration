@@ -100,6 +100,11 @@ WATCHLIST_DEFAULT: list[str] = [
 # pulls: conversion uses whatever is already stored (tests, offline).
 FX_REFRESH_SECONDS: float = float(os.getenv("FX_REFRESH_SECONDS", "3600"))
 
+# Synthetic forwards (app/fx/overnight.py): how often to pull SOFR, €STR
+# and SONIA, in seconds. Each is published once a business day, and a
+# pull is a few KB from each publisher. 0 never pulls.
+OVERNIGHT_REFRESH_SECONDS: float = float(os.getenv("OVERNIGHT_REFRESH_SECONDS", "3600"))
+
 # Auction tracker (app/auctions/): how often to check the Bank of
 # Ghana's T-bill auction rates, in seconds. Results come out once a
 # week, after the Friday auction; hourly picks them up within the hour.

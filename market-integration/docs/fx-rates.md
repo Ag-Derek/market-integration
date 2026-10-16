@@ -3,8 +3,8 @@
 Every price in the service is in cedis. To show prices in another currency, the
 service converts them at the interbank rates the Bank of Ghana (BoG) publishes
 each business day. This page covers where the rates come from and how we pull
-them, the quirks in BoG's data, and how prices are converted. The code is in
-`app/fx/`.
+them, the quirks in BoG's data, how prices are converted, and the FX page's
+cross rates and synthetic forwards. The code is in `app/fx/`.
 
 ## Source
 
@@ -125,3 +125,71 @@ All conversions use BoG's **mid** rate.
   - The stock page's Description view, where company financials stay in the
     currency they were reported in. The page says so when another currency is
     selected.
+
+## The FX page
+
+`/fx` shows three things built on the fixes. The code is in `app/fx/forwards.py`
+(the maths) and `app/fx/overnight.py` (the foreign rates).
+
+### Reference rates (`/fx/rates`)
+
+BoG's buying, selling and mid for each currency, as cedis per unit and units
+per cedi. Each row also has the fix before it and the move since
+(`previous_date`, `previous_mid`, `change_percent`). The move is in cedis per
+unit, so a positive number means the cedi weakened. A `date` gives the fix in
+force that day.
+
+### Cross rates (`/fx/cross`)
+
+BoG fixes against the cedi only, so every cross goes through it: units of B
+per A = (GH₵ per A) ÷ (GH₵ per B), at the mid. The matrix is consistent by
+construction: A→B→C equals A→C. `currencies=USD,EUR,...` picks the rows and
+columns (the cedi and every currency by default), and `date` works as on
+`/fx/rates`.
+
+### Synthetic forwards (`/fx/forwards`)
+
+We can't read a traded cedi forward curve, so these are what covered interest
+parity implies:
+
+    F = S × (1 + r_GHS × d / 364) / (1 + r_FOR × d / basis)
+
+| Input | Source | Convention |
+|---|---|---|
+| S, spot | BoG mid, latest fix | GH₵ per unit |
+| r_GHS | Latest 91, 182 and 364-day T-bill auction yields (`app/auctions/`), interpolated linearly in days, flat outside 91–364 | Simple, ACT/364, as GFIM quotes bills |
+| r_FOR | USD: SOFR (NY Fed). EUR: €STR (ECB). GBP: SONIA (BoE). The latest published rate, held flat for the whole tenor | Simple. ACT/360 for SOFR and €STR, ACT/365 for SONIA |
+
+Tenors are 1W, 1M, 2M, 3M, 6M, 9M and 1Y, with value dates counted from the
+fix date. The reply gives the outright, the points (outright − spot, in pips
+of 0.0001) and the premium (`(F/S − 1) × 365/d`, %): the cedi depreciation the
+rates imply. Every input comes back with its date.
+
+These are indicative mids, not dealer quotes. The simplifications:
+
+- The foreign leg is the overnight rate held flat, with no term premium and
+  no expected policy moves. Further out, that matters more.
+- The cedi leg is the T-bill curve, which a bank would not necessarily
+  borrow or lend at.
+- Value dates ignore the spot lag (T+2) and holidays.
+- Only USD, EUR and GBP have forwards. We hold no interest rate for the other
+  13 currencies. Adding one means adding its overnight benchmark to
+  `app/fx/overnight.py`.
+
+**Pulling the overnight rates.** All three publishers have free, keyless
+downloads:
+
+| Benchmark | URL | Format |
+|---|---|---|
+| SOFR | `https://markets.newyorkfed.org/api/rates/secured/sofr/last/30.json` | JSON, `refRates[].effectiveDate` / `percentRate` |
+| €STR | `https://data-api.ecb.europa.eu/service/data/EST/B.EU000A2X2A25.WT?lastNObservations=30&format=csvdata` | CSV, `TIME_PERIOD` / `OBS_VALUE` |
+| SONIA | Bank of England database, series `IUDSOIA`, as CSV | CSV, `DATE` (`14 Oct 2026`) / `IUDSOIA` |
+
+Every `OVERNIGHT_REFRESH_SECONDS` (default 3600) the service fetches about
+the last month of each into the `overnight_rates` table. The upsert means a
+revised rate replaces the old one and a missed day is filled in. Each
+benchmark is pulled on its own: if one publisher fails, the error shows in
+`/health` under `overnight_rates`, the others still update, and the stored
+rate stays in use. `0` never pulls (the tests run this way). SOFR for a day is
+published the next business morning in New York, so it usually runs a day
+behind the BoG fix.

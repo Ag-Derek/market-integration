@@ -7,6 +7,9 @@ Like watchlists, this is kept across restarts and never rebuilt: the
 history is pulled from BoG once, and each refresh adds what's new.
 Writing the same (date, pair) again updates its rates but keeps when it
 was first fetched, so re-fetching an overlap is harmless.
+
+OvernightStore, below, keeps the SOFR, €STR and SONIA rates behind
+synthetic forwards (app/fx/overnight.py) the same way.
 """
 
 import sqlite3
@@ -15,6 +18,7 @@ from pathlib import Path
 from typing import Iterable, Optional
 
 from app.fx import Fix
+from app.fx.overnight import OvernightRate
 
 _CREATE_TABLE = """
     CREATE TABLE IF NOT EXISTS fx_rates (
@@ -87,3 +91,51 @@ class FxStore:
         finally:
             conn.close()
         return (date.fromisoformat(lo), date.fromisoformat(hi)) if lo else None
+
+
+_CREATE_OVERNIGHT = """
+    CREATE TABLE IF NOT EXISTS overnight_rates (
+        currency TEXT NOT NULL,      -- USD (SOFR), EUR (€STR), GBP (SONIA)
+        date TEXT NOT NULL,          -- YYYY-MM-DD, the day the rate is for
+        rate REAL NOT NULL,          -- % a year
+        fetched_at TEXT NOT NULL,
+        PRIMARY KEY (currency, date)
+    )
+"""
+
+
+class OvernightStore:
+    """The overnight benchmarks behind synthetic forwards (app/fx/overnight.py),
+    as published. Kept across restarts; a re-fetched day replaces its rate,
+    which is how a publisher's revision lands."""
+
+    def __init__(self, db_path: "Path | str"):
+        self._db_path = Path(db_path)
+        conn = sqlite3.connect(self._db_path)
+        try:
+            conn.execute(_CREATE_OVERNIGHT)
+            conn.commit()
+        finally:
+            conn.close()
+
+    def upsert(self, rates: Iterable[OvernightRate]) -> None:
+        fetched_at = datetime.now(timezone.utc).isoformat()
+        conn = sqlite3.connect(self._db_path)
+        try:
+            conn.executemany(
+                "INSERT INTO overnight_rates (currency, date, rate, fetched_at) VALUES (?, ?, ?, ?) "
+                "ON CONFLICT(currency, date) DO UPDATE SET rate = excluded.rate",
+                [(r.currency, r.date.isoformat(), r.rate, fetched_at) for r in rates],
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def all(self) -> list[OvernightRate]:
+        """Oldest first."""
+        conn = sqlite3.connect(self._db_path)
+        try:
+            rows = conn.execute("SELECT currency, date, rate FROM overnight_rates ORDER BY date, currency").fetchall()
+        finally:
+            conn.close()
+        return [OvernightRate(c, date.fromisoformat(d), r) for c, d, r in rows]
