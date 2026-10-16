@@ -30,7 +30,9 @@ Field-by-field mapping of the GFIM daily report is in
 6. **Corporate bonds are display-only in v1.** Reasons: the report has prices
    but no yields; the closing-price methodology explicitly excludes them; three
    descriptions have no coupon; nothing traded on the sample day; and we have
-   no term sheets.
+   no term sheets. The one exception is spread analysis (`/spreads`), which
+   works out an *indicative* yield from each corporate's price as a
+   semi-annual ACT/ACT bullet and says so (`app/analytics/spreads.py`).
 7. **Licensing is still open, and it blocks production.** It is not blocking
    development. See [licensing](#licensing-and-redistribution).
 

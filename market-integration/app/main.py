@@ -36,6 +36,7 @@ from app.analytics.graph import (
     rebase,
     weekly,
 )
+from app.analytics.spreads import spread_analysis
 from app.bond_math import settlement_date
 from app.bond_math.calculator import calculate, quoted_yield, security_for
 from app.company import COMPANIES
@@ -66,6 +67,7 @@ from app.models.fixed_income import (
     FixedIncomeSummary,
     FixedIncomeTick,
     GovernmentYieldCurve, ReportSection,
+    SpreadAnalysis,
 )
 from app.models.company import Company
 from app.models.candle import INTERVALS, Candle
@@ -1035,6 +1037,21 @@ async def yield_curve(day: Optional[date] = Query(None, alias="date")):
         return fixed_income.curve(day)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/spreads", response_model=SpreadAnalysis)
+async def spreads(day: Optional[date] = Query(None, alias="date")):
+    """Spread analysis for a session (app/analytics/spreads.py): a
+    Nelson-Siegel curve fitted to the GoG closes, each bill and bond's
+    residual to it (rich/cheap, bp), each corporate's yield from its
+    price and spread over it, and spreads by issuer. `date` as for
+    /curve; 400 for a date after the current session."""
+    try:
+        curve = fixed_income.curve(day)
+        _, corporates = fixed_income.corporate_closes(day)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return spread_analysis(curve, corporates)
 
 
 @app.get("/market/status")

@@ -400,6 +400,7 @@ Uvicorn running on http://127.0.0.1:8000
 | `http://127.0.0.1:8000/fx/convert?amount=100&to=USD` | Converts `amount` from `from` (default GHS) to `to` at the BoG mid; latest fix, or `?date=` for a past one. Between two foreign currencies it goes through the cedi. 400 for an unknown currency |
 | `http://127.0.0.1:8000/movers?type=gainers` | Today's movers among equities: `type` is `gainers` or `losers` (by % change, VWAP vs previous close) or `active` (by shares traded). Optional `limit` (1–50, default 10), `sector`, and `q` to search within the list |
 | `http://127.0.0.1:8000/fixed-income/report` | Today's fixed-income report in the shape of the GFIM daily trading report: every section plus the summary. Blank report cells are `null` |
+| `http://127.0.0.1:8000/spreads` | Spread analysis for a session (`app/analytics/spreads.py`), shown on the Yield Curve tab (`/yield-curve`): a Nelson-Siegel-Svensson curve fitted to the closing yields of bills, New GoG and 2023 DDEP bonds (`curve`: factors, the two decays, RMSE overall and per segment, and `samples` for drawing it); each government point's spread to it in bp (`government`; positive is cheap, negative rich; Old GoG measured but not fitted to, as their closes are often stale); each corporate's yield worked out from its closing price, as a semi-annual ACT/ACT bullet, and its spread over the curve (`corporate`; null with a `reason` where there's no coupon); and spreads by issuer, widest first (`issuers`). Corporate spreads are indicative: GFIM publishes no corporate yields and we have no term sheets. `date` as for `/curve`; 400 for a date after the current session |
 | `http://127.0.0.1:8000/fixed-income/summary` | Volume, number of trades and largest trade per section, plus grand totals |
 | `http://127.0.0.1:8000/fixed-income/{section}` | One section's rows: `new_gog`, `ddep`, `old_gog`, `treasury_bill`, `corporate` or `sell_buy_back` |
 | `http://127.0.0.1:8000/market/status` | Market session and feed status: `status` is `open`, `pre_open` or `closed` (with a `reason`: `weekend`, `holiday`, `before_hours`, `after_hours`), plus `next_open`, `next_close`, `last_close`, the feed's heartbeat, and `badge` (`live`, `delayed`, `closed` or `disconnected`) |
@@ -568,7 +569,8 @@ market-integration/
 │   │   └── ranges.py              # chart ranges -> candle interval, backfill depth
 │   │
 │   ├── analytics/
-│   │   └── graph.py               # /graph: rebasing to 100, correlation between days both traded
+│   │   ├── graph.py               # /graph: rebasing to 100, correlation between days both traded
+│   │   └── spreads.py             # /spreads: Svensson fit to the GoG curve, rich/cheap, corporate spreads
 │   │
 │   ├── gateways/
 │   │   └── websocket_gateway.py   # client tracking + concurrent broadcast
@@ -584,7 +586,7 @@ market-integration/
 │       ├── indicators.js          # SMA, EMA, Bollinger, RSI (Wilder), MACD for the stock chart
 │       ├── seasonality.js         # the stock page's Seasonality view (#seasonality)
 │       ├── fixed_income.html      # bills and bonds by GFIM segment, served at /fixed-income
-│       ├── yield_curve.html       # GoG yield curve vs. a past day, served at /yield-curve
+│       ├── yield_curve.html       # GoG yield curve vs. a past day, fitted curve, corporates and spreads, served at /yield-curve
 │       ├── graph.html             # several series rebased to 100 + correlation matrix, served at /graph
 │       └── bond.html              # bill/bond page (simplified YAS), served at /bond/{symbol}
 │
@@ -646,6 +648,9 @@ change — that's the point of the connector interface.
         rebased to 100 on one chart
   - [x] Correlation matrix of the selected series, on returns, measured
         between days both traded (`/graph/correlation`)
+  - [x] Spread analysis (`/spreads`, on the Yield Curve tab): fitted GoG
+        curve, rich/cheap per bill and bond, corporate spreads by bond and
+        issuer. Z-spread and OAS still to do (zero curve, term sheets)
   - [ ] Drawing tools on the stock chart (trend lines, levels, Fibonacci),
         saved per user
   - [ ] Finer intraday (1-minute candles or stored ticks)
