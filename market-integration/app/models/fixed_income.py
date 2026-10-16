@@ -164,6 +164,89 @@ class GovernmentYieldCurve(BaseModel):
     points: list[CurvePoint]     # by tenor
 
 
+# ---------------------------------------------------------------- spreads
+# Spread analysis (app/analytics/spreads.py): a smooth curve fitted to the
+# government closes, and every bill, bond and corporate measured against
+# it. Spreads are in basis points of yield; positive is above the curve
+# (cheap), negative below it (rich).
+
+
+class FittedCurve(BaseModel):
+    method: Literal["nelson_siegel_svensson"] = "nelson_siegel_svensson"
+    decay_years: tuple[float, float]   # the two decays (short, long), chosen by grid search
+    level: float                 # factors, % a year
+    slope: float
+    curvature: float             # the hump on the short decay
+    curvature_2: float           # the hump on the long one
+    fit_points: int              # curve points the fit used
+    rmse_bp: float               # root mean square of their residuals
+    # The same per fitted segment: bills usually fit tightly, while bonds
+    # of one tenor can sit hundreds of bp apart (different coupons, DDEP
+    # series), which the overall figure blurs.
+    segment_rmse_bp: dict[str, float]
+    samples: list[tuple[float, float]]   # (tenor years, yield %) for drawing the line
+
+
+class GovernmentSpread(BaseModel):
+    """A government curve point against the fitted curve. Old GoG points
+    are measured but not fitted to (`in_fit` false): their closes are often
+    stale."""
+    model_config = ConfigDict(populate_by_name=True)
+
+    symbol: str                  # the first instrument behind the point
+    description: str
+    segment: CurveSegment
+    maturity_date: date
+    tenor_years: float
+    yield_: float = Field(alias="yield")
+    fitted_yield: float
+    spread_bp: float
+    in_fit: bool
+
+
+class CorporateSpread(BaseModel):
+    """A corporate bond's yield, worked out from its closing clean price
+    under GoG bond conventions (semi-annual coupons; there are no term
+    sheets), and its spread to the fitted government curve. Yield and
+    spread are null, with a `reason`, where they can't be worked out."""
+    model_config = ConfigDict(populate_by_name=True)
+
+    symbol: str
+    description: str
+    issuer: str
+    sector: Optional[str] = None
+    maturity_date: date
+    tenor_years: float
+    coupon: Optional[float] = None
+    clean_price: float
+    yield_: Optional[float] = Field(default=None, alias="yield")
+    fitted_yield: float
+    spread_bp: Optional[float] = None
+    reason: Optional[str] = None
+
+
+class IssuerSpread(BaseModel):
+    """One corporate issuer's bonds with a spread: their count, average,
+    tightest and widest."""
+    issuer: str
+    bonds: int
+    mean_spread_bp: float
+    min_spread_bp: float
+    max_spread_bp: float
+
+
+class SpreadAnalysis(BaseModel):
+    date: date                   # the session, as for the curve
+    as_of: datetime
+    currency: str = "GHS"
+    exchange_label: Optional[str] = None
+    curve: Optional[FittedCurve] = None   # None when there are too few points to fit
+    government: list[GovernmentSpread]    # by tenor
+    corporate: list[CorporateSpread]      # by tenor
+    issuers: list[IssuerSpread]           # by mean spread, widest first
+    assumptions: list[str]
+
+
 # ---------------------------------------------------------------- ticks
 # The pipeline's shape for fixed income: one message per security, like
 # the equity MarketData, and in the same discriminated union

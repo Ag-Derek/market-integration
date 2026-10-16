@@ -412,6 +412,7 @@ class MockFixedIncomeMarket:
         # Every bond since start(), matured or not, for past curves.
         self._all_gov: list[_Gov] = []
         self._corp: list[_Corp] = []
+        self._all_corp: list[_Corp] = []
         self._bills: dict[tuple[str, date], _Bill] = {}
         self._points: dict[date, _Point] = {}
         self._seeded_bills: dict[tuple[str, date], Instrument] = {}
@@ -468,6 +469,7 @@ class MockFixedIncomeMarket:
         self._start_session(session)
         self._all_points.update(self._points)
         self._all_gov = list(self._gov)
+        self._all_corp = list(self._corp)
         begin = min(self._sessions.bounds(session)[0], now)
 
         self._fit_curves(begin)
@@ -939,14 +941,7 @@ class MockFixedIncomeMarket:
         is a security's closing yield then, from the same close paths
         the charts use; tenors are measured from that session's date.
         Raises ValueError for a date after the current session."""
-        self._advance(self._clock())
-        if on is not None and on > self._session:
-            raise ValueError(f"{on} is after the current session ({self._session})")
-        day = self._session if on is None else min(
-            self._sessions.session_day(_midnight(on + timedelta(days=1)) - timedelta(microseconds=1)),
-            self._session,
-        )
-        t = min(self._sessions.bounds(day)[1], self._last)
+        day, t = self._close_of(on)
 
         points: list[CurvePoint] = []
         for g in self._all_gov:
@@ -981,6 +976,33 @@ class MockFixedIncomeMarket:
 
         points.sort(key=lambda p: (p.days_to_maturity, p.segment))
         return GovernmentYieldCurve(date=day, as_of=t, exchange_label=REPORT_LABEL, points=points)
+
+    def corporate_closes(self, on: Optional[date] = None) -> tuple[date, list[tuple[Instrument, float]]]:
+        """The session `curve(on)` would pick, and each corporate bond
+        outstanding then with its closing clean price at that close.
+        Unpriced corporates are left out. Raises ValueError as curve()."""
+        day, t = self._close_of(on)
+        closes = []
+        for c in self._all_corp:
+            if not c.quoted or c.inst.maturity_date <= day:
+                continue
+            price = _path_at(c.path, t)
+            if price is not None:
+                closes.append((c.inst, price))
+        return day, closes
+
+    def _close_of(self, on: Optional[date]) -> tuple[date, datetime]:
+        """The latest session on or before `on` (default: the current
+        one) and the moment its close is read at: the session's end, or
+        now for the current session."""
+        self._advance(self._clock())
+        if on is not None and on > self._session:
+            raise ValueError(f"{on} is after the current session ({self._session})")
+        day = self._session if on is None else min(
+            self._sessions.session_day(_midnight(on + timedelta(days=1)) - timedelta(microseconds=1)),
+            self._session,
+        )
+        return day, min(self._sessions.bounds(day)[1], self._last)
 
     def ticks(self) -> list[FixedIncomeTick | RepoTick]:
         """Every security as a pipeline tick (with a two-way quote around
