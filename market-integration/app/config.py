@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 
 from app.instruments import INSTRUMENTS, streamable, streamable_symbols
 from app.models.instrument import FixedIncomeSegment
+from app.econ import CALENDAR_PATH as ECON_SEED_PATH
 from app.session import CALENDAR_PATH
 
 load_dotenv()
@@ -98,6 +99,20 @@ WATCHLIST_DEFAULT: list[str] = [
 # fetches the history (about a minute), in the background. 0 never
 # pulls: conversion uses whatever is already stored (tests, offline).
 FX_REFRESH_SECONDS: float = float(os.getenv("FX_REFRESH_SECONDS", "3600"))
+
+# Auction tracker (app/auctions/): how often to check the Bank of
+# Ghana's T-bill auction rates, in seconds. Results come out once a
+# week, after the Friday auction; hourly picks them up within the hour.
+# The first pull fetches the whole table (a few seconds). 0 never pulls.
+AUCTION_REFRESH_SECONDS: float = float(os.getenv("AUCTION_REFRESH_SECONDS", "3600"))
+
+# Economic calendar (app/econ/): how often to pull BoG's policy rate
+# history and GSS's release calendar, in seconds (both change rarely:
+# six MPC decisions a year, a quarterly calendar update, a status flip
+# when a release is out). 0 never pulls. The MPC meeting dates are a
+# seed file kept by hand, like the holidays.
+ECON_REFRESH_SECONDS: float = float(os.getenv("ECON_REFRESH_SECONDS", "21600"))
+ECON_CALENDAR_PATH: Path = Path(os.getenv("ECON_CALENDAR_PATH", str(ECON_SEED_PATH)))
 
 # Queue size for the branches that must see every tick (the candle
 # aggregator; alerts). When one is full anyway, the buffer pauses the

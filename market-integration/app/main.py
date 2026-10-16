@@ -37,6 +37,17 @@ from app.analytics.graph import (
     weekly,
 )
 from app.analytics.spreads import spread_analysis
+from app.auctions import AuctionResult
+from app.auctions.bog import PAGE_URL as AUCTION_SOURCE_URL, SOURCE as AUCTION_SOURCE, BogAuctionClient
+from app.auctions.monitor import monitor as auction_monitor, result_out as auction_result_out
+from app.auctions.store import AuctionStore
+from app.auctions.tracker import RETRY_SECONDS as AUCTION_RETRY_SECONDS, AuctionTracker
+from app.econ import load_mpc_meetings
+from app.econ.bog import BogPolicyRateClient
+from app.econ.events import calendar_events, policy_rate_now
+from app.econ.gss import GssCalendarClient
+from app.econ.store import EconStore
+from app.econ.tracker import RETRY_SECONDS as ECON_RETRY_SECONDS, EconTracker
 from app.bond_math import settlement_date
 from app.bond_math.calculator import calculate, quoted_yield, security_for
 from app.company import COMPANIES
@@ -69,7 +80,9 @@ from app.models.fixed_income import (
     GovernmentYieldCurve, ReportSection,
     SpreadAnalysis,
 )
+from app.models.auction import AuctionMonitor, AuctionResultOut
 from app.models.company import Company
+from app.models.econ import EconCalendar, PolicyRatePoint
 from app.models.candle import INTERVALS, Candle
 from app.models.fx import FxRate
 from app.models.instrument import AssetClass, Instrument
@@ -240,6 +253,13 @@ watchlist_store = WatchlistStore(config.DB_PATH)
 # Bank of Ghana interbank FX fixes for showing prices in other
 # currencies: pulled from BoG's site and kept across restarts; see app/fx/.
 fx_rates = FxRates(FxStore(config.DB_PATH), BankOfGhanaClient())
+# Bank of Ghana T-bill auction results for the new-issue monitor: pulled
+# from BoG's site and kept across restarts; see app/auctions/.
+auctions = AuctionTracker(AuctionStore(config.DB_PATH), BogAuctionClient())
+# The economic calendar: BoG policy rate history and GSS's release
+# calendar (pulled, kept across restarts), MPC meeting dates (seed file).
+econ = EconTracker(EconStore(config.DB_PATH), BogPolicyRateClient(), GssCalendarClient())
+mpc_meetings = load_mpc_meetings(config.ECON_CALENDAR_PATH)
 def _depository() -> Depository:
     """Per DEPOSITORY_MODE: by email (through SMTP, or saved to the
     outbox to send by hand), or the mock."""
@@ -309,6 +329,8 @@ aggregator = MarketAggregator(
 consumer_task: Optional[asyncio.Task] = None
 status_task: Optional[asyncio.Task] = None
 fx_task: Optional[asyncio.Task] = None
+auction_task: Optional[asyncio.Task] = None
+econ_task: Optional[asyncio.Task] = None
 
 
 def pipeline_metrics() -> dict:
@@ -365,6 +387,11 @@ async def health():
             # pull. Not a component: prices still flow without them, and
             # pages then show cedis.
             "fx": fx_rates.describe(),
+            # Bank of Ghana auction results, likewise: the latest issue
+            # held and the last pull.
+            "auctions": auctions.describe(),
+            # The economic calendar's pulled sources (BoG policy rate, GSS).
+            "economic_calendar": econ.describe(),
         },
     )
 
@@ -1054,6 +1081,126 @@ async def spreads(day: Optional[date] = Query(None, alias="date")):
     return spread_analysis(curve, corporates)
 
 
+def _require_auctions() -> None:
+    if auctions.as_of is None:
+        raise HTTPException(
+            status_code=503,
+            detail={"message": "No Bank of Ghana auction results yet; the first pull may still be running",
+                    **auctions.describe()},
+        )
+
+
+@app.get("/auctions/monitor", response_model=AuctionMonitor)
+async def auction_monitor_view():
+    """The new-issue monitor (app/auctions/monitor.py): the latest T-bill
+    auction's rates and moves, recent new bills against their GFIM close,
+    the next tender (estimated) and the bills it rolls over, and the
+    latest note or bond auction. 503 until the first pull from BoG lands."""
+    _require_auctions()
+    report = fixed_income.report()
+    today = fixed_income_calendar.local_date(datetime.now(timezone.utc))
+    return auction_monitor(auctions, report.treasury_bill, report.report_date, today, fixed_income_calendar,
+                           AUCTION_SOURCE, AUCTION_SOURCE_URL)
+
+
+@app.get("/auctions/results", response_model=list[AuctionResultOut])
+async def auction_results(
+    security: Optional[str] = None,
+    since: Optional[date] = None,
+    limit: int = Query(500, ge=1, le=5000),
+):
+    """Auction results as BoG published them, newest first: every
+    security, or one (`security`, as BoG names it: "91 DAY BILL",
+    "2 YR FXR NOTE"; case and spacing don't matter), issued on or after
+    `since`, at most `limit`. Each carries its change from the same
+    security's previous auction. 400 for a security never auctioned;
+    503 until the first pull lands."""
+    _require_auctions()
+    if security is not None:
+        security = " ".join(security.upper().split())
+        if security not in auctions.securities():
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown security '{security}'. Expected one of: {', '.join(auctions.securities())}",
+            )
+        results = list(reversed(auctions.history(security, since)))
+    else:
+        results = auctions.results(since)
+    return [auction_result_out(r, auctions.previous(r)) for r in results[:limit]]
+
+
+ECON_CATEGORIES = ("monetary_policy", "prices", "growth", "trade", "labour", "statistics", "auction", "holiday")
+ECON_MAX_DAYS = 400
+
+
+@app.get("/economic-calendar", response_model=EconCalendar)
+async def economic_calendar(
+    start: Optional[date] = None,
+    end: Optional[date] = None,
+    category: Optional[str] = None,
+    importance: str = Query("low", pattern="^(high|medium|low)$"),
+):
+    """The economic calendar (app/econ/events.py): BoG policy rate
+    decisions (past from BoG's history, coming from the MPC meeting
+    dates), GSS releases (to the week), T-bill auctions and market
+    holidays, for [start, end] (default: a week back to 60 days on).
+    `category` is a comma-separated list of monetary_policy, prices,
+    growth, trade, labour, statistics, auction, holiday; `importance`
+    the lowest to include (low = all). Also the policy rate in force and
+    each source's last pull. 400 for an end before the start, a range
+    over 400 days, or an unknown category."""
+    today = fixed_income_calendar.local_date(datetime.now(timezone.utc))
+    start = start or today - timedelta(days=7)
+    end = end or today + timedelta(days=60)
+    if end < start or (end - start).days > ECON_MAX_DAYS:
+        raise HTTPException(status_code=400, detail=f"start..end must run forwards, at most {ECON_MAX_DAYS} days")
+    wanted = None
+    if category:
+        wanted = {c.strip().lower() for c in category.split(",") if c.strip()}
+        unknown = wanted - set(ECON_CATEGORIES)
+        if unknown:
+            raise HTTPException(status_code=400, detail=f"Unknown category {', '.join(sorted(unknown))}. "
+                                                        f"Expected: {', '.join(ECON_CATEGORIES)}")
+    rank = {"high": 0, "medium": 1, "low": 2}
+    events = calendar_events(
+        start, end, today, econ.decisions, mpc_meetings, econ.releases,
+        auctions.results(), auctions.previous, calendar.holidays, fixed_income_calendar,
+    )
+    events = [e for e in events if (wanted is None or e.category in wanted)
+              and rank[e.importance] <= rank[importance]]
+    return EconCalendar(
+        start=start, end=end, today=today, policy_rate=policy_rate_now(econ.decisions, today), events=events,
+        sources={**econ.describe(), "auctions": auctions.describe(),
+                 "mpc_meetings": {"through": mpc_meetings[-1].announcement.isoformat() if mpc_meetings else None}},
+    )
+
+
+@app.get("/economic-calendar/policy-rate", response_model=list[PolicyRatePoint])
+async def policy_rate_history(since: Optional[date] = None):
+    """Every BoG policy rate decision on or after `since` (all if not
+    given), oldest first, with the move in bp. Empty until the first pull
+    from BoG lands."""
+    out, prev = [], None
+    for d in econ.decisions:
+        if since is None or d.date >= since:
+            out.append(PolicyRatePoint(date=d.date, rate=d.rate,
+                                       change_bp=None if prev is None else round((d.rate - prev) * 100, 1)))
+        prev = d.rate
+    return out
+
+
+@app.get("/calendar", response_class=HTMLResponse)
+async def calendar_page():
+    """The Calendar tab: the economic calendar and the policy rate."""
+    return (STATIC_DIR / "calendar.html").read_text(encoding="utf-8")
+
+
+@app.get("/auctions", response_class=HTMLResponse)
+async def auctions_page():
+    """The Auctions tab: the new-issue monitor and auction rate history."""
+    return (STATIC_DIR / "auctions.html").read_text(encoding="utf-8")
+
+
 @app.get("/market/status")
 async def get_market_status():
     """Whether the exchange is in session (open | pre_open | closed, and
@@ -1478,9 +1625,35 @@ async def fx_loop() -> None:
         await asyncio.sleep(config.FX_REFRESH_SECONDS if ok else min(FX_RETRY_SECONDS, config.FX_REFRESH_SECONDS))
 
 
+async def auction_loop() -> None:
+    """Keep the Bank of Ghana auction results current, as fx_loop does
+    the FX fixes: pull now, then every AUCTION_REFRESH_SECONDS, or after
+    AUCTION_RETRY_SECONDS when a pull fails."""
+    while True:
+        try:
+            ok = await auctions.refresh()
+        except Exception:
+            logger.exception("Bank of Ghana auction refresh crashed")
+            ok = False
+        await asyncio.sleep(
+            config.AUCTION_REFRESH_SECONDS if ok else min(AUCTION_RETRY_SECONDS, config.AUCTION_REFRESH_SECONDS))
+
+
+async def econ_loop() -> None:
+    """Keep the economic calendar's pulled sources current, as fx_loop
+    does the FX fixes."""
+    while True:
+        try:
+            ok = await econ.refresh()
+        except Exception:
+            logger.exception("Economic calendar refresh crashed")
+            ok = False
+        await asyncio.sleep(config.ECON_REFRESH_SECONDS if ok else min(ECON_RETRY_SECONDS, config.ECON_REFRESH_SECONDS))
+
+
 @app.on_event("startup")
 async def startup():
-    global consumer_task, status_task, fx_task
+    global consumer_task, status_task, fx_task, auction_task, econ_task
     await asyncio.to_thread(instrument_store.seed, INSTRUMENTS.values())
     await asyncio.to_thread(company_store.seed, COMPANIES.values())
     # Rates stored by earlier runs are usable at once; the pull for
@@ -1488,6 +1661,12 @@ async def startup():
     await asyncio.to_thread(fx_rates.reload)
     if config.FX_REFRESH_SECONDS > 0:
         fx_task = asyncio.create_task(fx_loop())
+    await asyncio.to_thread(auctions.reload)
+    if config.AUCTION_REFRESH_SECONDS > 0:
+        auction_task = asyncio.create_task(auction_loop())
+    await asyncio.to_thread(econ.reload)
+    if config.ECON_REFRESH_SECONDS > 0:
+        econ_task = asyncio.create_task(econ_loop())
     await connector.connect()
     # Before any live ticks flow, so history is in place (and open
     # windows seeded) by the time the aggregator starts recording.
@@ -1501,7 +1680,8 @@ async def startup():
 @app.on_event("shutdown")
 async def shutdown():
     fx_rates.close()  # a pull in progress stops at its next page
-    for task in (fx_task, status_task, consumer_task):
+    auctions.close()
+    for task in (fx_task, auction_task, econ_task, status_task, consumer_task):
         if task is not None:
             task.cancel()
             try:

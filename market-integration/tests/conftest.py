@@ -17,6 +17,8 @@ os.environ["MARKET_DB_PATH"] = str(_TEST_DB_DIR / "market_data.db")
 os.environ["MARKET_SESSION_OVERRIDE"] = "open"
 # Never call the Bank of Ghana from tests: FX tests store their own fixes.
 os.environ["FX_REFRESH_SECONDS"] = "0"
+os.environ["AUCTION_REFRESH_SECONDS"] = "0"
+os.environ["ECON_REFRESH_SECONDS"] = "0"
 
 from app.models.market_data import MarketData  # noqa: E402
 
