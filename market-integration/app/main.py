@@ -37,7 +37,7 @@ from app.analytics.graph import (
     weekly,
 )
 from app.analytics.spreads import spread_analysis
-from app.auctions import AuctionResult
+from app.auctions import BILL_TENORS, AuctionResult
 from app.auctions.bog import PAGE_URL as AUCTION_SOURCE_URL, SOURCE as AUCTION_SOURCE, BogAuctionClient
 from app.auctions.monitor import monitor as auction_monitor, result_out as auction_result_out
 from app.auctions.store import AuctionStore
@@ -65,8 +65,15 @@ from app.connectors.market_connector import MockMarketConnector
 from app.connectors.supervisor import SupervisedConnector
 from app.fx import BASE as FX_BASE, BASE_NAME as FX_BASE_NAME, BASE_SYMBOL as FX_BASE_SYMBOL, CURRENCIES
 from app.fx.bog import HISTORY_PAGE_URL as FX_SOURCE_URL, SOURCE as FX_SOURCE, BankOfGhanaClient
+from app.fx.forwards import GHS_BASIS, cross_matrix, forward_curve
+from app.fx.overnight import (
+    BENCHMARKS as OVERNIGHT_BENCHMARKS,
+    RETRY_SECONDS as OVERNIGHT_RETRY_SECONDS,
+    CentralBankClient,
+    OvernightRates,
+)
 from app.fx.rates import RETRY_SECONDS as FX_RETRY_SECONDS, FxRates
-from app.fx.store import FxStore
+from app.fx.store import FxStore, OvernightStore
 from app.gateways.notification_gateway import NotificationGateway
 from app.gateways.websocket_gateway import WebSocketGateway
 from app.identity import current_user_id, set_user_cookie, valid_user_id, websocket_user_id
@@ -253,6 +260,9 @@ watchlist_store = WatchlistStore(config.DB_PATH)
 # Bank of Ghana interbank FX fixes for showing prices in other
 # currencies: pulled from BoG's site and kept across restarts; see app/fx/.
 fx_rates = FxRates(FxStore(config.DB_PATH), BankOfGhanaClient())
+# SOFR, €STR and SONIA, the foreign legs of synthetic forwards: pulled
+# from the NY Fed, ECB and BoE and kept across restarts; see app/fx/overnight.py.
+overnight_rates = OvernightRates(OvernightStore(config.DB_PATH), CentralBankClient())
 # Bank of Ghana T-bill auction results for the new-issue monitor: pulled
 # from BoG's site and kept across restarts; see app/auctions/.
 auctions = AuctionTracker(AuctionStore(config.DB_PATH), BogAuctionClient())
@@ -329,6 +339,7 @@ aggregator = MarketAggregator(
 consumer_task: Optional[asyncio.Task] = None
 status_task: Optional[asyncio.Task] = None
 fx_task: Optional[asyncio.Task] = None
+overnight_task: Optional[asyncio.Task] = None
 auction_task: Optional[asyncio.Task] = None
 econ_task: Optional[asyncio.Task] = None
 
@@ -387,6 +398,8 @@ async def health():
             # pull. Not a component: prices still flow without them, and
             # pages then show cedis.
             "fx": fx_rates.describe(),
+            # The overnight benchmarks behind synthetic forwards, likewise.
+            "overnight_rates": overnight_rates.describe(),
             # Bank of Ghana auction results, likewise: the latest issue
             # held and the last pull.
             "auctions": auctions.describe(),
@@ -943,6 +956,15 @@ def _fx_code(code: str) -> str:
     return code
 
 
+def _require_fx() -> None:
+    """503 until the first pull from BoG has landed."""
+    if not fx_rates.currencies():
+        raise HTTPException(
+            status_code=503,
+            detail={"message": "No Bank of Ghana rates yet; the first pull may still be running", **fx_rates.describe()},
+        )
+
+
 def _fix_on(code: str, day: Optional[date]) -> Optional[FxRate]:
     """The fix for `code` in force on `day` (latest if None), or None if
     the history held doesn't reach back to `day`."""
@@ -958,17 +980,19 @@ async def get_fx_rates(day: Optional[date] = Query(None, alias="date")):
     published them. The latest fix by default; `date` (YYYY-MM-DD) gives
     the fix in force that day (BoG publishes on business days only).
     503 until the first pull from BoG has landed; 404 for a date before
-    the history held. See app/fx/."""
-    if not fx_rates.currencies():
-        raise HTTPException(
-            status_code=503,
-            detail={"message": "No Bank of Ghana rates yet; the first pull may still be running", **fx_rates.describe()},
-        )
+    the history held. Each row also has the fix before it
+    (`previous_mid`, `previous_date`) and the move since (`change_percent`,
+    in the cedis-per-unit rate: positive means the cedi weakened), null
+    when the history starts there. See app/fx/."""
+    _require_fx()
     rows = []
     for code in fx_rates.currencies():
         rate = _fix_on(code, day)
         if rate is None:
             continue
+        prev = fx_rates.on(code, rate.date - timedelta(days=1))
+        if prev is not None and prev.date >= rate.date:
+            prev = None  # the history starts at this fix
         name, symbol, _ = CURRENCIES[code]
         rows.append({
             "code": code,
@@ -980,6 +1004,9 @@ async def get_fx_rates(day: Optional[date] = Query(None, alias="date")):
             "buying": rate.buying,
             "selling": rate.selling,
             "source_pair": rate.source_pair,
+            "previous_date": prev.date.isoformat() if prev else None,
+            "previous_mid": prev.mid if prev else None,
+            "change_percent": (rate.mid / prev.mid - 1) * 100 if prev else None,
         })
     if not rows:
         raise HTTPException(status_code=404, detail=f"No Bank of Ghana rates held for {day}")
@@ -1029,6 +1056,117 @@ async def fx_convert(
         "fixes": {c: r.date.isoformat() for c, r in fixes.items()},
         "source": FX_SOURCE,
     }
+
+
+@app.get("/fx/cross")
+async def fx_cross(
+    currencies: Optional[str] = Query(None, description="Comma-separated codes; default the cedi and every currency held"),
+    day: Optional[date] = Query(None, alias="date"),
+):
+    """The cross-rate matrix at the Bank of Ghana mid: `matrix[i][j]` is
+    units of currencies[j] one unit of currencies[i] buys. BoG fixes
+    against the cedi only, so every cross goes through it (see
+    app/fx/forwards.py). The latest fix by default, or the one in force on
+    `date`. 400 for a currency we don't offer, 503 before the first pull
+    from BoG, 404 for a date before the history held."""
+    _require_fx()
+    if currencies:
+        codes = list(dict.fromkeys(_fx_code(c) for c in currencies.split(",") if c.strip()))
+    else:
+        codes = [FX_BASE, *fx_rates.currencies()]
+    if len(codes) < 2:
+        raise HTTPException(status_code=400, detail="Give at least two currencies")
+    fixes = {}
+    for code in codes:
+        if code == FX_BASE:
+            continue
+        fixes[code] = _fix_on(code, day)
+        if fixes[code] is None:
+            raise HTTPException(status_code=404, detail=f"No Bank of Ghana rate for {code} on or before {day}")
+    ghs_per_unit = [fixes[c].mid if c in fixes else 1.0 for c in codes]
+
+    def describe(code: str) -> dict:
+        name, symbol = (FX_BASE_NAME, FX_BASE_SYMBOL) if code == FX_BASE else CURRENCIES[code][:2]
+        return {"code": code, "name": name, "symbol": symbol}
+
+    return {
+        "date": day.isoformat() if day else None,
+        "as_of": max(r.date for r in fixes.values()).isoformat() if fixes else None,
+        "rate": "mid",
+        "currencies": [describe(c) for c in codes],
+        "matrix": cross_matrix(ghs_per_unit),
+        "fixes": {c: r.date.isoformat() for c, r in fixes.items()},
+        "source": FX_SOURCE,
+        "source_url": FX_SOURCE_URL,
+    }
+
+
+@app.get("/fx/forwards")
+async def fx_forwards():
+    """Indicative synthetic forwards for USD, EUR and GBP against the cedi,
+    by covered interest parity: the BoG mid as spot, the latest T-bill
+    auction yields for the cedi leg (interpolated by tenor, ACT/364) and
+    SOFR, €STR or SONIA held flat for the foreign leg. The inputs are in
+    the reply, each with its date. A currency missing an input is listed
+    in `unavailable` with the reason. 503 until both a BoG fix and the
+    T-bill yields are held. See app/fx/forwards.py."""
+    _require_fx()
+    bills = [r for r in (auctions.latest(s) for s in BILL_TENORS) if r is not None]
+    if not bills:
+        raise HTTPException(
+            status_code=503,
+            detail={"message": "No T-bill auction yields yet for the cedi leg; the first pull may still be running",
+                    **auctions.describe()},
+        )
+    ghs_curve = [(r.tenor_days, r.interest_rate) for r in bills]
+    pairs, unavailable = [], {}
+    for code, bench in OVERNIGHT_BENCHMARKS.items():
+        spot = fx_rates.latest(code)
+        foreign = overnight_rates.latest(code)
+        if spot is None:
+            unavailable[code] = f"No Bank of Ghana rate for {code} yet"
+            continue
+        if foreign is None:
+            unavailable[code] = f"No {bench.name} rate yet"
+            continue
+        curve = forward_curve(spot.mid, spot.date, ghs_curve, foreign.rate, bench.basis)
+        pairs.append({
+            "pair": f"{code}{FX_BASE}",
+            "currency": code,
+            "name": CURRENCIES[code][0],
+            "spot": spot.mid,
+            "spot_date": spot.date.isoformat(),
+            "foreign_rate": {
+                "benchmark": bench.name, "rate": foreign.rate, "date": foreign.date.isoformat(),
+                "day_count": f"ACT/{bench.basis}", "publisher": bench.publisher, "url": bench.url,
+            },
+            "tenors": [{
+                "tenor": p.tenor, "value_date": p.value_date.isoformat(), "days": p.days,
+                "ghs_rate": p.ghs_rate, "foreign_rate": p.foreign_rate, "outright": p.outright,
+                "points": p.points, "premium_pa": p.premium_pa,
+            } for p in curve],
+        })
+    return {
+        "method": "covered interest parity",
+        "rate": "mid",
+        "cedi_curve": {
+            "source": AUCTION_SOURCE,
+            "source_url": AUCTION_SOURCE_URL,
+            "day_count": f"ACT/{GHS_BASIS}",
+            "points": [{"security": r.security, "tenor_days": r.tenor_days, "rate": r.interest_rate,
+                        "issue_date": r.issue_date.isoformat(), "tender": r.tender} for r in bills],
+        },
+        "spot_source": FX_SOURCE,
+        "pairs": pairs,
+        "unavailable": unavailable,
+        "status": overnight_rates.describe(),
+    }
+
+
+@app.get("/fx", response_class=HTMLResponse)
+async def fx_page():
+    """The FX tab: BoG reference rates, the cross matrix and synthetic forwards."""
+    return (STATIC_DIR / "fx.html").read_text(encoding="utf-8")
 
 
 @app.get("/fixed-income/report", response_model=FixedIncomeReport)
@@ -1625,6 +1763,20 @@ async def fx_loop() -> None:
         await asyncio.sleep(config.FX_REFRESH_SECONDS if ok else min(FX_RETRY_SECONDS, config.FX_REFRESH_SECONDS))
 
 
+async def overnight_loop() -> None:
+    """Keep SOFR, €STR and SONIA current, as fx_loop does the BoG fixes:
+    pull now, then every OVERNIGHT_REFRESH_SECONDS, or after
+    OVERNIGHT_RETRY_SECONDS when a pull fails."""
+    while True:
+        try:
+            ok = await overnight_rates.refresh()
+        except Exception:
+            logger.exception("Overnight rates refresh crashed")
+            ok = False
+        await asyncio.sleep(
+            config.OVERNIGHT_REFRESH_SECONDS if ok else min(OVERNIGHT_RETRY_SECONDS, config.OVERNIGHT_REFRESH_SECONDS))
+
+
 async def auction_loop() -> None:
     """Keep the Bank of Ghana auction results current, as fx_loop does
     the FX fixes: pull now, then every AUCTION_REFRESH_SECONDS, or after
@@ -1653,7 +1805,7 @@ async def econ_loop() -> None:
 
 @app.on_event("startup")
 async def startup():
-    global consumer_task, status_task, fx_task, auction_task, econ_task
+    global consumer_task, status_task, fx_task, overnight_task, auction_task, econ_task
     await asyncio.to_thread(instrument_store.seed, INSTRUMENTS.values())
     await asyncio.to_thread(company_store.seed, COMPANIES.values())
     # Rates stored by earlier runs are usable at once; the pull for
@@ -1661,6 +1813,9 @@ async def startup():
     await asyncio.to_thread(fx_rates.reload)
     if config.FX_REFRESH_SECONDS > 0:
         fx_task = asyncio.create_task(fx_loop())
+    await asyncio.to_thread(overnight_rates.reload)
+    if config.OVERNIGHT_REFRESH_SECONDS > 0:
+        overnight_task = asyncio.create_task(overnight_loop())
     await asyncio.to_thread(auctions.reload)
     if config.AUCTION_REFRESH_SECONDS > 0:
         auction_task = asyncio.create_task(auction_loop())
@@ -1681,7 +1836,7 @@ async def startup():
 async def shutdown():
     fx_rates.close()  # a pull in progress stops at its next page
     auctions.close()
-    for task in (fx_task, auction_task, econ_task, status_task, consumer_task):
+    for task in (fx_task, overnight_task, auction_task, econ_task, status_task, consumer_task):
         if task is not None:
             task.cancel()
             try:
