@@ -167,6 +167,27 @@ Each branch validates ticks itself.
   quotes at the latest fix, and `/candles?currency=` converts history at
   each day's. BoG's formats and quirks (inverted West African pairs, a
   rescaled leone) are in `docs/fx-rates.md`.
+- **`app/auctions/`** — the Bank of Ghana's weekly T-bill auction results,
+  also real: `bog.py` pulls BoG's Treasury Bill Rates table the same way
+  as the FX rates (the shared wpDataTables client is `app/bog.py`),
+  `store.py` keeps every result in SQLite (`auction_results`),
+  `tracker.py` keeps it current (the whole table on the first start, a few
+  seconds; then the last four weeks, hourly, `AUCTION_REFRESH_SECONDS`, 0
+  never pulls), and `monitor.py` builds the new-issue monitor from it and
+  the GFIM report. If BoG can't be reached, stored results stay in use and
+  `/health` says why under `auctions`.
+- **`app/econ/`** — the economic calendar. Two sources are pulled, every
+  6 hours (`ECON_REFRESH_SECONDS`; 0 never pulls) and kept in SQLite:
+  BoG's policy rate history (`bog.py`: every MPC decision since 2002,
+  read from the data behind BoG's Policy Rate Trends chart) and the Ghana
+  Statistical Service's release calendar (`gss.py`: the year's CPI, GDP,
+  MIEG, PPI ... releases, read from the data behind GSS's Release
+  Calendar page; GSS gives the week of the month, never the day). Coming
+  MPC meetings are kept by hand in `data/economic_calendar.json` from
+  BoG's yearly PDF: add next year's when it is published (December).
+  `events.py` merges these with the T-bill auctions and market holidays.
+  Each source fails on its own; `/health` says which under
+  `economic_calendar`.
 - **`app/gateways/`** — delivery layer. Currently a WebSocket gateway that
   broadcasts to connected clients concurrently; a webhook gateway for
   Symphony workflow events would live here too.
@@ -401,6 +422,12 @@ Uvicorn running on http://127.0.0.1:8000
 | `http://127.0.0.1:8000/movers?type=gainers` | Today's movers among equities: `type` is `gainers` or `losers` (by % change, VWAP vs previous close) or `active` (by shares traded). Optional `limit` (1–50, default 10), `sector`, and `q` to search within the list |
 | `http://127.0.0.1:8000/fixed-income/report` | Today's fixed-income report in the shape of the GFIM daily trading report: every section plus the summary. Blank report cells are `null` |
 | `http://127.0.0.1:8000/spreads` | Spread analysis for a session (`app/analytics/spreads.py`), shown on the Yield Curve tab (`/yield-curve`): a Nelson-Siegel-Svensson curve fitted to the closing yields of bills, New GoG and 2023 DDEP bonds (`curve`: factors, the two decays, RMSE overall and per segment, and `samples` for drawing it); each government point's spread to it in bp (`government`; positive is cheap, negative rich; Old GoG measured but not fitted to, as their closes are often stale); each corporate's yield worked out from its closing price, as a semi-annual ACT/ACT bullet, and its spread over the curve (`corporate`; null with a `reason` where there's no coupon); and spreads by issuer, widest first (`issuers`). Corporate spreads are indicative: GFIM publishes no corporate yields and we have no term sheets. `date` as for `/curve`; 400 for a date after the current session |
+| `http://127.0.0.1:8000/auctions` | The Auctions tab (`app/static/auctions.html`; a new-issue monitor for the GoG primary market): the latest T-bill auction's yields with their move on the week, the next tender (estimated), the auction yield history by tenor (1Y–Max), the recent new bills against their GFIM close, and every result BoG has published |
+| `http://127.0.0.1:8000/auctions/monitor` | The new-issue monitor's data (`app/auctions/monitor.py`): `latest` (the latest tender's 91/182/364-day bills: discount and interest rate, `change_bp` from the previous auction), `new_issues` (bills from the last four tenders, each matched to its GFIM bill by tenor and maturity, with `secondary_spread_bp`: GFIM close less the auction yield), `next_auction` (tender, expected auction and issue dates from the Friday/Monday pattern moved round holidays, `status` `scheduled`/`today`/`results_pending`, and the GFIM bills `maturing` on that issue date) and `last_bond_auction`. 503 until the first pull from BoG lands |
+| `http://127.0.0.1:8000/auctions/results?security=91%20DAY%20BILL` | Auction results as the Bank of Ghana published them, newest first, each with its change from the previous auction of that security. Optional `security` (BoG's name, case-insensitive: `91 DAY BILL`, `2 YR FXR NOTE`, ...; 400 if never auctioned), `since` (YYYY-MM-DD) and `limit` (1–5000, default 500). 503 until the first pull lands |
+| `http://127.0.0.1:8000/calendar` | The Calendar tab (`app/static/calendar.html`; Bloomberg's ECO for Ghana): the policy rate, the next MPC decision, CPI and GDP release at a glance; every event by day with importance, status, actual, prior and change, filtered by range, importance and category; and the policy rate since 2002 |
+| `http://127.0.0.1:8000/economic-calendar?start=2026-10-01&end=2026-12-31` | The calendar's events (`app/econ/events.py`), by date: BoG policy rate decisions (`monetary_policy`; past ones with the rate set, prior and move, coming ones from the MPC dates with the rate in force as prior), GSS releases (`prices`, `growth`, `trade`, `labour`, `statistics`; `precision` `week` with `date`..`date_end`), T-bill auctions (`auction`; yields and moves, the next one `estimated`) and market holidays (`holiday`). Each has `importance` (high/medium/low) and `status`: `done`, `due` (today, inside its week, or the MPC sitting), `upcoming` or `overdue` (past its date or week, not shown done by the source). Optional `category` (comma-separated) and `importance` (the lowest to include). Default range a week back to 60 days on; at most 400 days. Also `policy_rate` (the rate in force, since when, and its last move) and `sources` (each pull's state) |
+| `http://127.0.0.1:8000/economic-calendar/policy-rate` | Every BoG policy rate decision since Nov 2002, oldest first, with its move in bp; optional `since`. Empty until the first pull |
 | `http://127.0.0.1:8000/fixed-income/summary` | Volume, number of trades and largest trade per section, plus grand totals |
 | `http://127.0.0.1:8000/fixed-income/{section}` | One section's rows: `new_gog`, `ddep`, `old_gog`, `treasury_bill`, `corporate` or `sell_buy_back` |
 | `http://127.0.0.1:8000/market/status` | Market session and feed status: `status` is `open`, `pre_open` or `closed` (with a `reason`: `weekend`, `holiday`, `before_hours`, `after_hours`), plus `next_open`, `next_close`, `last_close`, the feed's heartbeat, and `badge` (`live`, `delayed`, `closed` or `disconnected`) |
@@ -568,6 +595,23 @@ market-integration/
 │   │   ├── market_aggregator.py   # backfill + live OHLCV candles -> SQLite (market_data.db)
 │   │   └── ranges.py              # chart ranges -> candle interval, backfill depth
 │   │
+│   ├── bog.py                     # reads Bank of Ghana website tables (FX rates, auctions)
+│   │
+│   ├── econ/
+│   │   ├── __init__.py            # PolicyDecision, GssRelease (week windows), MPC seed file
+│   │   ├── bog.py                 # pulls BoG's policy rate history
+│   │   ├── gss.py                 # pulls GSS's release calendar
+│   │   ├── store.py               # policy_rate_decisions, gss_releases SQLite tables
+│   │   ├── tracker.py             # keeps both current, each on its own
+│   │   └── events.py              # merges MPC, GSS, auctions, holidays into calendar events
+│   │
+│   ├── auctions/
+│   │   ├── __init__.py            # AuctionResult, parsing BoG's rows
+│   │   ├── bog.py                 # pulls the Treasury Bill Rates table
+│   │   ├── store.py               # auction_results SQLite table
+│   │   ├── tracker.py             # keeps it current, lookups by security
+│   │   └── monitor.py             # new-issue monitor: latest, vs GFIM, next tender
+│   │
 │   ├── analytics/
 │   │   ├── graph.py               # /graph: rebasing to 100, correlation between days both traded
 │   │   └── spreads.py             # /spreads: Svensson fit to the GoG curve, rich/cheap, corporate spreads
@@ -587,12 +631,15 @@ market-integration/
 │       ├── seasonality.js         # the stock page's Seasonality view (#seasonality)
 │       ├── fixed_income.html      # bills and bonds by GFIM segment, served at /fixed-income
 │       ├── yield_curve.html       # GoG yield curve vs. a past day, fitted curve, corporates and spreads, served at /yield-curve
+│       ├── auctions.html          # T-bill auctions and new issues, served at /auctions
+│       ├── calendar.html          # economic calendar and policy rate, served at /calendar
 │       ├── graph.html             # several series rebased to 100 + correlation matrix, served at /graph
 │       └── bond.html              # bill/bond page (simplified YAS), served at /bond/{symbol}
 │
 ├── data/
 │   ├── instruments.json           # instrument master seed (source of truth)
 │   ├── company_profiles.json      # maintained company profiles, officers, financials (each value sourced)
+│   ├── economic_calendar.json     # BoG MPC meeting dates, from BoG's yearly PDF
 │   └── market_calendar.json       # GSE session hours + Ghana public holidays
 │
 ├── docs/
@@ -634,6 +681,15 @@ change — that's the point of the connector interface.
 ## Roadmap
 
 - [ ] Real market-data provider connector (pending provider selection)
+- [x] T-bill auction tracker and new-issue monitor (`/auctions`), from
+      the Bank of Ghana's published rates. Still to do: auction amounts
+      (offered, bid, accepted; BoG press releases only) and BoG's
+      quarterly issuance calendar (PDF)
+- [x] Economic calendar (`/calendar`): BoG MPC decisions and policy
+      rate history, GSS release calendar, auctions, holidays. Still to
+      do: the released figures for GSS data (CPI, GDP; GSS publishes them
+      only in bulletins and page layout), and implied odds of a rate move
+      (needs a market in rate futures or OIS, which Ghana doesn't have)
 - [ ] Webhook/event gateway for Symphony workflow triggers (e.g. threshold
       crossings, % change alerts)
 - [x] Reconnect/backoff logic for the connector

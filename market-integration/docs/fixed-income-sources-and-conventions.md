@@ -98,6 +98,13 @@ Field-by-field mapping of the GFIM daily report is in
   GFIM group. So an auction row maps to an ISIN by tenor and tender number.
 - **Timing:** auctions are on Fridays, and bills are issued the following
   Monday. The mock's Monday issue is correct.
+- **Used by:** the auction tracker (`app/auctions/`, `/auctions`), which pulls
+  it hourly into SQLite (`auction_results`). The table reports 2,017 rows
+  (`recordsTotal`) but serves 1,392 (`recordsFiltered`, Aug 2013 onward),
+  which is also all its page shows. It also carries the 1–20 year note and
+  bond auctions (the latest a 4-year bond issued 7-Sep-2026), with the coupon
+  in both rate columns, and a few tenders from 2016–2018 with a zero rate
+  (no rate published), which the tracker skips.
 - **Limits:** it gives rates only. Amounts offered, bid and accepted appear in
   BoG press releases, not in this table. The endpoint is undocumented and could
   change without notice, so poll it daily and alert on failure.

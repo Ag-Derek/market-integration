@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>T-Bill Auctions</title>
+<style>
+  :root {
+    --bg: #0E1613;
+    --panel: #16211B;
+    --panel-strong: #1C2921;
+    --ink: #EAE7DA;
+    --ink-soft: #AEB6A9;
+    --ink-faint: #6F766D;
+    --line: #26362F;
+    --teal: #3E9C82;
+    --gold: #D9A44C;
+    --gold-bg: #2A2313;
+    --green: #34C57F;
+    --red: #E5675A;
+    --status-live: #5AA9E6;
+    --status-live-halo: rgba(90, 169, 230, 0.18);
+    --status-delayed: var(--gold);
+    --status-closed: var(--ink-faint);
+    /* Tenors: the first three categorical slots, validated as a set on
+       --panel (dataviz validate_palette.js, dark, all pairs). */
+    --series-91: #3987e5;
+    --series-182: #d95926;
+    --series-364: #199e70;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .num {
+    font-family: ui-monospace, "SFMono-Regular", "Cascadia Mono", Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .page { max-width: 1360px; margin: 0 auto; padding: 28px 20px 60px; }
+
+  .topbar { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
+  .brand { font-size: 18px; font-weight: 700; color: var(--ink); letter-spacing: 0.01em; flex-basis: 100%; }
+  .tabs { display: flex; gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 3px; flex-wrap: wrap; }
+  .tab { font-size: 13px; font-weight: 600; color: var(--ink-soft); text-decoration: none; padding: 6px 14px; border-radius: 6px; }
+  .tab:hover { color: var(--ink); }
+  .tab.active { color: var(--bg); background: var(--teal); }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  .panel + .panel, .grid + .panel, .panel + details { margin-top: 16px; }
+  .panel-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 10px; }
+  .panel-head h2 { font-size: 14px; margin: 0; }
+  .panel-head .sub { font-size: 12px; color: var(--ink-faint); }
+  .panel-head .right { margin-left: auto; }
+
+  /* Latest auction tiles + next auction */
+
+  .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.35fr); gap: 12px; }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; min-width: 0; }
+  .tile .label { font-size: 12px; color: var(--ink-soft); display: flex; align-items: center; gap: 7px; }
+  .tile .swatch { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+  .tile .value { font-size: 28px; font-weight: 600; margin: 6px 0 2px; }
+  .tile .value small { font-size: 14px; color: var(--ink-soft); font-weight: 500; }
+  .tile .meta { font-size: 12px; color: var(--ink-faint); line-height: 1.6; }
+  .chg { font-size: 12.5px; }
+  .up { color: var(--green); }
+  .down { color: var(--red); }
+  .muted { color: var(--ink-faint); }
+
+  .next h3 { font-size: 12px; color: var(--ink-soft); font-weight: 500; margin: 0; }
+  .next .when { font-size: 18px; font-weight: 600; margin: 6px 0 4px; }
+  .badge {
+    display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--ink-soft); vertical-align: middle; margin-left: 6px;
+  }
+  .badge.pending { color: var(--gold); border-color: var(--gold); background: var(--gold-bg); }
+  .badge.today { color: var(--bg); background: var(--teal); border-color: var(--teal); }
+  .next ul { list-style: none; padding: 0; margin: 8px 0 0; font-size: 12px; }
+  .next li { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; border-top: 1px solid var(--line); }
+  .next li .desc { font-family: ui-monospace, monospace; font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* Chart */
+
+  .seg { display: inline-flex; gap: 2px; background: var(--panel-strong); border: 1px solid var(--line); border-radius: 8px; padding: 2px; }
+  .seg button { font: inherit; font-size: 12px; color: var(--ink-soft); background: none; border: 0; border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+  .seg button:hover { color: var(--ink); }
+  .seg button.active { color: var(--bg); background: var(--teal); }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--ink-soft); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 14px; height: 2px; border-radius: 1px; display: inline-block; }
+  .chart-wrap { position: relative; }
+  #chart { display: block; width: 100%; height: 340px; touch-action: none; }
+  #chart .grid line { stroke: var(--line); stroke-width: 1; }
+  #chart .axis text { fill: var(--ink-faint); font-size: 11px; font-family: ui-monospace, monospace; }
+  #chart .series { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  #chart .cross { stroke: var(--ink-faint); stroke-width: 1; stroke-dasharray: 3 3; }
+  #chart .dot { stroke: var(--panel); stroke-width: 2; }
+  .empty-msg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--ink-faint); font-size: 13px; pointer-events: none; }
+  .tooltip {
+    position: absolute; pointer-events: none; display: none; z-index: 2;
+    background: var(--panel-strong); border: 1px solid var(--line); border-radius: 8px;
+    padding: 8px 10px; font-size: 12px; color: var(--ink); min-width: 190px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  }
+  .tooltip .t-head { font-size: 11px; color: var(--ink-faint); margin-bottom: 4px; }
+  .tooltip .t-row { display: flex; justify-content: space-between; gap: 14px; color: var(--ink-soft); align-items: center; }
+  .tooltip .t-row b { color: var(--ink); font-weight: 600; }
+  .tooltip .t-row .k { display: inline-flex; align-items: center; gap: 6px; }
+  .tooltip .t-row i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+
+  /* Tables */
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--ink-faint); text-align: right; padding: 8px 12px; white-space: nowrap; background: var(--panel-strong);
+  }
+  th.l, td.l { text-align: left; }
+  td { padding: 6px 12px; text-align: right; white-space: nowrap; border-top: 1px solid var(--line); }
+  td.desc { font-family: ui-monospace, monospace; font-size: 12px; }
+  tr.clickable { cursor: pointer; }
+  tr.clickable:hover td { background: var(--panel-strong); }
+  .panel.flush { padding: 16px 0 6px; }
+  .panel.flush .panel-head { padding: 0 16px; }
+
+  details.history { margin-top: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+  details.history summary { cursor: pointer; padding: 12px 16px; font-size: 13px; font-weight: 600; color: var(--ink-soft); }
+  .history-controls { padding: 0 16px 10px; display: flex; gap: 10px; align-items: center; font-size: 12px; color: var(--ink-faint); }
+  select {
+    font: inherit; font-size: 12.5px; color: var(--ink); background: var(--panel-strong); color-scheme: dark;
+    border: 1px solid var(--line); border-radius: 7px; padding: 4px 8px;
+  }
+
+  .error { color: var(--gold); background: var(--gold-bg); border: 1px solid var(--gold); border-radius: 10px; padding: 10px 14px; font-size: 13px; margin-bottom: 14px; }
+  .error[hidden] { display: none; }
+
+  footer { margin-top: 26px; font-size: 12px; color: var(--ink-faint); line-height: 1.6; }
+  footer code { font-family: ui-monospace, monospace; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+  footer a { color: var(--teal); }
+
+  @media (max-width: 1000px) {
+    .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid .next { grid-column: 1 / -1; }
+  }
+  @media (max-width: 640px) {
+    .page { padding: 20px 16px 48px; }
+    .grid { grid-template-columns: 1fr; }
+    #chart { height: 280px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <div class="topbar">
+    <span class="brand">Market Integration</span>
+    <nav class="tabs" aria-label="Markets">
+      <a class="tab" href="/ticker">Equities</a>
+      <a class="tab" href="/fixed-income">Fixed Income</a>
+      <a class="tab" href="/yield-curve">Yield Curve</a>
+      <a class="tab active" href="/auctions" aria-current="page">Auctions</a>
+      <a class="tab" href="/calendar">Calendar</a>
+      <a class="tab" href="/graph">Graph</a>
+      <a class="tab" href="/tickets">Trade Tickets</a>
+    </nav>
+  </div>
+
+  <div id="strip"></div>
+
+  <div class="error" id="error" hidden></div>
+
+  <div class="grid" id="tiles">
+    <div class="tile next" id="next"><h3>Next auction</h3><div class="when muted">Loading&hellip;</div></div>
+  </div>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>T-bill auction yields</h2>
+      <span class="sub" id="chartSub"></span>
+      <div class="legend" id="legend"></div>
+      <div class="seg right" role="group" aria-label="Range" id="range">
+        <button type="button" data-range="1Y">1Y</button>
+        <button type="button" data-range="3Y">3Y</button>
+        <button type="button" data-range="5Y">5Y</button>
+        <button type="button" data-range="Max">Max</button>
+      </div>
+    </div>
+    <div class="chart-wrap" id="chartWrap">
+      <svg id="chart" role="img" aria-label="Auction interest rate by issue date, one line per tenor"></svg>
+      <div class="empty-msg" id="chartMsg">Loading&hellip;</div>
+      <div class="tooltip" id="tooltip"></div>
+    </div>
+  </section>
+
+  <section class="panel flush">
+    <div class="panel-head">
+      <h2>New issues in GFIM</h2>
+      <span class="sub" id="newSub"></span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th class="l">Issued</th><th>Tender</th><th class="l">Bill</th><th>Auction yield</th><th>Chg (bp)</th>
+          <th class="l">GFIM bill</th><th>GFIM close</th><th>Since auction (bp)</th><th>Volume</th>
+        </tr></thead>
+        <tbody id="newBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <details class="history" id="history">
+    <summary>All auction results</summary>
+    <div class="history-controls">
+      <label for="security">Security</label>
+      <select id="security"></select>
+      <span id="historyCount"></span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th class="l">Issued</th><th>Tender</th><th class="l">Security</th><th>Matures</th>
+          <th>Discount rate</th><th>Interest rate</th><th>Chg (bp)</th>
+        </tr></thead>
+        <tbody id="historyBody"></tbody>
+      </table>
+    </div>
+  </details>
+
+  <footer>
+    Auction rates are the Bank of Ghana's (<a id="sourceLink" href="https://www.bog.gov.gh/treasury-and-the-markets/treasury-bill-rates/" rel="noopener" target="_blank">Treasury Bill Rates</a>),
+    from <code>/auctions/monitor</code> and <code>/auctions/results</code>: issue date, tender, discount rate and interest
+    rate (the yield; for notes and bonds BoG gives the coupon). Amounts offered, bid and accepted are only in BoG press
+    releases, so they aren't here. A new bill is matched to its GFIM security by tenor and maturity date; "since
+    auction" is its GFIM closing yield less the auction yield, so a positive number means yields have risen (prices
+    fallen) since. The next auction is estimated from the weekly pattern (Friday auction, Monday issue, moved round
+    holidays), not read from BoG's issuance calendar.
+  </footer>
+
+</div>
+
+<script src="/static/render.js"></script>
+<script src="/static/strip.js"></script>
+<script>MarketStrip.mount(document.getElementById("strip"), { crawl: "fixed_income" });</script>
+<script>
+(function () {
+  "use strict";
+
+  const $ = function (id) { return document.getElementById(id); };
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  const TENORS = [
+    { security: "91 DAY BILL", label: "91-day", color: "var(--series-91)" },
+    { security: "182 DAY BILL", label: "182-day", color: "var(--series-182)" },
+    { security: "364 DAY BILL", label: "364-day", color: "var(--series-364)" },
+  ];
+  const RANGE_YEARS = { "1Y": 1, "3Y": 3, "5Y": 5, "Max": null };
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  const params = new URLSearchParams(location.search);
+  let range = RANGE_YEARS.hasOwnProperty(params.get("range")) ? params.get("range") : "1Y";
+  let mon = null;          // /auctions/monitor
+  let all = null;          // /auctions/results, newest first
+  let hit = [];            // drawn issue dates, for the crosshair
+
+  // ------------------------------------------------------------ format
+
+  function rate(v) { return v == null ? "—" : Number(v).toFixed(2); }
+  function longDate(iso) {
+    const p = iso.split("-");
+    return Number(p[2]) + " " + MONTHS[Number(p[1]) - 1] + " " + p[0];
+  }
+  function dayName(iso) {
+    const p = iso.split("-").map(Number);
+    return new Date(Date.UTC(p[0], p[1] - 1, p[2])).toLocaleDateString(undefined, { weekday: "short", timeZone: "UTC" });
+  }
+  // A move in bp. Yields rising is red (prices fell), as on the curve.
+  function bp(v) {
+    if (v == null) return { text: "—", cls: "muted" };
+    return { text: (v > 0 ? "+" : "") + Number(v).toFixed(1), cls: v > 0 ? "down" : v < 0 ? "up" : "muted" };
+  }
+  function vol(v) { return v == null ? "—" : Number(v).toLocaleString(); }
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  // ------------------------------------------------------------ data
+
+  function getJson(url) {
+    return fetch(url).then(function (r) {
+      return r.json().then(function (b) {
+        if (!r.ok) {
+          const d = b.detail;
+          throw new Error(typeof d === "string" ? d : (d && d.message) || r.statusText);
+        }
+        return b;
+      });
+    });
+  }
+
+  function load() {
+    return Promise.all([getJson("/auctions/monitor"), all ? Promise.resolve(all) : getJson("/auctions/results?limit=5000")])
+      .then(function (both) {
+        mon = both[0];
+        all = both[1];
+        $("error").hidden = true;
+        renderTiles();
+        renderNew();
+        drawChart();
+        renderHistoryOptions();
+      })
+      .catch(function (e) {
+        $("error").textContent = "Auction results unavailable: " + e.message;
+        $("error").hidden = false;
+        $("chartMsg").textContent = "No auction results yet.";
+        $("chartMsg").style.display = "flex";
+      });
+  }
+
+  // ------------------------------------------------------------ tiles
+
+  function renderTiles() {
+    const host = $("tiles");
+    host.querySelectorAll(".tile.rate").forEach(function (t) { t.remove(); });
+    const next = $("next");
+    TENORS.forEach(function (t) {
+      const r = mon.latest.find(function (x) { return x.security === t.security; });
+      const tile = el("div", "tile rate");
+      const label = el("div", "label");
+      const sw = el("span", "swatch");
+      sw.style.background = t.color;
+      label.appendChild(sw);
+      label.appendChild(document.createTextNode(t.label + " bill"));
+      tile.appendChild(label);
+      const value = el("div", "value num");
+      value.textContent = r ? rate(r.interest_rate) : "—";
+      value.appendChild(el("small", null, "%"));
+      tile.appendChild(value);
+      const c = bp(r && r.change_bp);
+      const chg = el("div", "chg num " + c.cls, c.text + " bp");
+      if (r && r.previous_interest_rate != null) {
+        chg.appendChild(el("span", "muted", " vs " + rate(r.previous_interest_rate) + "% prior"));
+      }
+      tile.appendChild(chg);
+      tile.appendChild(el("div", "meta", r
+        ? "Discount " + rate(r.discount_rate) + "% · Tender " + r.tender + " · Issued " + longDate(r.issue_date)
+        : "No auction held"));
+      host.insertBefore(tile, next);
+    });
+
+    next.innerHTML = "";
+    next.appendChild(el("h3", null, "Next auction (estimated)"));
+    const n = mon.next_auction;
+    if (!n) {
+      next.appendChild(el("div", "when muted", "—"));
+    } else {
+      const when = el("div", "when", "Tender " + n.tender + " · " + dayName(n.expected_auction_date) + " " + longDate(n.expected_auction_date));
+      const badge = el("span", "badge" + (n.status === "today" ? " today" : n.status === "results_pending" ? " pending" : ""),
+        n.status === "today" ? "Today" : n.status === "results_pending" ? "Results pending" : "Scheduled");
+      when.appendChild(badge);
+      next.appendChild(when);
+      next.appendChild(el("div", "meta", "Issue " + dayName(n.expected_issue_date) + " " + longDate(n.expected_issue_date) +
+        (n.maturing.length ? " · rolls over " + n.maturing.length + " maturing bill" + (n.maturing.length === 1 ? "" : "s") : "")));
+      if (n.maturing.length) {
+        const ul = el("ul");
+        n.maturing.forEach(function (b) {
+          const li = el("li");
+          li.appendChild(el("span", "desc", b.description));
+          li.appendChild(el("span", "num muted", b.tenor.replace(" BILL", "") + " · " + rate(b.closing_yield) + "%"));
+          ul.appendChild(li);
+        });
+        next.appendChild(ul);
+      }
+    }
+    const bond = mon.last_bond_auction;
+    if (bond) {
+      next.appendChild(el("div", "meta", "Last note/bond auction: " + bond.security.toLowerCase().replace("fxr ", "") +
+        " at " + rate(bond.interest_rate) + "%, issued " + longDate(bond.issue_date)));
+    }
+  }
+
+  // ------------------------------------------------------------ new issues
+
+  function renderNew() {
+    $("newSub").textContent = mon.gfim_report_date ? "GFIM closes for " + longDate(mon.gfim_report_date) + ", so far" : "";
+    const body = $("newBody");
+    body.innerHTML = "";
+    mon.new_issues.forEach(function (n) {
+      const a = n.auction, g = n.gfim;
+      const chg = bp(a.change_bp), since = bp(n.secondary_spread_bp);
+      const tr = el("tr", g ? "clickable" : "");
+      [
+        [longDate(a.issue_date), "l num muted"],
+        [String(a.tender), "num muted"],
+        [a.tenor_days + "-day", "l"],
+        [rate(a.interest_rate), "num"],
+        [chg.text, "num " + chg.cls],
+        [g ? g.description : "Not in GFIM", g ? "l desc" : "l muted"],
+        [g ? rate(g.closing_yield) : "—", "num"],
+        [since.text, "num " + since.cls],
+        [g ? vol(g.volume) : "—", "num muted"],
+      ].forEach(function (c) { tr.appendChild(el("td", c[1], c[0])); });
+      if (g) tr.addEventListener("click", function () { location.href = "/bond/" + encodeURIComponent(g.symbol); });
+      body.appendChild(tr);
+    });
+    if (!mon.new_issues.length) {
+      const tr = el("tr");
+      const td = el("td", "l muted", "No recent bill auctions.");
+      td.colSpan = 9;
+      tr.appendChild(td);
+      body.appendChild(tr);
+    }
+  }
+
+  // ------------------------------------------------------------ chart
+
+  function seriesFor(security, since) {
+    return all.filter(function (r) { return r.security === security && (!since || r.issue_date >= since); })
+      .slice().reverse();  // oldest first
+  }
+
+  function sinceIso() {
+    const years = RANGE_YEARS[range];
+    if (years == null) return null;
+    const d = new Date();
+    d.setUTCFullYear(d.getUTCFullYear() - years);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function renderRange() {
+    document.querySelectorAll("#range button").forEach(function (b) {
+      const on = b.dataset.range === range;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+  }
+
+  function buildLegend() {
+    const host = $("legend");
+    host.innerHTML = "";
+    TENORS.forEach(function (t) {
+      const s = el("span");
+      const i = el("i");
+      i.style.background = t.color;
+      s.appendChild(i);
+      s.appendChild(document.createTextNode(t.label));
+      host.appendChild(s);
+    });
+  }
+
+  function time(iso) { const p = iso.split("-").map(Number); return Date.UTC(p[0], p[1] - 1, p[2]); }
+
+  function drawChart() {
+    renderRange();
+    buildLegend();
+    const svg = $("chart");
+    const W = svg.clientWidth || 900, H = svg.clientHeight || 340;
+    const m = { top: 12, right: 16, bottom: 30, left: 44 };
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.innerHTML = "";
+    hit = [];
+    showTip(null);
+
+    const since = sinceIso();
+    const series = TENORS.map(function (t) { return { t: t, pts: seriesFor(t.security, since) }; })
+      .filter(function (s) { return s.pts.length; });
+    const pts = [].concat.apply([], series.map(function (s) { return s.pts; }));
+    if (!pts.length) {
+      $("chartMsg").textContent = "No bill auctions in this range.";
+      $("chartMsg").style.display = "flex";
+      return;
+    }
+    $("chartMsg").style.display = "none";
+    const first = pts.reduce(function (a, r) { return r.issue_date < a ? r.issue_date : a; }, pts[0].issue_date);
+    $("chartSub").textContent = "Interest rate at each weekly tender, " + longDate(first) + " to " + longDate(mon.as_of);
+
+    const t0 = time(first), t1 = time(mon.as_of);
+    const ys = pts.map(function (r) { return r.interest_rate; });
+    let lo = Math.floor(Math.min.apply(null, ys)), hi = Math.ceil(Math.max.apply(null, ys));
+    if (hi - lo < 2) { lo -= 1; hi += 1; }
+    lo = Math.max(lo, 0);
+    const X = function (iso) { return m.left + (t1 === t0 ? 0.5 : (time(iso) - t0) / (t1 - t0)) * (W - m.left - m.right); };
+    const Y = function (v) { return H - m.bottom - (v - lo) / (hi - lo) * (H - m.top - m.bottom); };
+
+    const grid = document.createElementNS(SVG_NS, "g");
+    grid.setAttribute("class", "grid");
+    const axis = document.createElementNS(SVG_NS, "g");
+    axis.setAttribute("class", "axis");
+    const span = hi - lo, step = span > 24 ? 5 : span > 10 ? 2 : 1;
+    for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) {
+      const line = document.createElementNS(SVG_NS, "line");
+      line.setAttribute("x1", m.left); line.setAttribute("x2", W - m.right);
+      line.setAttribute("y1", Y(v)); line.setAttribute("y2", Y(v));
+      grid.appendChild(line);
+      const tx = document.createElementNS(SVG_NS, "text");
+      tx.setAttribute("x", m.left - 8); tx.setAttribute("y", Y(v) + 4); tx.setAttribute("text-anchor", "end");
+      tx.textContent = v + "%";
+      axis.appendChild(tx);
+    }
+    // Date ticks: about six, on month starts (or years for long ranges).
+    const years = (t1 - t0) / (365.25 * 864e5);
+    const stepMonths = years > 6 ? 24 : years > 3 ? 12 : years > 1.5 ? 6 : years > 0.6 ? 2 : 1;
+    const d = new Date(t0);
+    d.setUTCDate(1);
+    d.setUTCMonth(Math.ceil(d.getUTCMonth() / stepMonths) * stepMonths);
+    for (; d.getTime() <= t1; d.setUTCMonth(d.getUTCMonth() + stepMonths)) {
+      if (d.getTime() < t0) continue;
+      const iso = d.toISOString().slice(0, 10);
+      const tx = document.createElementNS(SVG_NS, "text");
+      tx.setAttribute("x", X(iso)); tx.setAttribute("y", H - m.bottom + 18); tx.setAttribute("text-anchor", "middle");
+      tx.textContent = stepMonths >= 12 ? iso.slice(0, 4) : MONTHS[d.getUTCMonth()] + " " + iso.slice(2, 4);
+      axis.appendChild(tx);
+    }
+    svg.appendChild(grid);
+    svg.appendChild(axis);
+
+    series.forEach(function (s) {
+      const path = document.createElementNS(SVG_NS, "path");
+      path.setAttribute("class", "series");
+      path.setAttribute("stroke", s.t.color);
+      path.setAttribute("d", s.pts.map(function (r, i) {
+        return (i ? "L" : "M") + X(r.issue_date).toFixed(1) + " " + Y(r.interest_rate).toFixed(1);
+      }).join(""));
+      svg.appendChild(path);
+    });
+
+    // Crosshair targets: one per issue date, with every tenor auctioned then.
+    const byDate = {};
+    pts.forEach(function (r) { (byDate[r.issue_date] = byDate[r.issue_date] || []).push(r); });
+    hit = Object.keys(byDate).sort().map(function (iso) { return { iso: iso, x: X(iso), rows: byDate[iso] }; });
+    drawChart.geom = { X: X, Y: Y, m: m, H: H };
+  }
+
+  function showTip(h, px, py) {
+    const tip = $("tooltip"), svg = $("chart");
+    svg.querySelectorAll(".cross, .dot").forEach(function (e) { e.remove(); });
+    if (!h) { tip.style.display = "none"; return; }
+    const g = drawChart.geom;
+    const line = document.createElementNS(SVG_NS, "line");
+    line.setAttribute("class", "cross");
+    line.setAttribute("x1", h.x); line.setAttribute("x2", h.x);
+    line.setAttribute("y1", g.m.top); line.setAttribute("y2", g.H - g.m.bottom);
+    svg.appendChild(line);
+    tip.innerHTML = "";
+    tip.appendChild(el("div", "t-head", "Issued " + longDate(h.iso) + " · tender " + h.rows[0].tender));
+    TENORS.forEach(function (t) {
+      const r = h.rows.find(function (x) { return x.security === t.security; });
+      if (!r) return;
+      const dot = document.createElementNS(SVG_NS, "circle");
+      dot.setAttribute("class", "dot");
+      dot.setAttribute("cx", h.x); dot.setAttribute("cy", g.Y(r.interest_rate)); dot.setAttribute("r", 4.5);
+      dot.setAttribute("fill", t.color);
+      svg.appendChild(dot);
+      const row = el("div", "t-row");
+      const k = el("span", "k");
+      const i = el("i");
+      i.style.background = t.color;
+      k.appendChild(i);
+      k.appendChild(document.createTextNode(t.label));
+      row.appendChild(k);
+      const c = bp(r.change_bp);
+      const b = el("b", "num", rate(r.interest_rate) + "%");
+      row.appendChild(b);
+      tip.appendChild(row);
+      const sub = el("div", "t-row");
+      sub.appendChild(el("span", "muted", "  discount " + rate(r.discount_rate) + "%"));
+      sub.appendChild(el("span", "num " + c.cls, c.text + " bp"));
+      tip.appendChild(sub);
+    });
+    tip.style.display = "block";
+    const wrap = $("chartWrap").getBoundingClientRect();
+    const left = px + 14 + tip.offsetWidth > wrap.width ? px - tip.offsetWidth - 14 : px + 14;
+    tip.style.left = Math.max(left, 4) + "px";
+    tip.style.top = Math.max(Math.min(py - tip.offsetHeight / 2, wrap.height - tip.offsetHeight - 4), 4) + "px";
+  }
+
+  function onMove(e) {
+    if (!hit.length) return;
+    const svg = $("chart");
+    const box = svg.getBoundingClientRect();
+    const scale = svg.viewBox.baseVal && svg.viewBox.baseVal.width ? svg.viewBox.baseVal.width / box.width : 1;
+    const x = (e.clientX - box.left) * scale;
+    let best = hit[0];
+    hit.forEach(function (h) { if (Math.abs(h.x - x) < Math.abs(best.x - x)) best = h; });
+    showTip(best, e.clientX - box.left, e.clientY - box.top);
+  }
+  $("chart").addEventListener("pointermove", onMove);
+  $("chart").addEventListener("pointerdown", onMove);
+  $("chart").addEventListener("pointerleave", function () { showTip(null); });
+
+  document.querySelectorAll("#range button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      range = b.dataset.range;
+      const q = new URLSearchParams(location.search);
+      if (range === "1Y") q.delete("range"); else q.set("range", range);
+      const s = q.toString();
+      history.replaceState(null, "", location.pathname + (s ? "?" + s : ""));
+      if (all) drawChart();
+    });
+  });
+  let resizeTimer = null;
+  window.addEventListener("resize", function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function () { if (all) drawChart(); }, 100);
+  });
+
+  // ------------------------------------------------------------ history
+
+  function renderHistoryOptions() {
+    const sel = $("security");
+    const want = sel.value || "91 DAY BILL";
+    const names = [];
+    all.forEach(function (r) { if (names.indexOf(r.security) < 0) names.push(r.security); });
+    sel.innerHTML = "";
+    sel.appendChild(new Option("All securities", ""));
+    names.forEach(function (n) { sel.appendChild(new Option(n.charAt(0) + n.slice(1).toLowerCase(), n)); });
+    sel.value = names.indexOf(want) >= 0 ? want : "";
+    renderHistory();
+  }
+
+  function renderHistory() {
+    const want = $("security").value;
+    const rows = all.filter(function (r) { return !want || r.security === want; });
+    $("historyCount").textContent = rows.length + " result" + (rows.length === 1 ? "" : "s") + (rows.length > 300 ? ", latest 300 shown" : "");
+    const body = $("historyBody");
+    body.innerHTML = "";
+    rows.slice(0, 300).forEach(function (r) {
+      const c = bp(r.change_bp);
+      const tr = el("tr");
+      [
+        [longDate(r.issue_date), "l num muted"],
+        [String(r.tender), "num muted"],
+        [r.security.charAt(0) + r.security.slice(1).toLowerCase(), "l"],
+        [longDate(r.maturity_date), "num muted"],
+        [rate(r.discount_rate), "num"],
+        [rate(r.interest_rate), "num"],
+        [c.text, "num " + c.cls],
+      ].forEach(function (cell) { tr.appendChild(el("td", cell[1], cell[0])); });
+      body.appendChild(tr);
+    });
+  }
+  $("security").addEventListener("change", renderHistory);
+
+  // ------------------------------------------------------------ boot
+
+  renderRange();
+  load();
+  // GFIM closes move through the session; results land weekly. A minute
+  // is plenty for both. The history is only refetched on a reload.
+  setInterval(function () {
+    getJson("/auctions/monitor").then(function (m) {
+      const newTender = mon && m.as_of !== mon.as_of;
+      mon = m;
+      if (newTender) { all = null; load(); return; }
+      renderTiles();
+      renderNew();
+    }, function () { /* keep what's shown */ });
+  }, 60000);
+})();
+</script>
+</body>
+</html>

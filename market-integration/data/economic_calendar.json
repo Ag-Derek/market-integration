@@ -1,0 +1,12 @@
+{
+  "mpc_source": "Bank of Ghana, Monetary Policy Committee (MPC) 2026 Calendar: https://www.bog.gov.gh/wp-content/uploads/2025/12/MPC-Meeting-Dates-2026.pdf (listed on https://www.bog.gov.gh/monetary-policy/mpc-meeting-dates/)",
+  "mpc_note": "BoG publishes each year's dates as a PDF in December. Add the next year's meetings when it is out; past decisions and the rates set come from BoG's policy rate page, not from here.",
+  "mpc_meetings": [
+    {"start": "2026-01-26", "end": "2026-01-28", "announcement": "2026-01-28"},
+    {"start": "2026-03-16", "end": "2026-03-18", "announcement": "2026-03-18"},
+    {"start": "2026-05-18", "end": "2026-05-20", "announcement": "2026-05-20"},
+    {"start": "2026-07-20", "end": "2026-07-22", "announcement": "2026-07-22"},
+    {"start": "2026-09-23", "end": "2026-09-24", "announcement": "2026-09-24"},
+    {"start": "2026-11-16", "end": "2026-11-18", "announcement": "2026-11-18"}
+  ]
+}

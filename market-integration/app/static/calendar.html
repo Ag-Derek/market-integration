@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Economic Calendar</title>
+<style>
+  :root {
+    --bg: #0E1613;
+    --panel: #16211B;
+    --panel-strong: #1C2921;
+    --ink: #EAE7DA;
+    --ink-soft: #AEB6A9;
+    --ink-faint: #6F766D;
+    --line: #26362F;
+    --teal: #3E9C82;
+    --gold: #D9A44C;
+    --gold-bg: #2A2313;
+    --green: #34C57F;
+    --red: #E5675A;
+    --status-live: #5AA9E6;
+    --status-live-halo: rgba(90, 169, 230, 0.18);
+    --status-delayed: var(--gold);
+    --status-closed: var(--ink-faint);
+    /* One series (the policy rate): categorical slot 1, as elsewhere. */
+    --series-1: #3987e5;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .num { font-family: ui-monospace, "SFMono-Regular", "Cascadia Mono", Consolas, monospace; font-variant-numeric: tabular-nums; }
+
+  .page { max-width: 1360px; margin: 0 auto; padding: 28px 20px 60px; }
+
+  .topbar { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
+  .brand { font-size: 18px; font-weight: 700; color: var(--ink); letter-spacing: 0.01em; flex-basis: 100%; }
+  .tabs { display: flex; gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 3px; flex-wrap: wrap; }
+  .tab { font-size: 13px; font-weight: 600; color: var(--ink-soft); text-decoration: none; padding: 6px 14px; border-radius: 6px; }
+  .tab:hover { color: var(--ink); }
+  .tab.active { color: var(--bg); background: var(--teal); }
+
+  /* Headline tiles */
+
+  .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; min-width: 0; }
+  .tile .label { font-size: 12px; color: var(--ink-soft); }
+  .tile .value { font-size: 24px; font-weight: 600; margin: 6px 0 2px; }
+  .tile .value small { font-size: 13px; color: var(--ink-soft); font-weight: 500; }
+  .tile .meta { font-size: 12px; color: var(--ink-faint); line-height: 1.55; }
+  .up { color: var(--green); }
+  .down { color: var(--red); }
+  .muted { color: var(--ink-faint); }
+
+  /* Filters: one row above the list */
+
+  .controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .controls .label { font-size: 12px; color: var(--ink-faint); }
+  .seg { display: inline-flex; gap: 2px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 2px; flex-wrap: wrap; }
+  .seg button { font: inherit; font-size: 12px; color: var(--ink-soft); background: none; border: 0; border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+  .seg button:hover { color: var(--ink); }
+  .seg button.active { color: var(--bg); background: var(--teal); }
+  .chips { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+  .chip {
+    font: inherit; font-size: 12px; color: var(--ink-soft); background: var(--panel); border: 1px solid var(--line);
+    border-radius: 999px; padding: 4px 11px; cursor: pointer;
+  }
+  .chip[aria-pressed="true"] { color: var(--ink); border-color: var(--teal); background: var(--panel-strong); }
+
+  /* Event list */
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+  .panel + .panel { margin-top: 16px; }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-faint);
+    text-align: left; padding: 8px 12px; white-space: nowrap; background: var(--panel-strong);
+  }
+  th.r, td.r { text-align: right; }
+  td { padding: 7px 12px; border-top: 1px solid var(--line); vertical-align: top; }
+  tr.day td { background: var(--bg); color: var(--ink-soft); font-size: 11.5px; font-weight: 600; padding: 6px 12px; }
+  tr.day.today td { color: var(--teal); }
+  tr.ev.done td.title { color: var(--ink-soft); }
+  td.when { white-space: nowrap; color: var(--ink-soft); }
+  td.title b { font-weight: 600; }
+  td.title .note { display: block; font-size: 11.5px; color: var(--ink-faint); margin-top: 2px; }
+  td.title a { color: inherit; text-decoration: none; border-bottom: 1px dotted var(--ink-faint); }
+  td.title a:hover { color: var(--teal); }
+  td.fig { white-space: nowrap; }
+  td.fig div + div { margin-top: 2px; }
+  .dots { letter-spacing: 1px; white-space: nowrap; color: var(--ink-faint); }
+  .dots b { color: var(--ink); font-weight: 400; }
+  .badge {
+    display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--ink-soft); white-space: nowrap;
+  }
+  .badge.done { color: var(--ink-faint); }
+  .badge.due { color: var(--bg); background: var(--teal); border-color: var(--teal); }
+  .badge.overdue { color: var(--gold); border-color: var(--gold); background: var(--gold-bg); }
+  .src { color: var(--ink-faint); font-size: 11.5px; white-space: nowrap; }
+  .src a { color: var(--ink-faint); }
+  .src a:hover { color: var(--teal); }
+  .empty { padding: 26px; text-align: center; color: var(--ink-faint); font-size: 13px; }
+
+  /* Policy rate chart */
+
+  .chart-panel { padding: 16px; }
+  .panel-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 10px; }
+  .panel-head h2 { font-size: 14px; margin: 0; }
+  .panel-head .sub { font-size: 12px; color: var(--ink-faint); }
+  .panel-head .seg { margin-left: auto; background: var(--panel-strong); }
+  .chart-wrap { position: relative; }
+  #chart { display: block; width: 100%; height: 260px; touch-action: none; }
+  #chart .grid line { stroke: var(--line); stroke-width: 1; }
+  #chart .axis text { fill: var(--ink-faint); font-size: 11px; font-family: ui-monospace, monospace; }
+  #chart .rate { fill: none; stroke: var(--series-1); stroke-width: 2; stroke-linejoin: round; }
+  #chart .cross { stroke: var(--ink-faint); stroke-width: 1; stroke-dasharray: 3 3; }
+  #chart .dot { fill: var(--series-1); stroke: var(--panel); stroke-width: 2; }
+  .tooltip {
+    position: absolute; pointer-events: none; display: none; z-index: 2; background: var(--panel-strong);
+    border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 12px; min-width: 170px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  }
+  .tooltip .t-head { font-size: 11px; color: var(--ink-faint); margin-bottom: 4px; }
+  .tooltip .t-row { display: flex; justify-content: space-between; gap: 14px; color: var(--ink-soft); }
+  .tooltip .t-row b { color: var(--ink); font-weight: 600; }
+
+  .error { color: var(--gold); background: var(--gold-bg); border: 1px solid var(--gold); border-radius: 10px; padding: 10px 14px; font-size: 13px; margin-bottom: 14px; }
+  .error[hidden] { display: none; }
+
+  footer { margin-top: 26px; font-size: 12px; color: var(--ink-faint); line-height: 1.6; }
+  footer code { font-family: ui-monospace, monospace; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+  footer a { color: var(--teal); }
+
+  @media (max-width: 900px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 640px) {
+    .page { padding: 20px 16px 48px; }
+    .tiles { grid-template-columns: 1fr; }
+    #chart { height: 220px; }
+    .col-src { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <div class="topbar">
+    <span class="brand">Market Integration</span>
+    <nav class="tabs" aria-label="Markets">
+      <a class="tab" href="/ticker">Equities</a>
+      <a class="tab" href="/fixed-income">Fixed Income</a>
+      <a class="tab" href="/yield-curve">Yield Curve</a>
+      <a class="tab" href="/auctions">Auctions</a>
+      <a class="tab active" href="/calendar" aria-current="page">Calendar</a>
+      <a class="tab" href="/graph">Graph</a>
+      <a class="tab" href="/tickets">Trade Tickets</a>
+    </nav>
+  </div>
+
+  <div class="error" id="error" hidden></div>
+
+  <div class="tiles">
+    <div class="tile" id="tileRate"><div class="label">BoG policy rate</div><div class="value num">—</div><div class="meta"></div></div>
+    <div class="tile" id="tileMpc"><div class="label">Next MPC decision</div><div class="value">—</div><div class="meta"></div></div>
+    <div class="tile" id="tileCpi"><div class="label">Next CPI release</div><div class="value">—</div><div class="meta"></div></div>
+    <div class="tile" id="tileGdp"><div class="label">Next GDP release</div><div class="value">—</div><div class="meta"></div></div>
+  </div>
+
+  <div class="controls">
+    <span class="label">Show</span>
+    <div class="seg" role="group" aria-label="Date range" id="range">
+      <button type="button" data-range="past30">Past 30 days</button>
+      <button type="button" data-range="week">This week</button>
+      <button type="button" data-range="next30">Next 30 days</button>
+      <button type="button" data-range="next90">Next 90 days</button>
+      <button type="button" data-range="year">This year</button>
+    </div>
+    <div class="seg" role="group" aria-label="Importance" id="importance">
+      <button type="button" data-importance="low">All</button>
+      <button type="button" data-importance="medium">Medium &amp; high</button>
+      <button type="button" data-importance="high">High only</button>
+    </div>
+    <div class="chips" id="cats" role="group" aria-label="Categories"></div>
+  </div>
+
+  <section class="panel">
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>When</th><th>Event</th><th>Importance</th><th>Status</th>
+          <th class="r">Actual</th><th class="r">Prior</th><th class="r">Chg (bp)</th><th class="col-src">Source</th>
+        </tr></thead>
+        <tbody id="body"></tbody>
+      </table>
+    </div>
+    <div class="empty" id="empty" hidden>Nothing in this range.</div>
+  </section>
+
+  <section class="panel chart-panel">
+    <div class="panel-head">
+      <h2>BoG policy rate</h2>
+      <span class="sub" id="chartSub"></span>
+      <div class="seg" role="group" aria-label="Chart range" id="chartRange">
+        <button type="button" data-years="3">3Y</button>
+        <button type="button" data-years="10">10Y</button>
+        <button type="button" data-years="0">Since 2002</button>
+      </div>
+    </div>
+    <div class="chart-wrap" id="chartWrap">
+      <svg id="chart" role="img" aria-label="Bank of Ghana policy rate after each MPC decision"></svg>
+      <div class="tooltip" id="tooltip"></div>
+    </div>
+  </section>
+
+  <footer>
+    From <code>/economic-calendar</code> and <code>/economic-calendar/policy-rate</code>. Policy rate decisions are the
+    Bank of Ghana's (<a href="https://www.bog.gov.gh/monetary-policy/policy-rate/" target="_blank" rel="noopener">Policy Rate
+    Trends</a>); coming MPC meetings are from BoG's published meeting calendar. Statistical releases are the Ghana
+    Statistical Service's <a href="https://statsghana.gov.gh/news-and-events/release-calendar" target="_blank" rel="noopener">release
+    calendar</a>, which gives the week of the month only and calls its dates provisional: a release shows as its
+    week (days 1–7, 8–14, ...), and as <b>overdue</b> once that week has passed without GSS marking it released.
+    Auction dates are the Friday before issue; the next one is estimated. <span id="sourcesNote"></span>
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  const $ = function (id) { return document.getElementById(id); };
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const CATEGORIES = [
+    ["monetary_policy", "Monetary policy"], ["prices", "Prices"], ["growth", "Growth & GDP"], ["trade", "Trade"],
+    ["labour", "Labour"], ["auction", "Auctions"], ["holiday", "Holidays"], ["statistics", "Other statistics"],
+  ];
+  const STATUS = {
+    done: function (e) { return e.category === "monetary_policy" ? "Decided" : e.category === "auction" ? "Held" : e.category === "holiday" ? "Past" : "Released"; },
+    due: function (e) { return e.precision === "day" ? "Today" : "This week"; },
+    upcoming: function (e) { return e.estimated ? "Expected" : "Upcoming"; },
+    overdue: function (e) { return e.category === "auction" ? "Results pending" : "Overdue"; },
+  };
+  const IMPORTANCE = { high: 3, medium: 2, low: 1 };
+
+  // ------------------------------------------------------------ state
+
+  const params = new URLSearchParams(location.search);
+  let range = params.get("range") || "next30";
+  let importance = params.get("importance") || "low";
+  let cats = params.get("cats") ? params.get("cats").split(",") : CATEGORIES.map(function (c) { return c[0]; });
+  let chartYears = 10;
+  let cal = null, upcoming = null, rates = null, hit = [];
+
+  // ------------------------------------------------------------ dates
+
+  function iso(d) { return d.toISOString().slice(0, 10); }
+  function parse(s) { const p = s.split("-").map(Number); return new Date(Date.UTC(p[0], p[1] - 1, p[2])); }
+  function addDays(s, n) { const d = parse(s); d.setUTCDate(d.getUTCDate() + n); return iso(d); }
+  function shortDate(s) { const d = parse(s); return d.getUTCDate() + " " + MONTHS[d.getUTCMonth()]; }
+  function longDate(s) { const d = parse(s); return d.getUTCDate() + " " + MONTHS[d.getUTCMonth()] + " " + d.getUTCFullYear(); }
+  function dayHead(s) {
+    return parse(s).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+  }
+  function daysUntil(s, today) { return Math.round((parse(s) - parse(today)) / 864e5); }
+  function inDays(n) { return n === 0 ? "today" : n === 1 ? "tomorrow" : n > 0 ? "in " + n + " days" : -n + " days ago"; }
+  function when(e) {
+    if (e.precision === "day") return e.date === (cal && cal.today) ? "Today" : shortDate(e.date);
+    if (e.precision === "month") return MONTHS[parse(e.date).getUTCMonth()] + " (no week given)";
+    return shortDate(e.date) + "–" + shortDate(e.date_end);
+  }
+
+  function rangeDates(today) {
+    const d = parse(today), dow = (d.getUTCDay() + 6) % 7;  // Monday 0
+    switch (range) {
+      case "past30": return [addDays(today, -30), today];
+      case "week": return [addDays(today, -dow), addDays(today, 6 - dow)];
+      case "next90": return [today, addDays(today, 90)];
+      case "year": return [today.slice(0, 4) + "-01-01", today.slice(0, 4) + "-12-31"];
+      default: return [today, addDays(today, 30)];
+    }
+  }
+
+  // ------------------------------------------------------------ format
+
+  function pct(v) { return v == null ? "—" : Number(v).toFixed(2) + "%"; }
+  function bp(v) {
+    if (v == null) return { text: "—", cls: "muted" };
+    // Rates rising are red, as on the curve and auction pages.
+    return { text: (v > 0 ? "+" : "") + Number(v).toFixed(1), cls: v > 0 ? "down" : v < 0 ? "up" : "muted" };
+  }
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  // ------------------------------------------------------------ data
+
+  function getJson(url) {
+    return fetch(url).then(function (r) {
+      return r.json().then(function (b) {
+        if (!r.ok) throw new Error(typeof b.detail === "string" ? b.detail : r.statusText);
+        return b;
+      });
+    });
+  }
+
+  function syncUrl() {
+    const q = new URLSearchParams();
+    if (range !== "next30") q.set("range", range);
+    if (importance !== "low") q.set("importance", importance);
+    if (cats.length !== CATEGORIES.length) q.set("cats", cats.join(","));
+    const s = q.toString();
+    history.replaceState(null, "", location.pathname + (s ? "?" + s : ""));
+  }
+
+  let seq = 0;
+  function load() {
+    const n = ++seq;
+    // The tiles always look ahead; the list follows the controls. The
+    // ranges are relative to the service's today (Ghana time), which the
+    // first, default request tells us.
+    const first = cal ? Promise.resolve(cal.today)
+      : getJson("/economic-calendar?category=monetary_policy").then(function (c) { return c.today; });
+    return first.then(function (today) {
+      const r = rangeDates(today);
+      return Promise.all([
+        getJson("/economic-calendar?start=" + r[0] + "&end=" + r[1]),
+        upcoming ? Promise.resolve(upcoming) : getJson("/economic-calendar?start=" + today + "&end=" + addDays(today, 200)),
+      ]);
+    }).then(function (both) {
+      if (n !== seq) return;
+      cal = both[0];
+      upcoming = both[1];
+      $("error").hidden = true;
+      renderTiles();
+      renderControls();
+      renderList();
+      renderSources();
+    }).catch(function (e) {
+      $("error").textContent = "Calendar unavailable: " + e.message;
+      $("error").hidden = false;
+    });
+  }
+
+  // ------------------------------------------------------------ tiles
+
+  function tile(id, value, meta) {
+    const t = $(id);
+    t.querySelector(".value").textContent = value;
+    const m = t.querySelector(".meta");
+    m.innerHTML = "";
+    (Array.isArray(meta) ? meta : [meta]).forEach(function (line, i) {
+      if (i) m.appendChild(el("br"));
+      if (line && line.nodeType) m.appendChild(line); else m.appendChild(document.createTextNode(line || ""));
+    });
+  }
+
+  function nextOf(test) {
+    return upcoming.events.find(function (e) { return test(e) && e.status !== "done"; }) || null;
+  }
+
+  function renderTiles() {
+    const today = cal.today, p = cal.policy_rate;
+    if (p) {
+      const c = bp(p.change_bp);
+      const move = el("span", c.cls, (p.change_bp > 0 ? "Raised " : p.change_bp < 0 ? "Cut " : "Set ") + Math.abs(p.change_bp) + "bp");
+      const line = el("span");
+      line.appendChild(move);
+      line.appendChild(document.createTextNode(" on " + longDate(p.changed_on)));
+      tile("tileRate", Number(p.rate).toFixed(2) + "%", [line, p.since !== p.changed_on ? "Held at " + longDate(p.since) : "Last decision " + longDate(p.since)]);
+    } else {
+      tile("tileRate", "—", "No BoG data yet");
+    }
+    const mpc = nextOf(function (e) { return e.category === "monetary_policy"; });
+    tile("tileMpc", mpc ? shortDate(mpc.date) + " " + mpc.date.slice(0, 4) : "—",
+      mpc ? [inDays(daysUntil(mpc.date, today)) + (mpc.status === "due" ? " · committee sitting" : ""), mpc.note || ""]
+          : "No meeting dates held past " + ((cal.sources.mpc_meetings || {}).through || "—") + "; add next year's to data/economic_calendar.json");
+    const cpi = nextOf(function (e) { return e.short_code === "CPI"; });
+    tile("tileCpi", cpi ? when(cpi) : "—", cpi ? [cpi.status === "overdue" ? "Overdue: GSS hasn't marked it released" : "Week of the month, per GSS", cpi.title] : "None in GSS's calendar");
+    const gdp = nextOf(function (e) { return e.short_code === "QGDP" || e.short_code === "AGDP"; });
+    tile("tileGdp", gdp ? when(gdp) : "—", gdp ? [gdp.status === "overdue" ? "Overdue: GSS hasn't marked it released" : "Week of the month, per GSS", gdp.title] : "None in GSS's calendar");
+  }
+
+  // ------------------------------------------------------------ controls
+
+  function renderControls() {
+    document.querySelectorAll("#range button").forEach(function (b) { b.classList.toggle("active", b.dataset.range === range); b.setAttribute("aria-pressed", b.dataset.range === range); });
+    document.querySelectorAll("#importance button").forEach(function (b) { b.classList.toggle("active", b.dataset.importance === importance); b.setAttribute("aria-pressed", b.dataset.importance === importance); });
+    const host = $("cats");
+    if (!host.children.length) {
+      CATEGORIES.forEach(function (c) {
+        const b = el("button", "chip", c[1]);
+        b.type = "button";
+        b.dataset.cat = c[0];
+        b.addEventListener("click", function () {
+          const i = cats.indexOf(c[0]);
+          if (i >= 0) cats.splice(i, 1); else cats.push(c[0]);
+          if (!cats.length) cats = CATEGORIES.map(function (x) { return x[0]; });
+          syncUrl();
+          renderControls();
+          renderList();
+        });
+        host.appendChild(b);
+      });
+    }
+    host.querySelectorAll(".chip").forEach(function (b) { b.setAttribute("aria-pressed", cats.indexOf(b.dataset.cat) >= 0 ? "true" : "false"); });
+  }
+
+  document.querySelectorAll("#range button").forEach(function (b) {
+    b.addEventListener("click", function () { range = b.dataset.range; syncUrl(); load(); });
+  });
+  document.querySelectorAll("#importance button").forEach(function (b) {
+    b.addEventListener("click", function () { importance = b.dataset.importance; syncUrl(); renderControls(); renderList(); });
+  });
+
+  // ------------------------------------------------------------ list
+
+  function figCell(e, key) {
+    const td = el("td", "r fig num");
+    if (!e.figures.length) { td.appendChild(el("span", "muted", "—")); return td; }
+    e.figures.forEach(function (f) {
+      const line = el("div");
+      if (key === "change") {
+        const c = bp(f.change_bp);
+        line.className = c.cls;
+        line.textContent = c.text;
+      } else {
+        const v = key === "value" ? f.value : f.prior;
+        line.textContent = (e.figures.length > 1 ? f.label + " " : "") + pct(v);
+        if (v == null) line.className = "muted";
+      }
+      td.appendChild(line);
+    });
+    return td;
+  }
+
+  function renderList() {
+    const body = $("body");
+    body.innerHTML = "";
+    const min = IMPORTANCE[importance];
+    const events = cal.events.filter(function (e) { return cats.indexOf(e.category) >= 0 && IMPORTANCE[e.importance] >= min; });
+    $("empty").hidden = events.length > 0;
+    let lastHead = null;
+    events.forEach(function (e) {
+      // Group by day; week-long releases sit under their window's first day.
+      if (e.date !== lastHead) {
+        lastHead = e.date;
+        const tr = el("tr", "day" + (e.date === cal.today ? " today" : ""));
+        const td = el("td", null, dayHead(e.date) + (e.date === cal.today ? " · today" : ""));
+        td.colSpan = 8;
+        tr.appendChild(td);
+        body.appendChild(tr);
+      }
+      const tr = el("tr", "ev " + e.status);
+      tr.appendChild(el("td", "when num", when(e)));
+
+      const t = el("td", "title");
+      const name = e.link ? el("a", null, e.title) : el("b", null, e.title);
+      if (e.link) name.href = e.link;
+      t.appendChild(name);
+      const notes = [];
+      if (e.reference_period) notes.push("Period: " + e.reference_period);
+      if (e.note) notes.push(e.note);
+      if (e.estimated) notes.push("Estimated date");
+      if (notes.length) t.appendChild(el("span", "note", notes.join(" · ")));
+      tr.appendChild(t);
+
+      const dots = el("td", "dots");
+      dots.title = e.importance + " importance";
+      const n = IMPORTANCE[e.importance];
+      dots.appendChild(el("b", null, "●".repeat(n)));
+      dots.appendChild(document.createTextNode("●".repeat(3 - n)));
+      dots.setAttribute("aria-label", e.importance + " importance");
+      tr.appendChild(dots);
+
+      const st = el("td");
+      st.appendChild(el("span", "badge " + e.status, STATUS[e.status](e)));
+      tr.appendChild(st);
+
+      tr.appendChild(figCell(e, "value"));
+      tr.appendChild(figCell(e, "prior"));
+      tr.appendChild(figCell(e, "change"));
+
+      const src = el("td", "src col-src");
+      if (e.source_url) {
+        const a = el("a", null, e.source);
+        a.href = e.source_url; a.target = "_blank"; a.rel = "noopener";
+        src.appendChild(a);
+      } else {
+        src.textContent = e.source;
+      }
+      tr.appendChild(src);
+      body.appendChild(tr);
+    });
+  }
+
+  function renderSources() {
+    const s = cal.sources, bits = [];
+    if (s.policy_rate && s.policy_rate.last_error) bits.push("BoG policy rate pull failing: " + s.policy_rate.last_error);
+    if (s.gss && s.gss.last_error) bits.push("GSS calendar pull failing: " + s.gss.last_error);
+    if (s.gss && !s.gss.releases) bits.push("No GSS calendar held yet.");
+    $("sourcesNote").textContent = bits.join(" ");
+  }
+
+  // ------------------------------------------------------------ policy rate chart
+
+  function renderChartRange() {
+    document.querySelectorAll("#chartRange button").forEach(function (b) {
+      const on = Number(b.dataset.years) === chartYears;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-pressed", on);
+    });
+  }
+  document.querySelectorAll("#chartRange button").forEach(function (b) {
+    b.addEventListener("click", function () { chartYears = Number(b.dataset.years); drawChart(); });
+  });
+
+  function time(s) { return parse(s).getTime(); }
+
+  function drawChart() {
+    renderChartRange();
+    const svg = $("chart");
+    svg.innerHTML = "";
+    hit = [];
+    showTip(null);
+    if (!rates || !rates.length) { $("chartSub").textContent = "No decisions held yet"; return; }
+    const today = cal ? cal.today : iso(new Date());
+    let pts = rates;
+    if (chartYears) {
+      const from = (Number(today.slice(0, 4)) - chartYears) + today.slice(4);
+      const before = rates.filter(function (r) { return r.date < from; });
+      pts = (before.length ? [{ date: from, rate: before[before.length - 1].rate, carried: true }] : [])
+        .concat(rates.filter(function (r) { return r.date >= from; }));
+    }
+    const W = svg.clientWidth || 900, H = svg.clientHeight || 260;
+    const m = { top: 12, right: 16, bottom: 28, left: 44 };
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    const t0 = time(pts[0].date), t1 = time(today);
+    const ys = pts.map(function (p) { return p.rate; });
+    let lo = Math.floor(Math.min.apply(null, ys) - 1), hi = Math.ceil(Math.max.apply(null, ys) + 1);
+    lo = Math.max(lo, 0);
+    const X = function (s) { return m.left + (time(s) - t0) / Math.max(t1 - t0, 1) * (W - m.left - m.right); };
+    const Y = function (v) { return H - m.bottom - (v - lo) / (hi - lo) * (H - m.top - m.bottom); };
+
+    const grid = document.createElementNS(SVG_NS, "g"); grid.setAttribute("class", "grid");
+    const axis = document.createElementNS(SVG_NS, "g"); axis.setAttribute("class", "axis");
+    const step = hi - lo > 20 ? 5 : hi - lo > 8 ? 2 : 1;
+    for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) {
+      const l = document.createElementNS(SVG_NS, "line");
+      l.setAttribute("x1", m.left); l.setAttribute("x2", W - m.right); l.setAttribute("y1", Y(v)); l.setAttribute("y2", Y(v));
+      grid.appendChild(l);
+      const tx = document.createElementNS(SVG_NS, "text");
+      tx.setAttribute("x", m.left - 8); tx.setAttribute("y", Y(v) + 4); tx.setAttribute("text-anchor", "end");
+      tx.textContent = v + "%";
+      axis.appendChild(tx);
+    }
+    const y0 = parse(pts[0].date).getUTCFullYear(), y1 = parse(today).getUTCFullYear();
+    const yStep = y1 - y0 > 12 ? 4 : y1 - y0 > 5 ? 2 : 1;
+    for (let y = y0 + 1; y <= y1; y += yStep) {
+      const s = y + "-01-01";
+      const tx = document.createElementNS(SVG_NS, "text");
+      tx.setAttribute("x", X(s)); tx.setAttribute("y", H - m.bottom + 18); tx.setAttribute("text-anchor", "middle");
+      tx.textContent = String(y);
+      axis.appendChild(tx);
+    }
+    svg.appendChild(grid);
+    svg.appendChild(axis);
+
+    // A step line: the rate holds until the next decision, then to today.
+    let d = "";
+    pts.forEach(function (p, i) {
+      d += (i ? "H" + X(p.date).toFixed(1) + "V" : "M" + X(p.date).toFixed(1) + " ") + Y(p.rate).toFixed(1);
+    });
+    d += "H" + X(today).toFixed(1);
+    const path = document.createElementNS(SVG_NS, "path");
+    path.setAttribute("class", "rate");
+    path.setAttribute("d", d);
+    svg.appendChild(path);
+
+    hit = pts.filter(function (p) { return !p.carried; }).map(function (p) { return { p: p, x: X(p.date), y: Y(p.rate) }; });
+    drawChart.H = H; drawChart.m = m;
+    const last = rates[rates.length - 1];
+    $("chartSub").textContent = rates.length + " decisions since " + longDate(rates[0].date) + " · " + pct(last.rate) + " since " + longDate(last.date);
+  }
+
+  function showTip(h, px, py) {
+    const tip = $("tooltip"), svg = $("chart");
+    svg.querySelectorAll(".cross, .dot").forEach(function (e) { e.remove(); });
+    if (!h) { tip.style.display = "none"; return; }
+    const l = document.createElementNS(SVG_NS, "line");
+    l.setAttribute("class", "cross");
+    l.setAttribute("x1", h.x); l.setAttribute("x2", h.x); l.setAttribute("y1", drawChart.m.top); l.setAttribute("y2", drawChart.H - drawChart.m.bottom);
+    svg.appendChild(l);
+    const c = document.createElementNS(SVG_NS, "circle");
+    c.setAttribute("class", "dot"); c.setAttribute("cx", h.x); c.setAttribute("cy", h.y); c.setAttribute("r", 4.5);
+    svg.appendChild(c);
+    tip.innerHTML = "";
+    tip.appendChild(el("div", "t-head", "MPC decision · " + longDate(h.p.date)));
+    const r1 = el("div", "t-row"); r1.appendChild(el("span", null, "Policy rate")); r1.appendChild(el("b", "num", pct(h.p.rate))); tip.appendChild(r1);
+    const ch = bp(h.p.change_bp);
+    const r2 = el("div", "t-row"); r2.appendChild(el("span", null, "Change")); r2.appendChild(el("b", "num " + ch.cls, ch.text + (h.p.change_bp == null ? "" : " bp"))); tip.appendChild(r2);
+    tip.style.display = "block";
+    const wrap = $("chartWrap").getBoundingClientRect();
+    const left = px + 14 + tip.offsetWidth > wrap.width ? px - tip.offsetWidth - 14 : px + 14;
+    tip.style.left = Math.max(left, 4) + "px";
+    tip.style.top = Math.max(Math.min(py - tip.offsetHeight / 2, wrap.height - tip.offsetHeight - 4), 4) + "px";
+  }
+
+  function onMove(e) {
+    if (!hit.length) return;
+    const svg = $("chart"), box = svg.getBoundingClientRect();
+    const scale = svg.viewBox.baseVal && svg.viewBox.baseVal.width ? svg.viewBox.baseVal.width / box.width : 1;
+    const x = (e.clientX - box.left) * scale;
+    let best = hit[0];
+    hit.forEach(function (h) { if (Math.abs(h.x - x) < Math.abs(best.x - x)) best = h; });
+    showTip(best, e.clientX - box.left, e.clientY - box.top);
+  }
+  $("chart").addEventListener("pointermove", onMove);
+  $("chart").addEventListener("pointerdown", onMove);
+  $("chart").addEventListener("pointerleave", function () { showTip(null); });
+  let resizeTimer = null;
+  window.addEventListener("resize", function () { clearTimeout(resizeTimer); resizeTimer = setTimeout(drawChart, 100); });
+
+  // ------------------------------------------------------------ boot
+
+  renderControls();
+  load().then(function () {
+    return getJson("/economic-calendar/policy-rate").then(function (r) { rates = r; drawChart(); });
+  });
+  // Statuses flip as days pass and sources update; every 10 minutes is plenty.
+  setInterval(function () { upcoming = null; load(); }, 600000);
+})();
+</script>
+</body>
+</html>
