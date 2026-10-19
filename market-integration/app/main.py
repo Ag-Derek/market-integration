@@ -2,6 +2,7 @@ import asyncio
 import csv
 import io
 import logging
+import math
 import sqlite3
 import time as time_module
 from datetime import date, datetime, time, timedelta, timezone
@@ -18,7 +19,8 @@ from fastapi.responses import (
     Response,
     StreamingResponse,
 )
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+from QuantLib import __version__ as ql_version
 
 from app import config, metrics
 from app.aggregation.market_aggregator import MarketAggregator
@@ -49,6 +51,7 @@ from app.econ.gss import GssCalendarClient
 from app.econ.store import EconStore
 from app.econ.tracker import RETRY_SECONDS as ECON_RETRY_SECONDS, EconTracker
 from app.bond_math import settlement_date
+from app.bond_math.conventions import add_months
 from app.bond_math.calculator import calculate, quoted_yield, security_for
 from app.company import COMPANIES
 from app.company.figures import INDEX_NAME, calculated_figures, with_market_cap
@@ -65,7 +68,19 @@ from app.connectors.market_connector import MockMarketConnector
 from app.connectors.supervisor import SupervisedConnector
 from app.fx import BASE as FX_BASE, BASE_NAME as FX_BASE_NAME, BASE_SYMBOL as FX_BASE_SYMBOL, CURRENCIES
 from app.fx.bog import HISTORY_PAGE_URL as FX_SOURCE_URL, SOURCE as FX_SOURCE, BankOfGhanaClient
-from app.fx.forwards import GHS_BASIS, cross_matrix, forward_curve
+from app.derivatives.fx_option import (
+    VOL_WINDOWS,
+    Market as OptionMarket,
+    OptionError,
+    forward as fx_forward,
+    historical_vol,
+    implied_vol as option_implied_vol,
+    likely_range,
+    value as option_value,
+    values_across as option_values_across,
+    window_for as vol_window_for,
+)
+from app.fx.forwards import GHS_BASIS, TENORS as FORWARD_TENORS, cross_matrix, forward_curve, interpolate
 from app.fx.overnight import (
     BENCHMARKS as OVERNIGHT_BENCHMARKS,
     RETRY_SECONDS as OVERNIGHT_RETRY_SECONDS,
@@ -1167,6 +1182,222 @@ async def fx_forwards():
 async def fx_page():
     """The FX tab: BoG reference rates, the cross matrix and synthetic forwards."""
     return (STATIC_DIR / "fx.html").read_text(encoding="utf-8")
+
+
+# ---------------------------------------------------------------- calculators
+
+class FxOptionRequest(BaseModel):
+    """POST /calc/fx-option. Only the terms are needed; every market input
+    left out is filled from the data the service holds (and the reply says
+    where each came from)."""
+    model_config = ConfigDict(extra="forbid")
+
+    currency: str = "USD"
+    kind: Literal["call", "put"] = "call"          # call: the right to buy the currency; put: to sell it
+    notional: float = Field(100_000, gt=0)         # in the foreign currency
+    tenor: Optional[str] = None                    # 1W 1M 2M 3M 6M 9M 1Y; ignored if expiry is given
+    expiry: Optional[date] = None
+    strike: Optional[float] = Field(None, gt=0)    # cedis per unit; default the forward to expiry
+    valuation_date: Optional[date] = None          # default today
+    # Overrides, % a year where a rate:
+    spot: Optional[float] = Field(None, gt=0)
+    vol: Optional[float] = Field(None, gt=0, le=500)
+    ghs_rate: Optional[float] = Field(None, ge=-5, le=200)
+    foreign_rate: Optional[float] = Field(None, ge=-5, le=200)
+    # A price someone quoted, in cedis for the whole notional: the reply
+    # adds the volatility it implies.
+    quoted_premium: Optional[float] = Field(None, gt=0)
+
+
+def _bill_curve(day: date) -> list[AuctionResult]:
+    """The latest 91, 182 and 364-day auction issued on or before `day`."""
+    out = []
+    for security in BILL_TENORS:
+        held = [r for r in auctions.history(security) if r.issue_date <= day]
+        if held:
+            out.append(held[-1])
+    return out
+
+
+def _input(key: str, label: str, value: float, unit: str, source: str, as_of: Optional[date], note: str) -> dict:
+    """One market input as the reply reports it. source: "market" (data
+    the service holds), "estimate" (calculated from it, not a quote) or
+    "you" (an override)."""
+    return {"key": key, "label": label, "value": value, "unit": unit, "source": source,
+            "as_of": as_of.isoformat() if as_of else None, "note": note}
+
+
+@app.post("/calc/fx-option")
+async def calc_fx_option(req: FxOptionRequest):
+    """A European option on a currency against the cedi, priced with
+    QuantLib (Garman-Kohlhagen): the premium, the Greeks, the forward to
+    compare with, the break-even, profit and loss across spot (today and
+    at expiry), and, given a quoted price, the volatility it implies.
+    Market inputs not given are filled in: spot from the BoG fix, the cedi
+    rate from the T-bill auctions, the foreign rate from SOFR/€STR/SONIA
+    and volatility from the fix's own history. Each input is reported with
+    its source and date. 400 for terms that can't be priced or an input
+    the service can't fill. See app/derivatives/fx_option.py."""
+    code = req.currency.strip().upper()
+    if code == FX_BASE or code not in CURRENCIES:
+        raise HTTPException(status_code=400, detail=f"Unknown currency '{code}'. Expected one of: {', '.join(CURRENCIES)}")
+    today = req.valuation_date or calendar.local_date(datetime.now(timezone.utc))
+    if req.expiry is not None:
+        expiry = req.expiry
+    else:
+        tenor = (req.tenor or "3M").upper()
+        match = next((t for t in FORWARD_TENORS if t[0] == tenor), None)
+        if match is None:
+            raise HTTPException(status_code=400, detail=f"Unknown tenor '{tenor}'. Expected one of: "
+                                                        f"{', '.join(t[0] for t in FORWARD_TENORS)}")
+        expiry = add_months(today, match[1]) + timedelta(days=match[2])
+    days = (expiry - today).days
+    if days <= 0:
+        raise HTTPException(status_code=400, detail="The expiry must be after the valuation date")
+    name, symbol, _ = CURRENCIES[code]
+    inputs = []
+
+    # Spot: the BoG mid in force on the valuation date.
+    fix = fx_rates.on(code, today) if fx_rates.has(code) else None
+    if req.spot is not None:
+        spot = req.spot
+        inputs.append(_input("spot", f"Spot {code}/GHS", spot, "GH₵ per unit", "you", None, "Entered"))
+    elif fix is None:
+        raise HTTPException(status_code=400, detail=f"No Bank of Ghana rate for {code} yet; enter the spot rate")
+    else:
+        spot = fix.mid
+        inputs.append(_input("spot", f"Spot {code}/GHS", spot, "GH₵ per unit", "market", fix.date,
+                             "Bank of Ghana interbank mid"))
+
+    # Cedi rate: the T-bill curve at the option's life.
+    if req.ghs_rate is not None:
+        ghs_rate = req.ghs_rate
+        inputs.append(_input("ghs_rate", "Cedi interest rate", ghs_rate, "% a year, ACT/364", "you", None, "Entered"))
+    else:
+        bills = _bill_curve(today)
+        if not bills:
+            raise HTTPException(status_code=400, detail="No T-bill auction yields held; enter the cedi interest rate")
+        ghs_rate = interpolate([(r.tenor_days, r.interest_rate) for r in bills], days)
+        inputs.append(_input(
+            "ghs_rate", "Cedi interest rate", ghs_rate, "% a year, ACT/364", "market",
+            max(r.issue_date for r in bills),
+            f"T-bill auction yields ({', '.join(f'{r.tenor_days}d {r.interest_rate:.2f}%' for r in bills)}) "
+            f"read at {days} days"))
+
+    # Foreign rate: the overnight benchmark, held flat.
+    bench = OVERNIGHT_BENCHMARKS.get(code)
+    basis = bench.basis if bench else 365
+    if req.foreign_rate is not None:
+        foreign_rate = req.foreign_rate
+        inputs.append(_input("foreign_rate", f"{code} interest rate", foreign_rate, f"% a year, ACT/{basis}", "you",
+                             None, "Entered"))
+    else:
+        overnight = overnight_rates.on(code, today) if bench else None
+        if overnight is None:
+            raise HTTPException(status_code=400, detail=f"No {code} interest rate held; enter the {code} interest rate")
+        foreign_rate = overnight.rate
+        inputs.append(_input("foreign_rate", f"{code} interest rate", foreign_rate, f"% a year, ACT/{basis}", "market",
+                             overnight.date, f"{bench.name} ({bench.publisher}), overnight, held flat to expiry"))
+
+    # Volatility: how much the fix has moved, over a window matching the option's life.
+    mids = [r.mid for r in fx_rates.history(code) if r.date <= today]
+    hist = {label: historical_vol(mids, n) for label, n in VOL_WINDOWS.items()}
+    window = vol_window_for(days)
+    if req.vol is not None:
+        vol = req.vol
+        inputs.append(_input("vol", "Volatility", vol, "% a year", "you", None, "Entered"))
+    else:
+        vol = hist[window] or next((v for v in hist.values() if v), None)
+        if not vol:
+            raise HTTPException(status_code=400, detail=f"Not enough {code} fix history for a volatility; enter one")
+        used = window if hist[window] else next(k for k, v in hist.items() if v)
+        inputs.append(_input("vol", "Volatility", vol, "% a year", "estimate", fix.date if fix else None,
+                             f"Historical: how much the BoG fix moved over the last {used} "
+                             "(no traded cedi option volatility exists)"))
+
+    market = OptionMarket(spot=spot, vol=vol, ghs_rate=ghs_rate, foreign_rate=foreign_rate, foreign_basis=basis)
+    fwd = fx_forward(today, expiry, market)
+    strike = req.strike if req.strike is not None else round(fwd, 4)
+    try:
+        v = option_value(req.kind, strike, today, expiry, market)
+    except OptionError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    implied = None
+    if req.quoted_premium is not None:
+        try:
+            implied = {"premium": req.quoted_premium,
+                       "vol": option_implied_vol(req.kind, strike, today, expiry, market, req.quoted_premium / req.notional),
+                       "error": None}
+        except OptionError as e:
+            implied = {"premium": req.quoted_premium, "vol": None, "error": str(e)}
+
+    # Profit and loss across spot, net of the premium paid: if spot moved
+    # today, and at expiry.
+    n = req.notional
+    width = max(0.05, 3 * vol / 100 * math.sqrt(days / 365))
+    lo, hi = min(spot, strike) * (1 - width), max(spot, strike) * (1 + width)
+    spots = [lo + (hi - lo) * i / 60 for i in range(61)]
+    today_values = option_values_across(req.kind, strike, today, expiry, market, spots)
+    payoff = (lambda s: max(s - strike, 0.0)) if req.kind == "call" else (lambda s: max(strike - s, 0.0))
+    premium_total = v.premium * n
+    breakeven = strike + v.premium if req.kind == "call" else strike - v.premium
+
+    return {
+        "pair": f"{code}{FX_BASE}",
+        "currency": {"code": code, "name": name, "symbol": symbol},
+        "kind": req.kind,
+        "notional": n,
+        "strike": strike,
+        "strike_source": "you" if req.strike is not None else "forward",
+        "valuation_date": today.isoformat(),
+        "expiry": expiry.isoformat(),
+        "days": days,
+        "inputs": inputs,
+        "historical_vol": hist,
+        "forward": fwd,
+        "premium": {
+            "total": premium_total,
+            "per_unit": v.premium,
+            "pips": v.premium / 1e-4,
+            "percent_of_notional": v.premium / spot * 100,
+        },
+        "breakeven": breakeven,
+        # The middle 90% of where the rate may be at expiry, under the same
+        # assumptions as the premium: what doing nothing could cost.
+        "likely_range": list(likely_range(fwd, vol, days)),
+        # Per unit as QuantLib gives them, and scaled to the whole notional, in cedis.
+        "greeks": {
+            "delta": v.delta, "gamma": v.gamma, "vega": v.vega, "theta": v.theta,
+            "rho_ghs": v.rho_ghs, "rho_foreign": v.rho_foreign,
+            "delta_amount": v.delta * n,          # units of the currency the option behaves like
+            "vega_total": v.vega * n,             # cedis per 1 point of volatility
+            "theta_total": v.theta * n,           # cedis per day
+            "rho_ghs_total": v.rho_ghs * n,       # cedis per 1 point of cedi rate
+            "rho_foreign_total": v.rho_foreign * n,
+        },
+        "implied_vol": implied,
+        "profit_loss": {
+            "spots": spots,
+            "today": [(x - v.premium) * n for x in today_values],
+            "at_expiry": [(payoff(s) - v.premium) * n for s in spots],
+        },
+        "model": "Garman-Kohlhagen (European), QuantLib " + ql_version,
+    }
+
+
+@app.get("/hedging", response_class=HTMLResponse)
+async def hedging_page():
+    """The Hedging tab: a foreign-currency payment or receipt, and what
+    doing nothing, a forward and an option would each cost, by rate.
+    Prices through POST /calc/fx-option."""
+    return (STATIC_DIR / "hedging.html").read_text(encoding="utf-8")
+
+
+@app.get("/calculators")
+async def calculators_page():
+    """The FX option calculator's old address: the Hedging page replaced it."""
+    return RedirectResponse("/hedging", status_code=301)
 
 
 @app.get("/fixed-income/report", response_model=FixedIncomeReport)
