@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Currency Hedging</title>
+<style>
+  :root {
+    --bg: #0E1613;
+    --panel: #16211B;
+    --panel-strong: #1C2921;
+    --ink: #EAE7DA;
+    --ink-soft: #AEB6A9;
+    --ink-faint: #6F766D;
+    --line: #26362F;
+    --teal: #3E9C82;
+    --teal-bg: rgba(62, 156, 130, 0.14);
+    --gold: #D9A44C;
+    --gold-bg: #2A2313;
+    --green: #34C57F;
+    --green-bg: rgba(52, 197, 127, 0.12);
+    --red: #E5675A;
+    --blue: #5AA9E6;
+    --blue-bg: rgba(90, 169, 230, 0.14);
+    /* The three choices: the first three categorical slots, validated as
+       a set on --panel (as auctions.html's tenors). */
+    --c-nothing: #3987e5;
+    --c-forward: #d95926;
+    --c-option: #199e70;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .num {
+    font-family: ui-monospace, "SFMono-Regular", "Cascadia Mono", Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .page { max-width: 1360px; margin: 0 auto; padding: 28px 20px 60px; }
+
+  .topbar { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
+  .brand { font-size: 18px; font-weight: 700; color: var(--ink); letter-spacing: 0.01em; flex-basis: 100%; }
+  .tabs { display: flex; gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 3px; flex-wrap: wrap; }
+  .tab { font-size: 13px; font-weight: 600; color: var(--ink-soft); text-decoration: none; padding: 6px 14px; border-radius: 6px; }
+  .tab:hover { color: var(--ink); }
+  .tab.active { color: var(--bg); background: var(--teal); }
+
+  h1 { font-size: 20px; margin: 4px 0 4px; }
+  .lede { font-size: 13.5px; color: var(--ink-soft); margin: 0 0 18px; max-width: 780px; line-height: 1.6; }
+
+  .layout { display: grid; grid-template-columns: minmax(290px, 360px) minmax(0, 1fr); gap: 16px; align-items: start; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  .panel + .panel { margin-top: 16px; }
+  #results > * + * { margin-top: 16px; }
+  .panel h2 { font-size: 14px; margin: 0 0 12px; }
+  .muted { color: var(--ink-faint); }
+
+  /* Form */
+  .field { margin-bottom: 14px; }
+  .field > label, .field > .label { display: block; font-size: 12.5px; color: var(--ink-soft); margin-bottom: 5px; }
+  .hint { font-size: 11.5px; color: var(--ink-faint); margin-top: 4px; line-height: 1.45; }
+  input[type="number"], input[type="date"], select {
+    width: 100%; font: inherit; font-size: 13.5px; color: var(--ink); background: var(--panel-strong); color-scheme: dark;
+    border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px;
+  }
+  input[type="number"] { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; }
+  input:focus, select:focus { outline: 2px solid var(--teal); outline-offset: -1px; }
+  input::placeholder { color: var(--ink-faint); }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: center; }
+
+  .seg { display: flex; gap: 2px; background: var(--panel-strong); border: 1px solid var(--line); border-radius: 8px; padding: 2px; flex-wrap: wrap; }
+  .seg button { flex: 1; font: inherit; font-size: 12px; font-weight: 600; color: var(--ink-soft); background: none; border: 0; border-radius: 6px; padding: 6px 8px; cursor: pointer; white-space: nowrap; }
+  .seg button:hover { color: var(--ink); }
+  .seg button.active { color: var(--bg); background: var(--teal); }
+  .seg.big button { font-size: 13px; padding: 8px; }
+
+  details.specialist { margin-top: 6px; border-top: 1px solid var(--line); padding-top: 10px; }
+  details.specialist > summary { cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--ink-soft); }
+  details.specialist[open] > summary { margin-bottom: 12px; }
+  .assume .head { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+  .assume .head label { font-size: 12px; color: var(--ink-soft); }
+  .assume .reset { margin-left: auto; font: inherit; font-size: 11px; color: var(--teal); background: none; border: 0; cursor: pointer; padding: 0; }
+  .assume .reset[hidden] { display: none; }
+  .badge { white-space: nowrap; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 1px 7px; border-radius: 999px; border: 1px solid; }
+  .badge.market { color: var(--teal); border-color: var(--teal); background: var(--teal-bg); }
+  .badge.estimate { color: var(--gold); border-color: var(--gold); background: var(--gold-bg); }
+  .badge.you { color: var(--blue); border-color: var(--blue); background: var(--blue-bg); }
+
+  /* Summary */
+  .situation { font-size: 15px; line-height: 1.6; color: var(--ink-soft); }
+  .situation b { color: var(--ink); }
+
+  /* The three choices */
+  .choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .choice { background: var(--panel); border: 1px solid var(--line); border-top: 3px solid; border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; }
+  .choice h3 { font-size: 14px; margin: 0 0 2px; }
+  .choice .tag { font-size: 12px; color: var(--ink-faint); margin-bottom: 10px; }
+  .choice .k { font-size: 11.5px; color: var(--ink-faint); }
+  .choice .v { font-size: 22px; font-weight: 700; margin: 2px 0 2px; letter-spacing: -0.01em; }
+  .choice .v.range { font-size: 18px; }
+  .choice .today { font-size: 12.5px; color: var(--ink-soft); margin-bottom: 10px; }
+  .choice p { font-size: 12.5px; color: var(--ink-soft); line-height: 1.55; margin: 0 0 10px; }
+  .choice ul { list-style: none; padding: 0; margin: auto 0 0; font-size: 12.5px; line-height: 1.5; }
+  .choice li { padding-left: 18px; position: relative; color: var(--ink-soft); margin-top: 3px; }
+  .choice li::before { position: absolute; left: 0; font-weight: 700; }
+  .choice li.pro::before { content: "+"; color: var(--green); }
+  .choice li.con::before { content: "−"; color: var(--red); }
+
+  .quote { margin-top: 16px; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--gold); background: var(--gold-bg); font-size: 13px; color: var(--ink-soft); line-height: 1.6; }
+  .quote b { color: var(--ink); }
+  .quote[hidden] { display: none; }
+
+  /* Scenario table */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-faint); text-align: right; padding: 8px 12px; background: var(--panel-strong); white-space: nowrap; }
+  th.l, td.l { text-align: left; }
+  th .sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; vertical-align: 0; }
+  td { padding: 8px 12px; text-align: right; border-top: 1px solid var(--line); white-space: nowrap; }
+  td.best { color: var(--green); background: var(--green-bg); font-weight: 600; }
+  td .what { color: var(--ink-faint); font-size: 12px; margin-left: 8px; }
+  tr.custom td { background: var(--panel-strong); }
+  .table-wrap { overflow-x: auto; }
+  .try { display: flex; gap: 10px; align-items: center; margin-top: 12px; font-size: 12.5px; color: var(--ink-soft); flex-wrap: wrap; }
+  .try input { width: 140px; }
+  .footnote { font-size: 12px; color: var(--ink-faint); margin: 10px 0 0; line-height: 1.55; }
+
+  /* Chart */
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--ink-soft); margin-bottom: 6px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 16px; height: 3px; display: inline-block; border-radius: 1px; }
+  .chart-wrap { position: relative; }
+  #chart { display: block; width: 100%; height: 300px; touch-action: none; }
+  #chart .grid line { stroke: var(--line); }
+  #chart .axis text { fill: var(--ink-faint); font-size: 11px; font-family: ui-monospace, monospace; }
+  #chart .mark { stroke: var(--ink-faint); stroke-dasharray: 2 3; }
+  #chart .mark-label { fill: var(--ink-soft); font-size: 10.5px; }
+  #chart .cross { stroke: var(--ink-faint); stroke-dasharray: 3 3; }
+  .tooltip {
+    position: absolute; pointer-events: none; display: none; z-index: 2;
+    background: var(--panel-strong); border: 1px solid var(--line); border-radius: 8px;
+    padding: 8px 10px; font-size: 12px; min-width: 220px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  }
+  .tooltip .t-head { font-size: 11px; color: var(--ink-faint); margin-bottom: 4px; }
+  .tooltip .t-row { display: flex; justify-content: space-between; gap: 14px; color: var(--ink-soft); align-items: center; }
+  .tooltip .t-row i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; margin-right: 6px; }
+  .tooltip .t-row b { color: var(--ink); }
+
+  /* Specialist detail */
+  details.panel > summary { cursor: pointer; font-size: 14px; font-weight: 700; }
+  details.panel[open] > summary { margin-bottom: 12px; }
+  details.panel h4 { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); margin: 16px 0 8px; }
+  .detail-table td, .detail-table th { white-space: normal; text-align: left; }
+  .detail-table td.r { text-align: right; white-space: nowrap; }
+  .sens { list-style: none; padding: 0; margin: 0; }
+  .sens li { display: grid; grid-template-columns: 170px minmax(0, 1fr) auto; gap: 12px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--line); font-size: 13px; }
+  .sens li:first-child { border-top: 0; }
+  .sens .what b { display: block; }
+  .sens .what small { color: var(--ink-faint); font-size: 11px; }
+  .sens .say { color: var(--ink-soft); line-height: 1.5; }
+  .sens .amt { font-weight: 600; white-space: nowrap; }
+  .up { color: var(--green); }
+  .down { color: var(--red); }
+  .detail-note { font-size: 12.5px; color: var(--ink-soft); line-height: 1.6; margin: 0; }
+
+  .error { color: var(--gold); background: var(--gold-bg); border: 1px solid var(--gold); border-radius: 10px; padding: 10px 14px; font-size: 13px; margin-bottom: 14px; }
+  .error[hidden] { display: none; }
+  .stale { opacity: 0.55; transition: opacity 0.15s; }
+
+  footer { margin-top: 26px; font-size: 12px; color: var(--ink-faint); line-height: 1.6; max-width: 1000px; }
+
+  @media (max-width: 1100px) {
+    .choices { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 960px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 640px) {
+    .page { padding: 20px 16px 48px; }
+    .sens li { grid-template-columns: 1fr auto; }
+    .sens .say { grid-column: 1 / -1; grid-row: 2; }
+    #chart { height: 240px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <div class="topbar">
+    <span class="brand">Market Integration</span>
+    <nav class="tabs" aria-label="Markets">
+      <a class="tab" href="/ticker">Equities</a>
+      <a class="tab" href="/fixed-income">Fixed Income</a>
+      <a class="tab" href="/yield-curve">Yield Curve</a>
+      <a class="tab" href="/auctions">Auctions</a>
+      <a class="tab" href="/fx">FX</a>
+      <a class="tab" href="/calendar">Calendar</a>
+      <a class="tab" href="/graph">Graph</a>
+      <a class="tab" href="/tickets">Trade Tickets</a>
+      <a class="tab active" href="/hedging" aria-current="page">Hedging</a>
+    </nav>
+  </div>
+
+  <h1>Plan a foreign-currency payment</h1>
+  <p class="lede">
+    Have a payment to make, or money coming in, in another currency? Compare your three choices: wait and use
+    whatever the exchange rate is on the day, lock in a rate today, or pay a fee for protection that still lets you
+    benefit if the rate moves your way. Figures are estimates from the latest market data, not quotes from a bank.
+  </p>
+
+  <div class="error" id="error" hidden></div>
+
+  <div class="layout">
+
+    <form class="panel" id="form" autocomplete="off" onsubmit="return false">
+      <h2>Your payment</h2>
+
+      <div class="field">
+        <span class="label">I need to</span>
+        <div class="seg big" role="group" aria-label="Pay or receive" id="direction">
+          <button type="button" data-dir="pay">Pay</button>
+          <button type="button" data-dir="receive">Receive</button>
+        </div>
+      </div>
+
+      <div class="row2 field">
+        <div>
+          <label for="notional">Amount</label>
+          <input type="number" id="notional" min="0" step="any" value="100000" inputmode="decimal">
+        </div>
+        <div>
+          <label for="currency">Currency</label>
+          <select id="currency"></select>
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="label">When</span>
+        <div class="seg" role="group" aria-label="In how long" id="tenor"></div>
+        <div class="row2" style="margin-top: 8px;">
+          <input type="date" id="expiry" aria-label="Date">
+          <span class="hint" id="days"></span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="strike" id="strikeLabel">With protection, pay no more than (GH₵ per USD)</label>
+        <input type="number" id="strike" min="0" step="any" inputmode="decimal">
+        <div class="hint" id="strikeHint">Blank: the same rate as locking in. A less generous limit makes protection cheaper.</div>
+      </div>
+
+      <div class="field">
+        <label for="quoted">Has a bank quoted you a fee for protection? (GH₵)</label>
+        <input type="number" id="quoted" min="0" step="any" inputmode="decimal" placeholder="Optional">
+        <div class="hint">We'll tell you how it compares with our estimate.</div>
+      </div>
+
+      <details class="specialist" id="marketInputs">
+        <summary>Market inputs (for specialists)</summary>
+        <div id="assumptions"></div>
+      </details>
+    </form>
+
+    <div id="results">
+      <section class="panel">
+        <div class="situation" id="situation">Loading&hellip;</div>
+      </section>
+
+      <div class="choices" id="choices">
+        <div class="choice" style="border-top-color: var(--c-nothing)">
+          <h3>Wait</h3>
+          <div class="tag">Use whatever the rate is on the day</div>
+          <div class="k" id="nothingK">Likely cost</div>
+          <div class="v range num" id="nothingV">—</div>
+          <div class="today" id="nothingToday">Nothing to pay today</div>
+          <p id="nothingP"></p>
+          <ul id="nothingL"></ul>
+        </div>
+        <div class="choice" style="border-top-color: var(--c-forward)">
+          <h3>Lock in a rate</h3>
+          <div class="tag">A forward contract with a bank</div>
+          <div class="k" id="forwardK">You pay</div>
+          <div class="v num" id="forwardV">—</div>
+          <div class="today">Nothing to pay today</div>
+          <p id="forwardP"></p>
+          <ul id="forwardL"></ul>
+        </div>
+        <div class="choice" style="border-top-color: var(--c-option)">
+          <h3>Buy protection</h3>
+          <div class="tag">An option: a right you can choose not to use</div>
+          <div class="k" id="optionK">You pay at most</div>
+          <div class="v num" id="optionV">—</div>
+          <div class="today" id="optionToday"></div>
+          <p id="optionP"></p>
+          <ul id="optionL"></ul>
+        </div>
+      </div>
+
+      <div class="quote" id="quote" hidden></div>
+
+      <section class="panel">
+        <h2 id="scenarioTitle">What happens if the rate on the day is&hellip;</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th class="l">Rate on the day</th>
+              <th><span class="sw" style="background: var(--c-nothing)"></span>Wait</th>
+              <th><span class="sw" style="background: var(--c-forward)"></span>Lock in</th>
+              <th><span class="sw" style="background: var(--c-option)"></span>Protection</th>
+            </tr></thead>
+            <tbody id="scenarios"></tbody>
+          </table>
+        </div>
+        <div class="try">
+          <label for="tryRate">Try your own rate:</label>
+          <input type="number" id="tryRate" min="0" step="any" inputmode="decimal" placeholder="e.g. 12.50">
+        </div>
+        <p class="footnote" id="scenarioNote"></p>
+      </section>
+
+      <section class="panel">
+        <h2 id="chartTitle">Total cost, by the rate on the day</h2>
+        <div class="legend">
+          <span><i style="background: var(--c-nothing)"></i>Wait</span>
+          <span><i style="background: var(--c-forward)"></i>Lock in</span>
+          <span><i style="background: var(--c-option)"></i>Protection (with its fee)</span>
+        </div>
+        <div class="chart-wrap" id="chartWrap">
+          <svg id="chart" role="img" aria-label="Total in cedis for each choice, against the exchange rate on the day"></svg>
+          <div class="tooltip" id="tooltip"></div>
+        </div>
+      </section>
+
+      <details class="panel" id="specialist">
+        <summary>For specialists: how the protection is priced</summary>
+        <p class="detail-note" id="modelNote"></p>
+        <h4>Inputs used</h4>
+        <table class="detail-table">
+          <thead><tr><th>Input</th><th>Value</th><th>Source</th><th>Where it comes from</th></tr></thead>
+          <tbody id="inputsBody"></tbody>
+        </table>
+        <h4>What moves the fee (the Greeks)</h4>
+        <ul class="sens" id="sens"></ul>
+      </details>
+    </div>
+  </div>
+
+  <footer>
+    Exchange rates are the Bank of Ghana's interbank mid, so a bank's own rate will differ by its spread. The locked-in rate
+    is the forward implied by cedi T-bill yields and the foreign overnight rate (as on the FX page). The protection fee is
+    estimated with the standard currency-option model (Garman-Kohlhagen, via QuantLib), using how much the rate has
+    actually moved recently. Ghana has no traded options market, so treat it as a guide to what's fair, not a price you
+    can deal at. Bank fees and spreads aren't included.
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  const $ = function (id) { return document.getElementById(id); };
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const TENORS = [["1W", "1 week"], ["1M", "1 month"], ["3M", "3 months"], ["6M", "6 months"], ["1Y", "1 year"]];
+  const FIRST = ["USD", "EUR", "GBP"];
+  const ASSUME = [
+    { key: "spot", label: "Spot rate (GH₵ per unit)", step: "0.0001" },
+    { key: "vol", label: "Volatility (% a year)", step: "0.1" },
+    { key: "ghs_rate", label: "Cedi interest rate (% a year)", step: "0.01" },
+    { key: "foreign_rate", label: "Foreign interest rate (% a year)", step: "0.01" },
+  ];
+  const SOURCE = { market: "Market data", estimate: "Estimate", you: "You entered" };
+
+  // A link can set the starting direction and currency: /hedging?dir=receive&currency=EUR
+  const params = new URLSearchParams(location.search);
+  const state = {
+    dir: params.get("dir") === "receive" ? "receive" : "pay",
+    currency: /^[A-Za-z]{3}$/.test(params.get("currency") || "") ? params.get("currency").toUpperCase() : "USD",
+    tenor: "3M",
+    expiry: null,
+  };
+  let last = null;
+  let timer = null;
+  let seq = 0;
+
+  // ------------------------------------------------------------ format
+
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function fixed(v, dp) {
+    return Number(v).toLocaleString(undefined, { minimumFractionDigits: dp, maximumFractionDigits: dp });
+  }
+  function cedis(v) { return "GH₵" + fixed(Math.round(Math.abs(v)), 0); }
+  function signedCedis(v) { return (v < 0 ? "−" : "+") + "GH₵" + fixed(Math.abs(v), 2); }
+  function rate(v) { return fixed(v, 4); }
+  function longDate(iso) {
+    const p = iso.split("-");
+    return Number(p[2]) + " " + MONTHS[Number(p[1]) - 1] + " " + p[0];
+  }
+  function pctChange(a, b) {
+    const v = (a / b - 1) * 100;
+    return (v > 0 ? "+" : v < 0 ? "−" : "±") + fixed(Math.abs(v), 1) + "%";
+  }
+
+  // ------------------------------------------------------------ the three choices
+  // All totals are cedis: what you pay out (pay) or take in (receive) on the day,
+  // with protection's fee, paid today, added in (pay) or taken off (receive).
+
+  function totals(b, s) {
+    const n = b.notional, k = b.strike, fee = b.premium.total, pay = state.dir === "pay";
+    return {
+      nothing: n * s,
+      forward: n * b.forward,
+      option: pay ? n * Math.min(s, k) + fee : n * Math.max(s, k) - fee,
+    };
+  }
+  // The most protection can trail the better of waiting and locking in, at
+  // any rate: its fee, plus how far its rate is less generous than the
+  // locked-in one. (Below the strike it trails waiting by the fee; beyond
+  // it, it trails locking in by the fee plus that difference.)
+  function worstGap(b) {
+    const n = b.notional, gap = state.dir === "pay" ? b.strike - b.forward : b.forward - b.strike;
+    return b.premium.total + n * Math.max(gap, 0);
+  }
+  // Which choices come out best at rate s: least paid, or most received.
+  function best(t) {
+    const vals = [t.nothing, t.forward, t.option];
+    const target = state.dir === "pay" ? Math.min.apply(null, vals) : Math.max.apply(null, vals);
+    return ["nothing", "forward", "option"].filter(function (k) { return Math.abs(t[k] - target) < 0.5; });
+  }
+
+  // ------------------------------------------------------------ form
+
+  function buildForm() {
+    TENORS.forEach(function (t) {
+      const b = el("button", null, t[0]);
+      b.type = "button";
+      b.title = t[1];
+      b.dataset.tenor = t[0];
+      b.addEventListener("click", function () {
+        state.tenor = t[0];
+        state.expiry = null;
+        $("expiry").value = "";
+        syncSegs();
+        schedule();
+      });
+      $("tenor").appendChild(b);
+    });
+    $("direction").querySelectorAll("button").forEach(function (b) {
+      b.addEventListener("click", function () {
+        state.dir = b.dataset.dir;
+        $("strike").value = "";
+        syncSegs();
+        syncLabels();
+        schedule();
+      });
+    });
+    $("expiry").addEventListener("change", function () {
+      state.expiry = this.value || null;
+      state.tenor = state.expiry ? null : "3M";
+      syncSegs();
+      schedule();
+    });
+    $("currency").addEventListener("change", function () {
+      state.currency = this.value;
+      ASSUME.forEach(function (a) { $("in-" + a.key).value = ""; });
+      $("strike").value = "";
+      syncLabels();
+      schedule();
+    });
+    ["notional", "strike", "quoted"].forEach(function (id) { $(id).addEventListener("input", schedule); });
+    $("tryRate").addEventListener("input", function () { if (last) renderScenarios(last); });
+
+    ASSUME.forEach(function (a) {
+      const f = el("div", "field assume");
+      const head = el("div", "head");
+      const label = el("label", null, a.label);
+      label.htmlFor = "in-" + a.key;
+      label.id = "label-" + a.key;
+      head.appendChild(label);
+      const badge = el("span", "badge");
+      badge.id = "badge-" + a.key;
+      head.appendChild(badge);
+      const reset = el("button", "reset", "Use default");
+      reset.type = "button";
+      reset.hidden = true;
+      reset.id = "reset-" + a.key;
+      reset.addEventListener("click", function () { $("in-" + a.key).value = ""; schedule(); });
+      head.appendChild(reset);
+      f.appendChild(head);
+      const input = el("input");
+      input.type = "number";
+      input.step = a.step;
+      input.inputMode = "decimal";
+      input.id = "in-" + a.key;
+      input.addEventListener("input", schedule);
+      f.appendChild(input);
+      const hint = el("div", "hint");
+      hint.id = "hint-" + a.key;
+      f.appendChild(hint);
+      $("assumptions").appendChild(f);
+    });
+    syncSegs();
+    syncLabels();
+  }
+
+  function syncSegs() {
+    $("direction").querySelectorAll("button").forEach(function (b) { b.classList.toggle("active", b.dataset.dir === state.dir); });
+    $("tenor").querySelectorAll("button").forEach(function (b) { b.classList.toggle("active", b.dataset.tenor === state.tenor); });
+  }
+  function syncLabels() {
+    const c = state.currency, pay = state.dir === "pay";
+    $("strikeLabel").textContent = "With protection, " + (pay ? "pay no more than" : "receive no less than") +
+      " (GH₵ per " + c + ")";
+    $("label-foreign_rate").textContent = c + " interest rate (% a year)";
+    $("chartTitle").textContent = pay ? "Total you pay, by the rate on the day" : "Total you receive, by the rate on the day";
+  }
+
+  function num(id) {
+    const v = $(id).value.trim();
+    return v === "" ? null : Number(v);
+  }
+
+  function request() {
+    const body = { currency: state.currency, kind: state.dir === "pay" ? "call" : "put" };
+    const n = num("notional");
+    if (n) body.notional = n;
+    if (state.expiry) body.expiry = state.expiry; else body.tenor = state.tenor || "3M";
+    const k = num("strike");
+    if (k) body.strike = k;
+    const q = num("quoted");
+    if (q) body.quoted_premium = q;
+    ASSUME.forEach(function (a) {
+      const v = num("in-" + a.key);
+      if (v != null && !isNaN(v)) body[a.key] = v;
+    });
+    return body;
+  }
+
+  function schedule() {
+    clearTimeout(timer);
+    $("results").classList.add("stale");
+    timer = setTimeout(calculate, 250);
+  }
+
+  function calculate() {
+    const mine = ++seq;
+    fetch("/calc/fx-option", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request()),
+    }).then(function (r) {
+      return r.json().then(function (b) {
+        if (!r.ok) {
+          const d = b.detail;
+          throw new Error(typeof d === "string" ? d
+            : Array.isArray(d) ? d.map(function (x) { return (x.loc || []).slice(-1)[0] + ": " + x.msg; }).join("; ")
+            : (d && d.message) || r.statusText);
+        }
+        return b;
+      });
+    }).then(function (b) {
+      if (mine !== seq) return;
+      last = b;
+      $("error").hidden = true;
+      $("results").classList.remove("stale");
+      render(b);
+    }).catch(function (e) {
+      if (mine !== seq) return;
+      $("error").textContent = e.message;
+      $("error").hidden = false;
+      // An input the service can't fill: open the panel where it's entered.
+      if (/enter/i.test(e.message)) $("marketInputs").open = true;
+    });
+  }
+
+  // ------------------------------------------------------------ render
+
+  function inputValue(b, key) { return b.inputs.find(function (i) { return i.key === key; }).value; }
+
+  function render(b) {
+    const c = b.currency.code, pay = state.dir === "pay";
+    const spot = inputValue(b, "spot");
+    const n = b.notional;
+    const when = longDate(b.expiry);
+    const amount = fixed(n, 0) + " " + c;
+
+    // The situation, in one sentence.
+    const sit = $("situation");
+    sit.textContent = "";
+    sit.appendChild(document.createTextNode("You " + (pay ? "need to pay " : "will receive ")));
+    sit.appendChild(el("b", null, amount));
+    sit.appendChild(document.createTextNode(" on "));
+    sit.appendChild(el("b", null, when));
+    sit.appendChild(document.createTextNode(" (" + b.days + " days). At today's rate of GH₵" + rate(spot) +
+      " that would be "));
+    sit.appendChild(el("b", null, cedis(n * spot)));
+    sit.appendChild(document.createTextNode(". Your risk is the " + (pay ? "cedi weakening" : "cedi strengthening") +
+      " before then, so " + (pay ? "you pay more cedis." : "you receive fewer cedis.")));
+
+    // Wait.
+    const lo = b.likely_range[0], hi = b.likely_range[1];
+    $("nothingK").textContent = pay ? "Likely cost on the day" : "Likely amount on the day";
+    $("nothingV").textContent = cedis(n * lo) + " – " + cedis(n * hi);
+    $("nothingP").textContent = "You " + (pay ? "pay" : "get") + " whatever the rate is on " + when +
+      ". From how much it has moved lately, it will most likely be between " + rate(lo) + " and " + rate(hi) +
+      " (a 9 in 10 chance), but it could go further.";
+    list("nothingL", [
+      ["pro", "Costs nothing to arrange"],
+      ["pro", "You gain if the cedi " + (pay ? "strengthens" : "weakens")],
+      ["con", "No limit on your " + (pay ? "cost" : "loss") + " if the cedi " + (pay ? "weakens" : "strengthens")],
+    ]);
+
+    // Lock in.
+    $("forwardK").textContent = pay ? "You pay, whatever happens" : "You receive, whatever happens";
+    $("forwardV").textContent = cedis(n * b.forward);
+    $("forwardP").textContent = "Agree with a bank today to " + (pay ? "buy " : "sell ") + amount + " at GH₵" +
+      rate(b.forward) + " on " + when + ".";
+    list("forwardL", [
+      ["pro", "Certain: you know the amount today"],
+      ["con", "You can't benefit if the cedi " + (pay ? "strengthens" : "weakens")],
+      ["con", "Binding: you must go through with it"],
+    ]);
+
+    // Protection.
+    const fee = b.premium.total;
+    const worst = pay ? n * b.strike + fee : n * b.strike - fee;
+    $("optionK").textContent = pay ? "You pay at most" : "You receive at least";
+    $("optionV").textContent = cedis(worst);
+    $("optionToday").textContent = "Fee today: " + cedis(fee) + " (" + fixed(b.premium.percent_of_notional, 2) + "%)";
+    $("optionP").textContent = "For the fee, you get the right to " + (pay ? "buy " : "sell ") + amount + " at GH₵" +
+      rate(b.strike) + " on " + when + ". If the market rate is " + (pay ? "lower" : "higher") +
+      " that day, you skip it and use the market rate.";
+    list("optionL", [
+      ["pro", (pay ? "Your cost is capped" : "Your amount has a floor")],
+      ["pro", "You still gain if the cedi " + (pay ? "strengthens" : "weakens")],
+      ["pro", "Never more than " + cedis(worstGap(b)) + " behind the better of the other two, whatever the rate"],
+      ["con", "The fee is paid whatever happens"],
+    ]);
+
+    // The date and strike hints in the form.
+    $("days").textContent = when + " · " + b.days + " days";
+    $("strike").placeholder = rate(b.forward) + " (same as locking in)";
+
+    renderQuote(b);
+    renderScenarios(b);
+    drawChart(b);
+    renderSpecialist(b);
+  }
+
+  function list(id, items) {
+    const ul = $(id);
+    ul.textContent = "";
+    items.forEach(function (i) { ul.appendChild(el("li", i[0], i[1])); });
+  }
+
+  function renderQuote(b) {
+    const box = $("quote");
+    box.textContent = "";
+    const iv = b.implied_vol;
+    if (!iv) { box.hidden = true; return; }
+    box.hidden = false;
+    const ours = b.premium.total;
+    const diff = (iv.premium / ours - 1) * 100;
+    box.appendChild(document.createTextNode("The bank's fee of "));
+    box.appendChild(el("b", null, cedis(iv.premium)));
+    box.appendChild(document.createTextNode(" is "));
+    box.appendChild(el("b", null, fixed(Math.abs(diff), 0) + "% " + (diff >= 0 ? "above" : "below")));
+    box.appendChild(document.createTextNode(" our estimate of " + cedis(ours) + ". "));
+    if (iv.vol == null) {
+      box.appendChild(document.createTextNode("It's too low to make sense for these terms: " + iv.error + "."));
+      return;
+    }
+    const used = inputValue(b, "vol");
+    box.appendChild(document.createTextNode(
+      "That fee assumes the rate moves about " + fixed(iv.vol, 1) + "% a year, against about " + fixed(used, 1) +
+      "% recently. " + (diff > 25 ? "Banks charge for more movement than the past shows, plus their margin, so some " +
+        "gap is normal; a large one is worth negotiating or comparing with another bank."
+        : diff >= 0 ? "That's close to our estimate." : "That's cheaper than our estimate.")));
+  }
+
+  // ------------------------------------------------------------ scenarios
+
+  function renderScenarios(b) {
+    const pay = state.dir === "pay";
+    const spot = inputValue(b, "spot");
+    const lo = b.likely_range[0], hi = b.likely_range[1];
+    const strong = "cedi stronger", weak = "cedi weaker";
+    const rows = [
+      [lo, "unlikely to be lower (" + strong + ")"],
+      [(lo + spot) / 2, strong],
+      [spot, "today's rate"],
+      [b.forward, "locked-in rate"],
+      [(hi + b.forward) / 2, weak],
+      [hi, "unlikely to be higher (" + weak + ")"],
+      [b.forward + 2 * (hi - b.forward), "a shock"],
+    ];
+    if (Math.abs(b.strike - b.forward) > 1e-4) rows.push([b.strike, "your protection rate"]);
+    rows.sort(function (a, c) { return a[0] - c[0]; });
+    const mine = num("tryRate");
+
+    $("scenarioTitle").textContent = "What happens if the rate on " + longDate(b.expiry) + " is…";
+    const body = $("scenarios");
+    body.textContent = "";
+    rows.forEach(function (r) { body.appendChild(scenarioRow(b, r[0], r[1], spot)); });
+    if (mine && mine > 0) body.appendChild(scenarioRow(b, mine, "your rate", spot, true));
+    $("scenarioNote").textContent = (pay ? "Totals are what you pay" : "Totals are what you receive") +
+      " in cedis, with protection's fee included. Green is the best choice at that rate, which you only know " +
+      "afterwards. Protection is rarely the best at any one rate, and that's the point: if the cedi " +
+      (pay ? "strengthens" : "weakens") + " it trails waiting, and if it " + (pay ? "weakens" : "strengthens") +
+      " it trails locking in, but never by more than " + cedis(worstGap(b)) + ", while each of the other two can " +
+      "turn out much worse. The fee is paid today and the currency on the day; the difference in timing isn't counted.";
+  }
+
+  function scenarioRow(b, s, what, spot, custom) {
+    const t = totals(b, s);
+    const winners = best(t);
+    const tr = el("tr", custom ? "custom" : null);
+    const first = el("td", "l");
+    first.appendChild(el("span", "num", rate(s)));
+    first.appendChild(el("span", "what", pctChange(s, spot) + " · " + what));
+    tr.appendChild(first);
+    ["nothing", "forward", "option"].forEach(function (k) {
+      tr.appendChild(el("td", "num" + (winners.indexOf(k) >= 0 ? " best" : ""), cedis(t[k])));
+    });
+    return tr;
+  }
+
+  // ------------------------------------------------------------ chart
+
+  function svg(tag, attrs, parent) {
+    const e = document.createElementNS(SVG_NS, tag);
+    Object.keys(attrs).forEach(function (k) { e.setAttribute(k, attrs[k]); });
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function niceTicks(lo, hi, count) {
+    const raw = (hi - lo || 1) / count;
+    const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    const step = [1, 2, 2.5, 5, 10].map(function (m) { return m * mag; }).find(function (s) { return s >= raw; });
+    const out = [];
+    for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) out.push(v);
+    return out;
+  }
+  function compact(v) {
+    const a = Math.abs(v);
+    return a >= 1e6 ? fixed(a / 1e6, a >= 1e7 ? 1 : 2) + "M" : a >= 1e3 ? fixed(a / 1e3, 0) + "k" : fixed(a, 0);
+  }
+
+  let geom = null;
+  const SERIES = [["nothing", "Wait", "var(--c-nothing)"], ["forward", "Lock in", "var(--c-forward)"],
+                  ["option", "Protection", "var(--c-option)"]];
+
+  function drawChart(b) {
+    const node = $("chart");
+    node.textContent = "";
+    const W = node.clientWidth || 700, H = node.clientHeight || 300;
+    node.setAttribute("viewBox", "0 0 " + W + " " + H);
+    const m = { l: 62, r: 14, t: 18, b: 28 };
+    const xs = b.profit_loss.spots;
+    const lines = {};
+    SERIES.forEach(function (s) { lines[s[0]] = xs.map(function (x) { return totals(b, x)[s[0]]; }); });
+    const all = [].concat(lines.nothing, lines.forward, lines.option);
+    let lo = Math.min.apply(null, all), hi = Math.max.apply(null, all);
+    const pad = (hi - lo) * 0.08 || 1;
+    lo -= pad; hi += pad;
+    const x0 = xs[0], x1 = xs[xs.length - 1];
+    const X = function (v) { return m.l + (v - x0) / (x1 - x0) * (W - m.l - m.r); };
+    const Y = function (v) { return m.t + (hi - v) / (hi - lo) * (H - m.t - m.b); };
+
+    const grid = svg("g", { class: "grid" }, node);
+    const axis = svg("g", { class: "axis" }, node);
+    niceTicks(lo, hi, 5).forEach(function (v) {
+      svg("line", { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v) }, grid);
+      svg("text", { x: m.l - 8, y: Y(v) + 4, "text-anchor": "end" }, axis).textContent = compact(v);
+    });
+    niceTicks(x0, x1, Math.max(3, Math.floor((W - m.l - m.r) / 90))).forEach(function (v) {
+      svg("text", { x: X(v), y: H - 8, "text-anchor": "middle" }, axis).textContent = fixed(v, 2);
+    });
+
+    const spot = inputValue(b, "spot");
+    [["Today", spot], ["Locked-in", b.forward]].forEach(function (mk, i) {
+      if (mk[1] < x0 || mk[1] > x1) return;
+      svg("line", { class: "mark", x1: X(mk[1]), x2: X(mk[1]), y1: m.t, y2: H - m.b }, node);
+      svg("text", { class: "mark-label", x: X(mk[1]) + 4, y: m.t + 10 + i * 12 }, node).textContent = mk[0];
+    });
+
+    SERIES.forEach(function (s) {
+      const d = lines[s[0]].map(function (v, i) { return (i ? "L" : "M") + X(xs[i]).toFixed(1) + " " + Y(v).toFixed(1); }).join(" ");
+      svg("path", { d: d, fill: "none", stroke: s[2], "stroke-width": 2.5, "stroke-linejoin": "round" }, node);
+    });
+    const cross = svg("line", { class: "cross", y1: m.t, y2: H - m.b, visibility: "hidden" }, node);
+    geom = { X: X, W: W, xs: xs, lines: lines, cross: cross, code: b.currency.code };
+  }
+
+  $("chart").addEventListener("mousemove", function (ev) {
+    if (!geom) return;
+    const box = this.getBoundingClientRect();
+    const px = (ev.clientX - box.left) * (geom.W / box.width);
+    let i = 0;
+    geom.xs.forEach(function (s, j) { if (Math.abs(geom.X(s) - px) < Math.abs(geom.X(geom.xs[i]) - px)) i = j; });
+    geom.cross.setAttribute("x1", geom.X(geom.xs[i]));
+    geom.cross.setAttribute("x2", geom.X(geom.xs[i]));
+    geom.cross.setAttribute("visibility", "visible");
+    const tip = $("tooltip");
+    tip.textContent = "";
+    tip.appendChild(el("div", "t-head", "If " + geom.code + "/GHS is " + rate(geom.xs[i]) + " on the day"));
+    SERIES.forEach(function (s) {
+      const row = el("div", "t-row");
+      const k = el("span");
+      const sw = el("i");
+      sw.style.background = s[2];
+      k.appendChild(sw);
+      k.appendChild(document.createTextNode(s[1]));
+      row.appendChild(k);
+      row.appendChild(el("b", "num", cedis(geom.lines[s[0]][i])));
+      tip.appendChild(row);
+    });
+    tip.style.display = "block";
+    tip.style.left = Math.min(ev.clientX - box.left + 14, box.width - tip.offsetWidth - 4) + "px";
+    tip.style.top = (ev.clientY - box.top - 10) + "px";
+  });
+  $("chart").addEventListener("mouseleave", function () {
+    $("tooltip").style.display = "none";
+    if (geom) geom.cross.setAttribute("visibility", "hidden");
+  });
+  window.addEventListener("resize", function () { if (last) drawChart(last); });
+
+  // ------------------------------------------------------------ specialist detail
+
+  function renderSpecialist(b) {
+    const c = b.currency.code;
+    $("modelNote").textContent = "Protection is a European " + (b.kind === "call" ? "call" : "put") + " option on " +
+      c + "/GHS, strike " + rate(b.strike) + ", expiring " + longDate(b.expiry) + " (" + b.days + " days), priced with " +
+      b.model + ". Premium GH₵" + fixed(b.premium.total, 2) + " (GH₵" + rate(b.premium.per_unit) + " per " + c +
+      ", " + fixed(b.premium.pips, 0) + " pips). The \"likely\" range is the middle 90% of the model's distribution " +
+      "for the rate at expiry.";
+
+    // Market inputs in the form: the value in force as the placeholder, a badge for its source.
+    b.inputs.forEach(function (i) {
+      const input = $("in-" + i.key);
+      if (!input) return;
+      const you = i.source === "you";
+      if (!you) input.placeholder = fixed(i.value, i.key === "spot" ? 4 : 2);
+      const badge = $("badge-" + i.key);
+      badge.className = "badge " + i.source;
+      badge.textContent = SOURCE[i.source];
+      $("reset-" + i.key).hidden = !you;
+      $("hint-" + i.key).textContent = you ? "Your figure is used." : i.note + (i.as_of ? ", " + longDate(i.as_of) : "");
+    });
+    const hv = b.historical_vol;
+    if (hv && !$("in-vol").value) {
+      $("hint-vol").textContent += ". Moves over 1M " + volText(hv["1M"]) + ", 3M " + volText(hv["3M"]) +
+        ", 6M " + volText(hv["6M"]) + ", 1Y " + volText(hv["1Y"]) + ".";
+    }
+
+    const body = $("inputsBody");
+    body.textContent = "";
+    b.inputs.forEach(function (i) {
+      const tr = el("tr");
+      tr.appendChild(el("td", null, i.label));
+      tr.appendChild(el("td", "r num", fixed(i.value, i.key === "spot" ? 4 : 2) + (i.key === "spot" ? "" : "%")));
+      const s = el("td");
+      s.appendChild(el("span", "badge " + i.source, SOURCE[i.source]));
+      tr.appendChild(s);
+      tr.appendChild(el("td", null, i.note + (i.as_of ? ", " + longDate(i.as_of) : "")));
+      body.appendChild(tr);
+    });
+
+    const g = b.greeks, n = b.notional, vol = inputValue(b, "vol");
+    const rows = [
+      ["Delta", "Exchange rate", "Fee change if " + c + "/GHS rises GH₵0.10 today; the option behaves like " +
+        fixed(Math.abs(g.delta_amount), 0) + " " + c + ".", g.delta_amount * 0.10],
+      ["Gamma", "How fast delta changes", "Extra change over a second GH₵0.10 rise.", g.gamma * n * 0.01],
+      ["Vega", "Volatility", "If volatility rose 1 point (" + fixed(vol, 1) + "% to " + fixed(vol + 1, 1) + "%).", g.vega_total],
+      ["Theta", "Time", "Each day that passes, all else equal.", g.theta_total],
+      ["Rho", "Cedi rates", "If cedi rates rose 1 percentage point.", g.rho_ghs_total],
+      ["Foreign rho", c + " rates", "If " + c + " rates rose 1 percentage point.", g.rho_foreign_total],
+    ];
+    const ul = $("sens");
+    ul.textContent = "";
+    rows.forEach(function (r) {
+      const li = el("li");
+      const w = el("span", "what");
+      w.appendChild(el("b", null, r[0]));
+      w.appendChild(el("small", null, r[1]));
+      li.appendChild(w);
+      li.appendChild(el("span", "say", r[2]));
+      li.appendChild(el("span", "amt num " + (r[3] > 0 ? "up" : r[3] < 0 ? "down" : "muted"), signedCedis(r[3])));
+      ul.appendChild(li);
+    });
+  }
+  function volText(v) { return v == null ? "—" : fixed(v, 1) + "%"; }
+
+  // ------------------------------------------------------------ start
+
+  function loadCurrencies() {
+    return fetch("/fx/rates").then(function (r) { return r.ok ? r.json() : { currencies: [] }; }).then(function (b) {
+      const codes = b.currencies.map(function (c) { return [c.code, c.name]; });
+      const ordered = codes.filter(function (c) { return FIRST.indexOf(c[0]) >= 0; })
+        .concat(codes.filter(function (c) { return FIRST.indexOf(c[0]) < 0; }));
+      (ordered.length ? ordered : FIRST.map(function (c) { return [c, c]; })).forEach(function (c) {
+        const o = el("option", null, c[0] + (FIRST.indexOf(c[0]) < 0 ? " (needs its interest rate)" : ""));
+        o.value = c[0];
+        o.title = c[1];
+        $("currency").appendChild(o);
+      });
+      $("currency").value = state.currency;
+    }).catch(function () {});
+  }
+
+  buildForm();
+  loadCurrencies().then(calculate);
+})();
+</script>
+</body>
+</html>
