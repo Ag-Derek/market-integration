@@ -316,6 +316,13 @@
   }
   .chart-tools .ranges { margin-bottom: 0; }
 
+  /* Drawing tools (/static/drawings.js) */
+  .draw-tools { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin: -4px 0 10px; }
+  .draw-tools .range-btn { font-family: inherit; font-size: 12px; padding: 5px 10px; }
+  .draw-tools .range-btn[hidden] { display: none; }
+  .draw-tools .range-btn:disabled { color: var(--ink-faint); cursor: not-allowed; background: transparent; }
+  .draw-status { font-size: 12px; color: var(--ink-faint); margin-left: 6px; }
+
   /* Indicators menu */
 
   .ind-menu { position: relative; }
@@ -548,6 +555,7 @@
         <div class="ind-panel" id="indPanel"></div>
       </details>
     </div>
+    <div class="draw-tools" id="drawTools" role="toolbar" aria-label="Drawing tools"></div>
     <div class="chart-wrap" id="chartWrap">
       <canvas class="chart" id="chart"></canvas>
       <div class="chart-msg" id="chartMsg">Loading chart…</div>
@@ -599,12 +607,17 @@
     In another currency (top right), the quote is converted at the latest Bank of Ghana interbank mid-rate
     (<code>/fx/rates</code>), so its percentage change is the shares' own; daily and weekly charts use each day's
     rate (<code>/candles?…&amp;currency=…</code>), so they show what the shares were worth in that currency at the time.
+    Drawings (trend lines, levels, Fibonacci retracements) are saved for you on this chart
+    (<code>/drawings/me/{symbol}</code>) as dates and prices in cedis, so they stay on the same candles in every range;
+    they show when the chart is in cedis. Select one to drag its points or the whole drawing; Delete removes it, Esc
+    cancels. Saved to this browser's anonymous user until sign-in arrives.
   </footer>
 
 </div>
 
 <script src="/static/render.js"></script>
 <script src="/static/indicators.js"></script>
+<script src="/static/drawings.js"></script>
 <script src="/static/currency.js"></script>
 <script src="/static/search.js"></script>
 <script src="/static/description.js"></script>
@@ -667,6 +680,7 @@
     requestSeq: 0,
     geometry: null,
   };
+  let drawings = null;       // the drawing tools, once mounted (boot)
 
   // ---------------------------------------------------------------- format
 
@@ -1356,12 +1370,16 @@
       });
     });
     if (chart.range === "1D" && base != null) { min = Math.min(min, base); max = Math.max(max, base); }
+    // Drawn levels, retracements and trend lines near the data stay in view.
+    if (drawings) { const f = drawings.fit(min, max); min = f[0]; max = f[1]; }
     const pad = (max - min) * 0.08 || max * 0.01 || 1;
     min -= pad; max += pad;
 
     function xAt(i) { return padL + (i / (pts.length - 1)) * plotW; }
     function yAt(v) { return padT + (1 - (v - min) / (max - min)) * priceH; }
-    chart.geometry = { padL: padL, plotW: plotW, W: W, H: H, xAt: xAt, yAt: yAt };
+    function priceAt(y) { return min + (1 - (y - padT) / priceH) * (max - min); }
+    chart.geometry = { padL: padL, plotW: plotW, padT: padT, priceH: priceH, W: W, H: H,
+                       xAt: xAt, yAt: yAt, priceAt: priceAt };
 
     const last = pts[pts.length - 1].close;
     const isUp = base == null || last >= base;
@@ -1467,6 +1485,9 @@
     ctx.strokeStyle = lineColor;
     ctx.lineWidth = 1.6;
     ctx.stroke();
+
+    // The user's drawings, over the price (/static/drawings.js).
+    if (drawings) drawings.draw(ctx);
 
     // Indicator legends and panes, read at the hovered candle or the newest.
     const at = chart.hoverIndex != null && pts[chart.hoverIndex] ? chart.hoverIndex : pts.length - 1;
@@ -1726,9 +1747,33 @@
   buildIndicatorMenu();
 
   const canvas = $("chart");
-  canvas.addEventListener("pointermove", onPointer);
-  canvas.addEventListener("pointerdown", onPointer);
-  canvas.addEventListener("pointerleave", clearHover);
+
+  // Drawing tools, saved per user (/static/drawings.js). They're in cedis,
+  // like the candles are stored, so they show only when the chart is.
+  drawings = ChartDrawings.mount({
+    symbol: SYMBOL,
+    canvas: canvas,
+    toolbar: $("drawTools"),
+    candles: function () { return chart.candles; },
+    stepMs: function () { return INTERVAL_MS[chart.interval] || INTERVAL_MS["1d"]; },
+    geometry: function () { return chart.geometry; },
+    enabled: function () { return Currency.code() === "GHS"; },
+    formatPrice: chartPrice,
+    redraw: drawChart,
+  });
+
+  // The drawing tools see each pointer event first; what they don't use
+  // drives the crosshair and tooltip as before.
+  canvas.addEventListener("pointermove", function (evt) {
+    if (drawings.pointerMove(evt)) { $("tooltip").style.display = "none"; return; }
+    onPointer(evt);
+  });
+  canvas.addEventListener("pointerdown", function (evt) {
+    if (drawings.pointerDown(evt)) return;
+    onPointer(evt);
+  });
+  canvas.addEventListener("pointerup", function (evt) { drawings.pointerUp(evt); });
+  canvas.addEventListener("pointerleave", function () { if (!drawings.dragging()) clearHover(); });
 
   let resizeTimer = null;
   window.addEventListener("resize", function () {
@@ -1755,6 +1800,7 @@
   Currency.mount($("currency"));
   Currency.onChange(function () {
     renderCurrencyLabels();
+    drawings.refresh();
     schedulePaint();
   });
 

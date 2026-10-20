@@ -122,6 +122,8 @@ from app.tickets.store import TicketStore
 from app.validation.market_validator import ValidatingStream
 from app.watchlists import DEFAULT_WATCHLIST, MAX_PINS, WatchlistError, validate as validate_watchlist
 from app.watchlists.store import WatchlistStore
+from app.drawings.store import DrawingStore
+from app.models.drawing import MAX_DRAWINGS, DrawingsUpdate
 
 logger = logging.getLogger(__name__)
 
@@ -272,6 +274,9 @@ company_store = CompanyStore(config.DB_PATH)
 # Each user's pinned equities (#26). User data: kept across restarts,
 # never re-seeded.
 watchlist_store = WatchlistStore(config.DB_PATH)
+# Each user's drawings on each stock chart (trend lines, levels,
+# retracements). User data: kept across restarts, never re-seeded.
+drawing_store = DrawingStore(config.DB_PATH)
 # Bank of Ghana interbank FX fixes for showing prices in other
 # currencies: pulled from BoG's site and kept across restarts; see app/fx/.
 fx_rates = FxRates(FxStore(config.DB_PATH), BankOfGhanaClient())
@@ -463,6 +468,55 @@ async def put_my_watchlist(update: WatchlistUpdate, user_id: str = Depends(curre
         raise HTTPException(status_code=422, detail={"message": str(e), "symbols": e.symbols})
     saved = await asyncio.to_thread(watchlist_store.put, user_id, symbols)
     return _watchlist_body(user_id, saved)
+
+
+def _drawing_symbol(symbol: str) -> str:
+    """An equity's symbol, upper-cased; 404 for anything else (drawings
+    are for the stock page's chart)."""
+    symbol = symbol.strip().upper()
+    instrument = INSTRUMENTS.get(symbol)
+    if instrument is None or instrument.asset_class != "equity":
+        raise HTTPException(status_code=404, detail=f"No stock chart for '{symbol}'")
+    return symbol
+
+
+def _drawings_body(symbol: str, saved: Optional[dict]) -> dict:
+    return {
+        "symbol": symbol,
+        "currency": FX_BASE,   # prices in the anchors
+        "drawings": saved["drawings"] if saved else [],
+        "updated_at": saved["updated_at"] if saved else None,
+        "max_drawings": MAX_DRAWINGS,
+    }
+
+
+@app.get("/drawings/me")
+async def get_my_drawn_charts(user_id: str = Depends(current_user_id)):
+    """The charts the requesting user has drawn on: symbol -> how many
+    drawings."""
+    return {"charts": await asyncio.to_thread(drawing_store.symbols, user_id)}
+
+
+@app.get("/drawings/me/{symbol}")
+async def get_my_drawings(symbol: str, user_id: str = Depends(current_user_id)):
+    """The requesting user's drawings on `symbol`'s chart: trend lines,
+    levels and Fibonacci retracements, each as (time, price in cedis)
+    anchors. Empty if they haven't drawn on it. The user is as for
+    watchlists (app/identity.py). 404 for a symbol that isn't an equity."""
+    symbol = _drawing_symbol(symbol)
+    return _drawings_body(symbol, await asyncio.to_thread(drawing_store.get, user_id, symbol))
+
+
+@app.put("/drawings/me/{symbol}")
+async def put_my_drawings(symbol: str, update: DrawingsUpdate, user_id: str = Depends(current_user_id)):
+    """Replace the requesting user's drawings on `symbol` with
+    `drawings` (an empty list clears them). 422 for a malformed drawing
+    (wrong number of points, a vertical trend line, a flat retracement,
+    repeated ids, more than max_drawings); nothing is saved then."""
+    symbol = _drawing_symbol(symbol)
+    drawings = [d.model_dump(mode="json") for d in update.drawings]
+    saved = await asyncio.to_thread(drawing_store.put, user_id, symbol, drawings)
+    return _drawings_body(symbol, saved)
 
 
 class IdentityUpdate(BaseModel):
@@ -1909,6 +1963,13 @@ async def strip_script():
     """The market strip under the header of /ticker and the fixed income
     pages: index, FX and bill yields in place over a scrolling crawl."""
     return FileResponse(STATIC_DIR / "strip.js", media_type="text/javascript")
+
+
+@app.get("/static/drawings.js")
+async def drawings_script():
+    """The stock chart's drawing tools (trend lines, levels, Fibonacci),
+    saved through /drawings/me/{symbol}."""
+    return FileResponse(STATIC_DIR / "drawings.js", media_type="text/javascript")
 
 
 @app.get("/stock")

@@ -7,7 +7,7 @@ conventions behind them and what is still missing.
 
 ## Coverage
 
-Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**. Every other listed equity has no entry
+Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**. Every other listed equity has no entry
 yet and is served as all-null.
 
 ## Conventions
@@ -27,6 +27,12 @@ yet and is served as all-null.
 - **Dividend per share** is the total declared for the fiscal year
   (interim + final). `0.0` means no dividend was declared for that year, and
   its source is the statement that shows none.
+- **Revenue for pre-production companies** (e.g. ALLGH) is `0.0`, with the
+  filing's statement that the group has no revenue as its source. Interest
+  and fair value gains are not counted as revenue.
+- **Foreign-reporting companies** keep their own currency and year end
+  (ASG in USD, ALLGH in AUD to 30 June); `fiscal_year` is the calendar year
+  the financial year ends in.
 - **as_of** is the fiscal year end for financial figures, the board
   approval or declaration date for dividends, and the report or page date
   for profile fields and officers. Values read from a live web page (e.g.
@@ -47,3 +53,5 @@ Left out (served as null) because they couldn't be found or confirmed:
 | CAL | FY2021 `dividend_payment_dates` | The 2025 Annual Report gives the GHS 0.11 dividend per share but not when it was paid. No dividend for FY2022–FY2025. |
 | BOPP | FY2021–FY2024 `dividend_payment_dates` | The annual reports give only the final dividend's payment date, not the interim's. |
 | BOPP | `officers` (finance) | The annual report names no CFO or finance manager. |
+| ALLGH | `employees` | The annual reports give no headcount. |
+| ALLGH | `dividend_payment_dates` | No dividend for FY2022–FY2026. |
