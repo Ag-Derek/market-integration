@@ -7,7 +7,7 @@ conventions behind them and what is still missing.
 
 ## Coverage
 
-Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**. Every other listed equity has no entry
+Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**. Every other listed equity has no entry
 yet and is served as all-null.
 
 ## Conventions
@@ -57,3 +57,6 @@ Left out (served as null) because they couldn't be found or confirmed:
 | ALLGH | `dividend_payment_dates` | No dividend for FY2022–FY2026. |
 | AGA | `employees` | The 2025 reports give only workforce averages that include contractors (38,243 at managed operations). |
 | AGA | FY2021–FY2023 `dividend_per_share`, `dividend_payment_dates` | Before the 2023 redomicile, interims were declared in South African cents (e.g. 70 SA cents for H1 2023), so there is no exact US-dollar total for those years. |
+| DIGICUT | `employees`; `officers` (Managing Director) | The audited statements give no headcount, and refer to a Managing Director without naming one. |
+| DIGICUT | FY2021–FY2022 `eps` | Only in the five-year summary, which gives no EPS. |
+| DIGICUT | FY2021–FY2023 `dividend_per_share` | No directors' report for those years was read; FY2024–FY2025 reports state no dividend. |
