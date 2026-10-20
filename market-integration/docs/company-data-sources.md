@@ -7,7 +7,7 @@ conventions behind them and what is still missing.
 
 ## Coverage
 
-Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**. Every other listed equity has no entry
+Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**. Every other listed equity has no entry
 yet and is served as all-null.
 
 ## Conventions
@@ -55,3 +55,5 @@ Left out (served as null) because they couldn't be found or confirmed:
 | BOPP | `officers` (finance) | The annual report names no CFO or finance manager. |
 | ALLGH | `employees` | The annual reports give no headcount. |
 | ALLGH | `dividend_payment_dates` | No dividend for FY2022–FY2026. |
+| AGA | `employees` | The 2025 reports give only workforce averages that include contractors (38,243 at managed operations). |
+| AGA | FY2021–FY2023 `dividend_per_share`, `dividend_payment_dates` | Before the 2023 redomicile, interims were declared in South African cents (e.g. 70 SA cents for H1 2023), so there is no exact US-dollar total for those years. |
