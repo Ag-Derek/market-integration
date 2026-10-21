@@ -7,7 +7,7 @@ conventions behind them and what is still missing.
 
 ## Coverage
 
-Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**. Every other listed equity has no entry
+Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**. Every other listed equity has no entry
 yet and is served as all-null.
 
 ## Conventions
@@ -60,3 +60,6 @@ Left out (served as null) because they couldn't be found or confirmed:
 | DIGICUT | `employees`; `officers` (Managing Director) | The audited statements give no headcount, and refer to a Managing Director without naming one. |
 | DIGICUT | FY2021–FY2022 `eps` | Only in the five-year summary, which gives no EPS. |
 | DIGICUT | FY2021–FY2023 `dividend_per_share` | No directors' report for those years was read; FY2024–FY2025 reports state no dividend. |
+| EGH | FY2025 `revenue`, `net_income`, `book_value` | The FY2025 audited summary (released 31 March 2026) could not be downloaded from gse.com.gh or ecobank.com. News reports give only rounded figures (profit GHS 1.82bn, equity GHS 7.2bn) and disagree on revenue (GHS 4.91bn vs 5.21bn). |
+| EGH | `shares_outstanding` | The GSE listed-company page shows 293.23 million, which is out of date: the 2024 EPS (527 GHp on GHS 1,699.9m) and the FY2021 dividend (GHS 199.98m at GHS 0.62) both imply about 322.55 million. No filing that was read gives the exact count. |
+| EGH | `listing_date`; `employees` | The GSE page gives only "July, 2006". The summary financial statements give no headcount. |
