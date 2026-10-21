@@ -1,0 +1,48 @@
+{
+  "symbol": "ASG",
+  "profile": {
+    "description_short": {"value": "Gold miner operating the Bibiani and Chirano gold mines in Ghana, incorporated in British Columbia, Canada.", "source": "Written by us from the Asante Gold Corporation Annual Information Form for the period ended December 31, 2025", "as_of": "2026-03-31"},
+    "description_full": {"value": "Asante Gold Corporation operates two gold mines in Ghana, Bibiani and Chirano, through 90%-owned subsidiaries. It also explores for further resources, including the Kubi Gold Project and other concessions on the Bibiani and Ashanti gold belts. The company was incorporated in British Columbia in 2011 and has its head office in Vancouver. Its shares trade on the TSX Venture Exchange (ASE), the Ghana Stock Exchange (ASG), where they were listed by introduction in June 2022, the Frankfurt Stock Exchange and the OTCQX. It reports in US dollars, and in 2025 it changed its financial year end from January 31 to December 31.", "source": "Written by us from the Asante Gold Corporation AIF for the period ended December 31, 2025 (corporate structure), the audited consolidated financial statements for the 11 months ended December 31, 2025 (note 1) and the July 27, 2026 management change release", "as_of": "2026-07-27"},
+    "sector": {"value": "Mining", "source": "Our classification, from the nature of operations note in the Asante Gold Corporation financial statements for the 11 months ended December 31, 2025", "as_of": "2025-12-31"},
+    "industry": {"value": "Gold mining", "source": "Our classification, from the nature of operations note in the Asante Gold Corporation financial statements for the 11 months ended December 31, 2025", "as_of": "2025-12-31"},
+    "website": {"value": "https://www.asantegold.com", "source": "Asante Gold Corporation website", "as_of": "2026-10-12"},
+    "headquarters_city": {"value": "Vancouver", "source": "Asante Gold Corporation AIF for the period ended December 31, 2025, section 3.2: head and registered office in Vancouver, British Columbia", "as_of": "2026-03-31"},
+    "headquarters_country": {"value": "Canada", "source": "Asante Gold Corporation AIF for the period ended December 31, 2025, section 3.2", "as_of": "2026-03-31"},
+    "employees": {"value": 1452, "source": "Asante Gold Corporation AIF for the period ended December 31, 2025: full-time employees", "as_of": "2025-12-31"},
+    "shares_outstanding": {"value": 904549178, "source": "Asante Gold Corporation condensed interim consolidated financial statements for the six months ended June 30, 2026, statement of changes in shareholders' equity", "as_of": "2026-06-30"},
+    "listing_date": {"value": "2022-06-29", "source": "Asante Gold press release of June 29, 2022 on commencing trading on the GSE (listing by introduction); Graphic Online, \"Asante Gold commences trading on local bourse\"", "as_of": "2022-06-29"},
+    "registrar": {"value": "Computershare Investor Services Inc.", "source": "Asante Gold Corporation AIF for the period ended December 31, 2025, section 15 (transfer agent and registrar)", "as_of": "2026-03-31"}
+  },
+  "officers": [
+    {"name": "Malik Easah", "role": "Executive Chairman", "display_order": 1, "source": "Asante Gold management change release, July 27, 2026", "as_of": "2026-07-27"},
+    {"name": "Campbell Baird", "role": "Acting Chief Executive Officer", "display_order": 2, "source": "Asante Gold website, executive team; acting CEO from May 19, 2026 (release of that date)", "as_of": "2026-10-12"},
+    {"name": "Dindiok Chialin", "role": "Interim Chief Financial Officer", "display_order": 3, "source": "Asante Gold management change release, July 27, 2026: interim CFO after David Wiens left on August 14, 2026", "as_of": "2026-08-14"},
+    {"name": "Charlotte May", "role": "Corporate Secretary", "display_order": 4, "source": "Asante Gold Corporation AIF for the period ended December 31, 2025, section 10 (directors and officers)", "as_of": "2026-03-31"}
+  ],
+  "financials": [
+    {
+      "fiscal_year": 2025, "currency": "USD",
+      "revenue": {"value": 482594000, "source": "Asante Gold audited consolidated financial statements for the 11 months ended December 31, 2025 (a short year after the change of year end), statement of loss", "as_of": "2025-12-31"},
+      "net_income": {"value": -334437000, "source": "Asante Gold audited financial statements for the 11 months ended December 31, 2025: net loss attributable to shareholders of the Company (US$347.7m including non-controlling interest)", "as_of": "2025-12-31"},
+      "eps": {"value": -0.55, "source": "Asante Gold audited financial statements for the 11 months ended December 31, 2025: basic and diluted loss per share (US$)", "as_of": "2025-12-31"},
+      "book_value": {"value": 7035000, "source": "Asante Gold audited financial statements for the 11 months ended December 31, 2025: total shareholders' equity (US$3.2m attributable to shareholders of the Company)", "as_of": "2025-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: Asante Gold AIF for the period ended December 31, 2025 (\"The Company has not paid dividends on its shares\")", "as_of": "2026-03-31"}
+    },
+    {
+      "fiscal_year": 2024, "currency": "USD",
+      "revenue": {"value": 458876000, "source": "Asante Gold audited consolidated financial statements for the year ended January 31, 2025 (fiscal year February 2024 to January 2025), statement of loss", "as_of": "2025-01-31"},
+      "net_income": {"value": -75199000, "source": "Asante Gold audited financial statements for the year ended January 31, 2025: net loss attributable to shareholders of the Company", "as_of": "2025-01-31"},
+      "eps": {"value": -0.16, "source": "Asante Gold audited financial statements for the year ended January 31, 2025: basic and diluted loss per share (US$)", "as_of": "2025-01-31"},
+      "book_value": {"value": 34844000, "source": "Asante Gold audited financial statements for the year ended January 31, 2025: total shareholders' equity", "as_of": "2025-01-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: Asante Gold AIF for the period ended December 31, 2025 (\"The Company has not paid dividends on its shares\")", "as_of": "2026-03-31"}
+    },
+    {
+      "fiscal_year": 2023, "currency": "USD",
+      "revenue": {"value": 426126000, "source": "Asante Gold audited financial statements for the year ended January 31, 2025: comparative for the year ended January 31, 2024 (fiscal year February 2023 to January 2024), as restated (note 2(d))", "as_of": "2024-01-31"},
+      "net_income": {"value": -97386000, "source": "Asante Gold audited financial statements for the year ended January 31, 2025: comparative net loss attributable to shareholders for the year ended January 31, 2024", "as_of": "2024-01-31"},
+      "eps": {"value": -0.23, "source": "Asante Gold audited financial statements for the year ended January 31, 2025: comparative basic and diluted loss per share for the year ended January 31, 2024 (US$)", "as_of": "2024-01-31"},
+      "book_value": {"value": 42528000, "source": "Asante Gold audited financial statements for the year ended January 31, 2025: total shareholders' equity at January 31, 2024 (restated)", "as_of": "2024-01-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: Asante Gold AIF for the period ended December 31, 2025 (\"The Company has not paid dividends on its shares\")", "as_of": "2026-03-31"}
+    }
+  ]
+}

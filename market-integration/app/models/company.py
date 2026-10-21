@@ -2,7 +2,7 @@
 Company information we maintain ourselves for an equity's description
 page (#55): profile, officers and annual financials. Not market data,
 and not in the instrument master; the source of truth is
-data/company_profiles.json (see app/company/).
+data/companies/, one file per company (see app/company/).
 
 Every maintained value carries where it came from and as of when: a
 Sourced value is {value, source, as_of}. A value without a source and

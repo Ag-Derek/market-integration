@@ -1,8 +1,9 @@
 import json
+import logging
 
 import pytest
 
-from app.company import SEED_PATH, load_seed
+from app.company import SEED_DIR, load_seed
 from app.company.figures import calculated_figures
 from app.company.store import CompanyStore
 from app.models.company import FINANCIAL_FIELDS, PROFILE_FIELDS, Company
@@ -50,15 +51,24 @@ USD = {"symbol": "AGA", "profile": {"shares_outstanding": sourced(500_000_000)},
 
 
 def _write(tmp_path, entries):
-    path = tmp_path / "companies.json"
-    path.write_text(json.dumps(entries), encoding="utf-8")
-    return path
+    """A fresh seed folder with one <SYMBOL>.json per entry."""
+    folder = tmp_path / "companies"
+    if folder.exists():
+        for old in folder.glob("*.json"):
+            old.unlink()
+    folder.mkdir(exist_ok=True)
+    for entry in entries:
+        (folder / f"{entry['symbol']}.json").write_text(json.dumps(entry), encoding="utf-8")
+    return folder
 
 
 # ---------------------------------------------------------------- seed
 
 def test_checked_in_seed_loads():
-    load_seed(SEED_PATH)
+    # Strict, so a bad checked-in file fails here rather than being
+    # quietly skipped at startup.
+    companies = load_seed(SEED_DIR, strict=True)
+    assert len(companies) == len(list(SEED_DIR.glob("*.json")))
 
 
 def test_seed_round_trips_through_the_store(tmp_path):
@@ -89,6 +99,7 @@ def test_reseeding_replaces_everything(tmp_path):
     ({"symbol": "MTNGH", "profile": {"ceo": sourced("x")}}, "ceo"),
     ({"symbol": "MTNGH", "officers": [{"name": "X", "role": "CEO", "display_order": 1}]}, "source"),
     ({"symbol": "MTNGH", "financials": [{"fiscal_year": 2025}, {"fiscal_year": 2025}]}, "twice"),
+    ({"symbol": "MTNGH", "profile": {"employees": sourced(10)}, "extra": 1}, "extra"),
     ({"symbol": "NOPE"}, "not in the instrument master"),
     ({"symbol": "GHGGOG069931"}, "not an equity"),
 ])
@@ -97,9 +108,30 @@ def test_bad_entries_fail_loudly(tmp_path, entry, match):
         load_seed(_write(tmp_path, [entry]))
 
 
-def test_duplicate_companies_are_rejected(tmp_path):
-    with pytest.raises(ValueError, match="duplicate"):
-        load_seed(_write(tmp_path, [PARTIAL, PARTIAL]))
+def test_file_must_be_named_after_its_symbol(tmp_path):
+    folder = _write(tmp_path, [])
+    (folder / "SCB.json").write_text(json.dumps(PARTIAL), encoding="utf-8")  # holds GCB
+    with pytest.raises(ValueError, match="must be named GCB.json"):
+        load_seed(folder)
+
+
+def test_a_file_that_is_not_one_object_is_rejected(tmp_path):
+    folder = _write(tmp_path, [])
+    (folder / "GCB.json").write_text(json.dumps([PARTIAL]), encoding="utf-8")
+    with pytest.raises(ValueError, match="one company object"):
+        load_seed(folder)
+    (folder / "GCB.json").write_text('{"symbol": "GCB",', encoding="utf-8")
+    with pytest.raises(ValueError, match="not valid JSON"):
+        load_seed(folder)
+
+
+def test_lenient_load_skips_only_the_bad_file(tmp_path, caplog):
+    bad = {"symbol": "MTNGH", "profile": {"employees": {"value": 10}}}  # no source
+    folder = _write(tmp_path, [bad, PARTIAL])
+    with caplog.at_level(logging.ERROR, logger="app.company"):
+        companies = load_seed(folder, strict=False)
+    assert list(companies) == ["GCB"]
+    assert "MTNGH.json" in caplog.text
 
 
 # ---------------------------------------------------------------- figures

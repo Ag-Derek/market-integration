@@ -1,0 +1,56 @@
+{
+  "symbol": "DIGICUT",
+  "profile": {
+    "description_short": {"value": "Accra-based advertising, events and printing company, listed on the Ghana Alternative Market; part of Groupe Nduom.", "source": "Written by us from the Digicut Production & Advertising PLC audited financial statements for 2025 (GSE PR 138/2026, report of the directors) and 2024 (shareholding note)", "as_of": "2026-04-10"},
+    "description_full": {"value": "Digicut Production & Advertising PLC provides advertising, marketing and public relations services, plans and manages events, and does printing work, including PVC ID cards, digital imaging on SAV and flex, and general printing. It operates from Avenor in Accra. The company was incorporated in December 2017 and listed on the Ghana Alternative Market in April 2018, after an IPO at 8 pesewas a share that raised about GHS 2.85 million. Groupe Nduom owns 70% of its shares and Ghana Growth Fund about 17%. It is small: revenue was GHS 0.82 million in 2025, and it has reported a loss in every year from 2020 to 2025. With retained earnings in deficit, the directors recommended no dividend for 2024 or 2025.", "source": "Written by us from the Digicut Production & Advertising PLC audited financial statements for 2025 (GSE PR 138/2026: report of the directors, nature of business; five-year summary) and 2024 (GSE PR 145/2025: five-year summary, top 20 shareholders), the GSE listed-company page (incorporation and listing dates) and Graphic Online on the IPO", "as_of": "2026-04-10"},
+    "sector": {"value": "Media", "source": "Our classification, from the nature of business in the Digicut 2025 audited financial statements (report of the directors)", "as_of": "2025-12-31"},
+    "industry": {"value": "Advertising and marketing services", "source": "Our classification, from the nature of business in the Digicut 2025 audited financial statements (report of the directors)", "as_of": "2025-12-31"},
+    "website": {"value": "http://digicutghana.com", "source": "GSE listed-company page for DIGICUT", "as_of": "2026-10-20"},
+    "headquarters_city": {"value": "Accra", "source": "Digicut 2025 audited financial statements, corporate information: registered office and principal place of business, No. 350 Nima Court Avenue, Ward E, Block 2, Avenor, Accra", "as_of": "2026-04-10"},
+    "headquarters_country": {"value": "Ghana", "source": "Digicut 2025 audited financial statements, corporate information", "as_of": "2026-04-10"},
+    "shares_outstanding": {"value": 118890621, "source": "Digicut 2024 audited financial statements (GSE PR 145/2025), note 9(a) (\"The total number of shares outstanding is 118,890,621\") and shareholding analysis; matches the GSE listed-company page (118.89 million). The same note's table shows 36,172,132 issued shares, which does not agree with the register", "as_of": "2024-12-31"},
+    "listing_date": {"value": "2018-04-11", "source": "GSE listed-company page for DIGICUT (date listed; Ghana Alternative Market)", "as_of": "2026-10-20"},
+    "registrar": {"value": "Central Securities Depository (Gh) Limited", "source": "Digicut 2025 audited financial statements, corporate information; GSE PR 138/2026 distribution list (\"CSD Registrars (Registrars for Digicut shares)\")", "as_of": "2026-04-15"}
+  },
+  "officers": [
+    {"name": "Joseph Kusi-Tieku", "role": "Chairman", "display_order": 1, "source": "GSE listed-company page for DIGICUT (Board Chairman); signs the Digicut 2025 audited financial statements for the Board on 10 April 2026", "as_of": "2026-10-20"},
+    {"name": "Credibilis Unlimited", "role": "Company Secretary", "display_order": 2, "source": "Digicut 2025 audited financial statements, corporate information", "as_of": "2026-04-10"}
+  ],
+  "financials": [
+    {
+      "fiscal_year": 2025, "currency": "GHS",
+      "revenue": {"value": 820240, "source": "Digicut 2025 audited financial statements (GSE PR 138/2026), statement of comprehensive income", "as_of": "2025-12-31"},
+      "net_income": {"value": -554589, "source": "Digicut 2025 audited financial statements (GSE PR 138/2026), statement of comprehensive income: loss after tax (loss before tax GHS 522,750 plus tax of GHS 31,839)", "as_of": "2025-12-31"},
+      "eps": {"value": -0.0047, "source": "Digicut 2025 audited financial statements (GSE PR 138/2026), statement of comprehensive income: earnings per share", "as_of": "2025-12-31"},
+      "book_value": {"value": 1691490, "source": "Digicut 2025 audited financial statements (GSE PR 138/2026), statement of changes in equity: total equity, after a GHS 41,000 prior year adjustment credited to opening retained earnings", "as_of": "2025-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: Digicut 2025 audited financial statements, report of the directors (\"Since the retained earnings is in debit, the Directors did not recommend payment of dividends\")", "as_of": "2026-04-10"}
+    },
+    {
+      "fiscal_year": 2024, "currency": "GHS",
+      "revenue": {"value": 702744, "source": "Digicut 2024 audited financial statements (GSE PR 145/2025), statement of comprehensive income", "as_of": "2024-12-31"},
+      "net_income": {"value": -351130, "source": "Digicut 2024 audited financial statements (GSE PR 145/2025), statement of comprehensive income: loss after tax", "as_of": "2024-12-31"},
+      "eps": {"value": -0.0030, "source": "Digicut 2024 audited financial statements (GSE PR 145/2025), statement of comprehensive income: earnings per share", "as_of": "2024-12-31"},
+      "book_value": {"value": 2205079, "source": "Digicut 2025 audited financial statements (GSE PR 138/2026), statement of changes in equity, 2024 closing total equity", "as_of": "2024-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: Digicut 2024 audited financial statements, report of the directors (\"Since the retained earnings is in debit, the Directors did not recommend payment of dividends\")", "as_of": "2025-04-15"}
+    },
+    {
+      "fiscal_year": 2023, "currency": "GHS",
+      "revenue": {"value": 433042, "source": "Digicut 2024 audited financial statements (GSE PR 145/2025), statement of comprehensive income, 2023 comparative", "as_of": "2023-12-31"},
+      "net_income": {"value": -78170, "source": "Digicut 2024 audited financial statements (GSE PR 145/2025), statement of comprehensive income, 2023 comparative loss after tax", "as_of": "2023-12-31"},
+      "eps": {"value": -0.0007, "source": "Digicut 2024 audited financial statements (GSE PR 145/2025), 2023 comparative earnings per share", "as_of": "2023-12-31"},
+      "book_value": {"value": 2556208, "source": "Digicut 2024 audited financial statements (GSE PR 145/2025), statement of changes in equity, 2023 closing total equity", "as_of": "2023-12-31"}
+    },
+    {
+      "fiscal_year": 2022, "currency": "GHS",
+      "revenue": {"value": 254160, "source": "Digicut 2025 audited financial statements (GSE PR 138/2026), five-year financial summary", "as_of": "2022-12-31"},
+      "net_income": {"value": -100672, "source": "Digicut 2025 audited financial statements (GSE PR 138/2026), five-year financial summary: loss after tax", "as_of": "2022-12-31"},
+      "book_value": {"value": 2634378, "source": "Digicut 2025 audited financial statements (GSE PR 138/2026), five-year financial summary: total equity", "as_of": "2022-12-31"}
+    },
+    {
+      "fiscal_year": 2021, "currency": "GHS",
+      "revenue": {"value": 183701, "source": "Digicut 2025 audited financial statements (GSE PR 138/2026), five-year financial summary", "as_of": "2021-12-31"},
+      "net_income": {"value": -170507, "source": "Digicut 2025 audited financial statements (GSE PR 138/2026), five-year financial summary: loss after tax", "as_of": "2021-12-31"},
+      "book_value": {"value": 2735049, "source": "Digicut 2025 audited financial statements (GSE PR 138/2026), five-year financial summary: total equity", "as_of": "2021-12-31"}
+    }
+  ]
+}

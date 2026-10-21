@@ -1,9 +1,14 @@
 # Company profile seed data: sources and conventions
 
-`data/company_profiles.json` holds the company information behind
-`GET /instruments/{symbol}/description` (format: `app/company/__init__.py`).
+`data/companies/` holds the company information behind
+`GET /instruments/{symbol}/description`, one file per company named after
+its symbol (`data/companies/EGH.json`; format: `app/company/__init__.py`).
 Every value carries its own `source` and `as_of`; this page records the
 conventions behind them and what is still missing.
+
+To add a company, add its file. The tests load every file strictly and
+fail on a bad one. At startup a bad file is logged and skipped, so only
+that company's description goes blank.
 
 ## Coverage
 

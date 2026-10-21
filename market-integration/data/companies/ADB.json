@@ -1,0 +1,62 @@
+{
+  "symbol": "ADB",
+  "profile": {
+    "description_short": {"value": "State-controlled Ghanaian universal bank offering corporate and retail banking, with an emphasis on agriculture.", "source": "Written by us from the Agricultural Development Bank PLC 2024 Annual Report (report of the directors, nature of business, p. 11)", "as_of": "2025-08-15"},
+    "description_full": {"value": "Agricultural Development Bank PLC (ADB) holds a universal banking licence in Ghana. Its principal activities are corporate and retail banking, and it aims to serve local and international clients with an emphasis on agriculture. It had 89 branches and agencies at the end of 2024. The bank has been listed on the Ghana Stock Exchange since December 2016. The Government of Ghana holds about 84% of its shares and Financial Investment Trust about 13%. After losses in 2022 and 2023 left its equity negative, ADB was recapitalised through a GHS 1.5 billion rights issue in 2024 and a further GHS 850 million deposit for shares in 2025, and returned to profit.", "source": "Written by us from the Agricultural Development Bank PLC 2024 Annual Report (pp. 11-12: nature of business, five-year highlights, shareholding), FY2025 summary financial statements (recapitalisation note) and the GSE listed-company page", "as_of": "2026-03-26"},
+    "sector": {"value": "Banking", "source": "Our classification, from the general information note in the ADB FY2025 summary financial statements", "as_of": "2025-12-31"},
+    "industry": {"value": "Commercial banking", "source": "Our classification, from the nature of business in the ADB 2024 Annual Report (corporate and retail banking)", "as_of": "2024-12-31"},
+    "website": {"value": "https://www.agricbank.com", "source": "GSE listed-company page for ADB; ADB 2024 Annual Report", "as_of": "2026-10-12"},
+    "headquarters_city": {"value": "Accra", "source": "ADB FY2025 summary financial statements, general information note: Accra Financial Centre, 3rd Ambassadorial Development Area, Accra", "as_of": "2025-12-31"},
+    "headquarters_country": {"value": "Ghana", "source": "ADB FY2025 summary financial statements, general information note", "as_of": "2025-12-31"},
+    "employees": {"value": 1470, "source": "ADB 2024 Annual Report, five-year financial highlights (p. 11)", "as_of": "2024-12-31"},
+    "shares_outstanding": {"value": 1652681994, "source": "ADB 2024 Annual Report, shareholding (p. 12): 346,952,253 shares plus 1,305,729,741 from the 2024 rights issue (GSE PR 301/2024). The GHS 850m deposit for shares received in 2025 was not yet registered as shares at 31 December 2025 (FY2025 summary financial statements)", "as_of": "2025-12-31"},
+    "listing_date": {"value": "2016-12-12", "source": "GSE listed-company page for ADB", "as_of": "2026-10-12"},
+    "registrar": {"value": "Central Securities Depository (Gh) Limited", "source": "ADB 2024 Annual Report, corporate information (p. 2)", "as_of": "2025-08-15"}
+  },
+  "officers": [
+    {"name": "Kenneth Kwamina Thompson", "role": "Chairman", "display_order": 1, "source": "ADB 2024 Annual Report, directors (p. 8): Board Chairman, appointed 9 July 2025", "as_of": "2025-08-15"},
+    {"name": "Edward Ato Sarpong", "role": "Managing Director", "display_order": 2, "source": "ADB FY2025 summary financial statements, approval of the financial statements", "as_of": "2026-03-26"},
+    {"name": "Alberta Frimpong-Manso", "role": "Acting Chief Finance Officer", "display_order": 3, "source": "ADB 2024 Annual Report, management team (p. 42)", "as_of": "2025-08-15"},
+    {"name": "Godwyll Ansah", "role": "Company Secretary", "display_order": 4, "source": "ADB 2024 Annual Report, corporate information (p. 2)", "as_of": "2025-08-15"}
+  ],
+  "financials": [
+    {
+      "fiscal_year": 2025, "currency": "GHS",
+      "revenue": {"value": 1745410000, "source": "ADB FY2025 summary financial statements, statement of comprehensive income (operating income)", "as_of": "2025-12-31"},
+      "net_income": {"value": 367291000, "source": "ADB FY2025 summary financial statements, statement of comprehensive income (profit after tax)", "as_of": "2025-12-31"},
+      "eps": {"value": 0.22, "source": "ADB FY2025 summary financial statements, basic EPS (labelled pesewas, but GHS: 367.3m over 1,652.7m shares)", "as_of": "2025-12-31"},
+      "book_value": {"value": 2477839000, "source": "ADB FY2025 summary financial statements, statement of financial position (total equity)", "as_of": "2025-12-31"}
+    },
+    {
+      "fiscal_year": 2024, "currency": "GHS",
+      "revenue": {"value": 1004751000, "source": "ADB FY2024 summary financial statements, statement of comprehensive income (operating income)", "as_of": "2024-12-31"},
+      "net_income": {"value": 35061000, "source": "ADB FY2024 summary financial statements, statement of comprehensive income (profit after tax)", "as_of": "2024-12-31"},
+      "eps": {"value": 0.02, "source": "ADB FY2024 summary financial statements, basic EPS (labelled pesewas, but GHS: 35.1m over 1,652.7m shares)", "as_of": "2024-12-31"},
+      "book_value": {"value": 1278045000, "source": "ADB FY2024 summary financial statements, statement of financial position (total equity)", "as_of": "2024-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: ADB 2024 Annual Report, report of the directors (p. 11), \"The directors do not recommend the payment of dividend\"", "as_of": "2025-08-15"}
+    },
+    {
+      "fiscal_year": 2023, "currency": "GHS",
+      "revenue": {"value": 662428000, "source": "ADB FY2024 summary financial statements, 2023 comparative operating income (as re-presented; the 2023 Annual Report shows GHS 667.2m)", "as_of": "2023-12-31"},
+      "net_income": {"value": -828820000, "source": "ADB 2023 Annual Report, statement of profit or loss (p. 44), loss after tax", "as_of": "2023-12-31"},
+      "eps": {"value": -2.3889, "source": "ADB 2023 Annual Report, statement of comprehensive income (p. 45), basic loss per share (238.89 pesewas)", "as_of": "2023-12-31"},
+      "book_value": {"value": -102296000, "source": "ADB FY2024 summary financial statements, 2023 comparative total equity (negative)", "as_of": "2023-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: ADB 2023 Annual Report, report of the directors (p. 10), \"The directors do not recommend the payment of dividend\"", "as_of": "2024-06-28"}
+    },
+    {
+      "fiscal_year": 2022, "currency": "GHS",
+      "revenue": {"value": 647696000, "source": "ADB 2023 Annual Report, statement of profit or loss (p. 44), 2022 comparative operating income", "as_of": "2022-12-31"},
+      "net_income": {"value": -371280000, "source": "ADB 2023 Annual Report, statement of profit or loss (p. 44), 2022 comparative loss after tax", "as_of": "2022-12-31"},
+      "eps": {"value": -1.0701, "source": "ADB 2023 Annual Report, statement of comprehensive income (p. 45), 2022 basic loss per share (107.01 pesewas)", "as_of": "2022-12-31"},
+      "book_value": {"value": 658191000, "source": "ADB 2023 Annual Report, five-year financial highlights (p. 10), shareholders' equity", "as_of": "2022-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: the value added statement in the ADB 2023 Annual Report (appendix I, p. 108) shows no dividends to shareholders in 2023", "as_of": "2023-12-31"}
+    },
+    {
+      "fiscal_year": 2021, "currency": "GHS",
+      "net_income": {"value": 81602000, "source": "ADB 2023 Annual Report, five-year financial highlights (p. 10), profit after tax", "as_of": "2021-12-31"},
+      "eps": {"value": 0.2352, "source": "ADB 2023 Annual Report, five-year financial highlights (p. 10), basic EPS (23.52 pesewas)", "as_of": "2021-12-31"},
+      "book_value": {"value": 938255000, "source": "ADB 2023 Annual Report, five-year financial highlights (p. 10), shareholders' equity", "as_of": "2021-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: the value added statement in the ADB 2023 Annual Report (appendix I, p. 108) shows no dividends to shareholders in 2022", "as_of": "2022-12-31"}
+    }
+  ]
+}

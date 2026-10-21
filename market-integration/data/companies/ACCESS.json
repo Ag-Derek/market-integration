@@ -1,0 +1,59 @@
+{
+  "symbol": "ACCESS",
+  "profile": {
+    "description_short": {"value": "Ghanaian universal bank providing corporate and retail banking; a subsidiary of Nigeria's Access Bank Plc.", "source": "Written by us from the Access Bank (Ghana) Plc 2025 Annual Report (reporting entity note)", "as_of": "2025-12-31"},
+    "description_full": {"value": "Access Bank (Ghana) Plc holds a universal banking licence from the Bank of Ghana. Its principal activity is corporate and retail banking. It was incorporated in Ghana in July 2008 and has been listed on the Ghana Stock Exchange since December 2016. Its parent, Access Bank Plc of Nigeria, held 93.4% of its shares at the end of 2025, with the bank's staff share scheme holding a further 2.6%.", "source": "Written by us from the Access Bank (Ghana) Plc 2025 Annual Report (reporting entity note; shareholder information) and the GSE listed-company page (incorporation and listing dates)", "as_of": "2025-12-31"},
+    "sector": {"value": "Banking", "source": "Our classification, from the reporting entity note in the Access Bank (Ghana) Plc 2025 Annual Report", "as_of": "2025-12-31"},
+    "industry": {"value": "Commercial banking", "source": "Our classification, from the reporting entity note in the Access Bank (Ghana) Plc 2025 Annual Report (corporate and retail banking)", "as_of": "2025-12-31"},
+    "website": {"value": "https://www.ghana.accessbankplc.com", "source": "GSE listed-company page for ACCESS", "as_of": "2026-10-12"},
+    "headquarters_city": {"value": "Accra", "source": "Access Bank (Ghana) Plc 2025 Annual Report, corporate information: Starlets '91 Road, opposite Accra Sports Stadium, Osu, Accra", "as_of": "2025-12-31"},
+    "headquarters_country": {"value": "Ghana", "source": "Access Bank (Ghana) Plc 2025 Annual Report, reporting entity note", "as_of": "2025-12-31"},
+    "shares_outstanding": {"value": 173947596, "source": "Access Bank (Ghana) Plc 2025 Annual Report, note 28 (capital and reserves) and shareholder information. The GSE listed-company page still shows 118,093,134", "as_of": "2025-12-31"},
+    "listing_date": {"value": "2016-12-21", "source": "GSE listed-company page for ACCESS", "as_of": "2026-10-12"},
+    "registrar": {"value": "Central Securities Depository (Gh) Limited", "source": "Access Bank (Ghana) Plc 2024 Annual Report, notice of the 17th AGM (p. 157)", "as_of": "2025-05-29"}
+  },
+  "officers": [
+    {"name": "Ama Sarpong Bawuah", "role": "Chairperson", "display_order": 1, "source": "Access Bank (Ghana) Plc 2025 Annual Report, corporate information", "as_of": "2025-12-31"},
+    {"name": "Pearl Nkrumah", "role": "Managing Director", "display_order": 2, "source": "Access Bank (Ghana) Plc 2025 Annual Report, board of directors: Managing Director from 1 October 2025", "as_of": "2025-12-31"},
+    {"name": "Akosua Biama Aboagye", "role": "Chief Finance Officer", "display_order": 3, "source": "Access Bank (Ghana) Plc 2025 Annual Report, management team", "as_of": "2025-12-31"},
+    {"name": "Helen De Cardi Nelson", "role": "Company Secretary", "display_order": 4, "source": "Access Bank (Ghana) Plc 2025 Annual Report, corporate information", "as_of": "2025-12-31"}
+  ],
+  "financials": [
+    {
+      "fiscal_year": 2025, "currency": "GHS",
+      "revenue": {"value": 1462579000, "source": "Access Bank (Ghana) Plc 2025 Annual Report, financial highlights (net operating income)", "as_of": "2025-12-31"},
+      "net_income": {"value": 286469000, "source": "Access Bank (Ghana) Plc 2025 Annual Report, financial highlights (profit after income tax)", "as_of": "2025-12-31"},
+      "eps": {"value": 1.65, "source": "Access Bank (Ghana) Plc 2025 Annual Report, note 15: basic EPS (165 pesewas)", "as_of": "2025-12-31"},
+      "book_value": {"value": 2044432000, "source": "Access Bank (Ghana) Plc 2025 Annual Report, statement of financial position (total equity)", "as_of": "2025-12-31"},
+      "dividend_per_share": {"value": 0.6241, "source": "Access Bank (Ghana) Plc 2025 Annual Report, note 29: recommended by the Board (GHS 108.55m), to be tabled at the AGM subject to Bank of Ghana approval", "as_of": "2026-04-30"}
+    },
+    {
+      "fiscal_year": 2024, "currency": "GHS",
+      "revenue": {"value": 1967987000, "source": "Access Bank (Ghana) Plc 2025 Annual Report, financial highlights (2024 net operating income)", "as_of": "2024-12-31"},
+      "net_income": {"value": 536912000, "source": "Access Bank (Ghana) Plc 2025 Annual Report, financial highlights (2024 profit after income tax)", "as_of": "2024-12-31"},
+      "eps": {"value": 3.09, "source": "Access Bank (Ghana) Plc 2025 Annual Report, note 15: 2024 basic EPS (309 pesewas)", "as_of": "2024-12-31"},
+      "book_value": {"value": 1757721000, "source": "Access Bank (Ghana) Plc 2025 Annual Report, statement of financial position (2024 total equity)", "as_of": "2024-12-31"},
+      "dividend_per_share": {"value": 0.3645, "source": "Access Bank (Ghana) Plc 2025 Annual Report, note 29 and statement of changes in equity: GHS 63.4m paid in 2025. The Board had recommended GHS 0.8890 in the 2024 Annual Report (note 29)", "as_of": "2025-12-31"}
+    },
+    {
+      "fiscal_year": 2023, "currency": "GHS",
+      "revenue": {"value": 1613156000, "source": "Access Bank (Ghana) Plc 2024 Annual Report, financial highlights (2023 net operating income)", "as_of": "2023-12-31"},
+      "net_income": {"value": 618465000, "source": "Access Bank (Ghana) Plc 2025 Annual Report, five-year financial summary", "as_of": "2023-12-31"},
+      "eps": {"value": 3.56, "source": "Access Bank (Ghana) Plc 2025 Annual Report, five-year financial summary: basic EPS (356 pesewas)", "as_of": "2023-12-31"},
+      "book_value": {"value": 1402737000, "source": "Access Bank (Ghana) Plc 2025 Annual Report, five-year financial summary (total equity)", "as_of": "2023-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: Access Bank (Ghana) Plc 2024 Annual Report, note 29 (\"2023: Nil\")", "as_of": "2024-12-31"}
+    },
+    {
+      "fiscal_year": 2022, "currency": "GHS",
+      "net_income": {"value": -338135000, "source": "Access Bank (Ghana) Plc 2025 Annual Report, five-year financial summary (loss for the period)", "as_of": "2022-12-31"},
+      "eps": {"value": -1.94, "source": "Access Bank (Ghana) Plc 2025 Annual Report, five-year financial summary: basic EPS (-194 pesewas)", "as_of": "2022-12-31"},
+      "book_value": {"value": 1014203000, "source": "Access Bank (Ghana) Plc 2025 Annual Report, five-year financial summary (total equity)", "as_of": "2022-12-31"}
+    },
+    {
+      "fiscal_year": 2021, "currency": "GHS",
+      "net_income": {"value": 321578000, "source": "Access Bank (Ghana) Plc 2025 Annual Report, five-year financial summary", "as_of": "2021-12-31"},
+      "eps": {"value": 1.85, "source": "Access Bank (Ghana) Plc 2025 Annual Report, five-year financial summary: basic EPS (185 pesewas)", "as_of": "2021-12-31"},
+      "book_value": {"value": 1362569000, "source": "Access Bank (Ghana) Plc 2025 Annual Report, five-year financial summary (total equity)", "as_of": "2021-12-31"}
+    }
+  ]
+}

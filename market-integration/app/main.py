@@ -269,7 +269,7 @@ instrument_store = InstrumentStore(config.DB_PATH)
 # The search bar's index, over the same instruments the store is seeded with.
 instrument_search = InstrumentSearch(INSTRUMENTS.values())
 # Company profiles, officers and financials for description pages;
-# re-seeded from data/company_profiles.json on every startup.
+# re-seeded from data/companies/ (one file per company) on every startup.
 company_store = CompanyStore(config.DB_PATH)
 # Each user's pinned equities (#26). User data: kept across restarts,
 # never re-seeded.

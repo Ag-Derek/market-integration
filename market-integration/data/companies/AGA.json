@@ -1,0 +1,62 @@
+{
+  "symbol": "AGA",
+  "profile": {
+    "description_short": {"value": "Global gold miner with ten operations in eight countries, including the Obuasi and Iduapriem mines in Ghana; incorporated in England and Wales.", "source": "Written by us from the AngloGold Ashanti plc Form 20-F for the year ended 31 December 2025", "as_of": "2026-03-26"},
+    "description_full": {"value": "AngloGold Ashanti plc mines gold. It has ten continuing mining operations in eight countries across Africa, the Americas and Australia. In Africa these include the Obuasi and Iduapriem mines in Ghana, Siguiri in Guinea, Geita in Tanzania, Sukari in Egypt (added with the acquisition of Centamin in November 2024) and an interest in Kibali in the Democratic Republic of the Congo, which Barrick operates. The group was formed in 2004 by the merger of AngloGold and Ashanti Goldfields. In September 2023 it moved its domicile from South Africa to the United Kingdom. It is incorporated in England and Wales, with its registered office in London and its global headquarters in Greenwood Village, Colorado. Its primary listing is on the New York Stock Exchange (AU), with secondary listings on the Johannesburg Stock Exchange and A2X (ANG) and the Ghana Stock Exchange. On the GSE the plc's ordinary shares (AGA) and Ghanaian Depositary Shares (AAD, 100 to one share) began trading on 26 September 2023. It reports in US dollars and has paid quarterly dividends since 2025.", "source": "Written by us from the AngloGold Ashanti plc Form 20-F for 2025 (operations, ordinary shares outstanding), the 2025 annual report corporate directory, the company's Africa portfolio page, the 26 September 2023 release on the NYSE primary listing and GhSE trading, and the company dividends page", "as_of": "2026-03-26"},
+    "sector": {"value": "Mining", "source": "Our classification, from the AngloGold Ashanti plc Form 20-F for 2025", "as_of": "2025-12-31"},
+    "industry": {"value": "Gold mining", "source": "Our classification, from the AngloGold Ashanti plc Form 20-F for 2025", "as_of": "2025-12-31"},
+    "website": {"value": "https://www.anglogoldashanti.com", "source": "AngloGold Ashanti 2025 annual report, corporate directory and contacts", "as_of": "2026-03-26"},
+    "headquarters_city": {"value": "Greenwood Village", "source": "AngloGold Ashanti 2025 annual report, corporate directory: global headquarters, 6363 S. Fiddlers Green Circle, Suite 1000, Greenwood Village, CO 80111 (registered office: Third Floor, Hobhouse Court, Suffolk Street, London)", "as_of": "2026-03-26"},
+    "headquarters_country": {"value": "United States", "source": "AngloGold Ashanti 2025 annual report, corporate directory; Form 20-F for 2025 cover page (business address)", "as_of": "2026-03-26"},
+    "shares_outstanding": {"value": 505007465, "source": "AngloGold Ashanti plc Form 20-F for the year ended 31 December 2025, cover page: ordinary shares of US$1.00 each outstanding", "as_of": "2025-12-31"},
+    "listing_date": {"value": "2023-09-26", "source": "AngloGold Ashanti release of 26 September 2023 (GSE PR 349/2023): AngloGold Ashanti plc ordinary shares began trading on the GhSE on 26 September 2023 after the redomicile; the predecessor AngloGold Ashanti Limited had been listed on the GSE since the 2004 merger", "as_of": "2023-09-26"},
+    "registrar": {"value": "Central Securities Depository (Gh) Limited", "source": "AngloGold Ashanti 2025 annual report, corporate directory: Ghana share registrar (NTHC Limited is the depositary for the Ghanaian Depositary Shares)", "as_of": "2026-03-26"}
+  },
+  "officers": [
+    {"name": "Jochen Tilk", "role": "Chairman", "display_order": 1, "source": "AngloGold Ashanti 6-K of 25 September 2026 (appointment of a non-executive director): \"AngloGold Ashanti plc Chair, Jochen Tilk\"", "as_of": "2026-09-25"},
+    {"name": "Alberto Calderon", "role": "Chief Executive Officer", "display_order": 2, "source": "AngloGold Ashanti 2025 annual report, corporate directory; CEO comment in the Q2 2026 earnings release of 31 July 2026", "as_of": "2026-07-31"},
+    {"name": "Gillian Doran", "role": "Chief Financial Officer", "display_order": 3, "source": "AngloGold Ashanti 2025 annual report, corporate directory (GA Doran, Chief Financial Officer); Form 20-F for 2025 cover page contact", "as_of": "2026-03-26"},
+    {"name": "Catherine Stead", "role": "Company Secretary", "display_order": 4, "source": "AngloGold Ashanti 2025 annual report, corporate directory (C Stead) and company contact page; signs the 6-K of 25 September 2026 as Company Secretary", "as_of": "2026-09-25"}
+  ],
+  "financials": [
+    {
+      "fiscal_year": 2025, "currency": "USD",
+      "revenue": {"value": 9893000000, "source": "AngloGold Ashanti plc Form 20-F for 2025, group income statement (revenue from product sales)", "as_of": "2025-12-31"},
+      "net_income": {"value": 2636000000, "source": "AngloGold Ashanti plc Form 20-F for 2025, group income statement: profit attributable to equity shareholders (US$3,174m including non-controlling interests)", "as_of": "2025-12-31"},
+      "eps": {"value": 5.19, "source": "AngloGold Ashanti plc Form 20-F for 2025, group income statement: basic EPS (US$)", "as_of": "2025-12-31"},
+      "book_value": {"value": 9916000000, "source": "AngloGold Ashanti plc Form 20-F for 2025, group statement of financial position: total equity (US$8,091m attributable to equity shareholders; the rest is non-controlling interests, mainly at Sukari)", "as_of": "2025-12-31"},
+      "dividend_per_share": {"value": 3.565, "source": "AngloGold Ashanti dividends page: quarterly interims of 12.5, 80, 91 and 173 US cents for the quarters of 2025 (the Q4 2025 release of 19 February 2026 rounds the total to 357 cents)", "as_of": "2026-02-19"},
+      "dividend_payment_dates": {"value": ["2025-06-13", "2025-09-05", "2025-12-12", "2026-03-27"], "source": "AngloGold Ashanti dividends page (payment dates)", "as_of": "2026-02-19"}
+    },
+    {
+      "fiscal_year": 2024, "currency": "USD",
+      "revenue": {"value": 5793000000, "source": "AngloGold Ashanti plc Form 20-F for 2025, group income statement, 2024 comparative (revenue from product sales)", "as_of": "2024-12-31"},
+      "net_income": {"value": 1004000000, "source": "AngloGold Ashanti plc Form 20-F for 2025, group income statement, 2024 comparative: profit attributable to equity shareholders", "as_of": "2024-12-31"},
+      "eps": {"value": 2.33, "source": "AngloGold Ashanti plc Form 20-F for 2025, 2024 comparative basic EPS (US$)", "as_of": "2024-12-31"},
+      "book_value": {"value": 8513000000, "source": "AngloGold Ashanti plc Form 20-F for 2025, group statement of financial position, 2024 total equity (US$6,629m attributable to equity shareholders)", "as_of": "2024-12-31"},
+      "dividend_per_share": {"value": 0.91, "source": "AngloGold Ashanti dividends page: interim 22 US cents (six months to 30 June 2024) plus final 69 US cents (six months to 31 December 2024, declared 19 February 2025)", "as_of": "2025-02-19"},
+      "dividend_payment_dates": {"value": ["2024-09-13", "2025-03-28"], "source": "AngloGold Ashanti dividends page (payment dates)", "as_of": "2025-02-19"}
+    },
+    {
+      "fiscal_year": 2023, "currency": "USD",
+      "revenue": {"value": 4582000000, "source": "AngloGold Ashanti plc Form 20-F for 2025, group income statement, 2023 comparative (revenue from product sales)", "as_of": "2023-12-31"},
+      "net_income": {"value": -235000000, "source": "AngloGold Ashanti plc Form 20-F for 2025, group income statement, 2023 comparative: loss attributable to equity shareholders", "as_of": "2023-12-31"},
+      "eps": {"value": -0.56, "source": "AngloGold Ashanti plc Form 20-F for 2025, 2023 comparative basic loss per share (US$)", "as_of": "2023-12-31"},
+      "book_value": {"value": 3740000000, "source": "AngloGold Ashanti plc Form 20-F for 2025, 2023 total equity (US$3,711m attributable to equity shareholders)", "as_of": "2023-12-31"}
+    },
+    {
+      "fiscal_year": 2022, "currency": "USD",
+      "revenue": {"value": 4501000000, "source": "AngloGold Ashanti plc Form 20-F for 2023, group income statement, 2022 comparative (revenue from product sales, restated)", "as_of": "2022-12-31"},
+      "net_income": {"value": 233000000, "source": "AngloGold Ashanti plc Form 20-F for 2023, group income statement, 2022 comparative: profit attributable to equity shareholders (restated)", "as_of": "2022-12-31"},
+      "eps": {"value": 0.55, "source": "AngloGold Ashanti plc Form 20-F for 2023, 2022 comparative basic EPS (US$, restated)", "as_of": "2022-12-31"},
+      "book_value": {"value": 4075000000, "source": "AngloGold Ashanti plc Form 20-F for 2025, 2022 total equity (US$4,040m attributable to equity shareholders)", "as_of": "2022-12-31"}
+    },
+    {
+      "fiscal_year": 2021, "currency": "USD",
+      "revenue": {"value": 4029000000, "source": "AngloGold Ashanti plc Form 20-F for 2023, group income statement, 2021 comparative (revenue from product sales, restated)", "as_of": "2021-12-31"},
+      "net_income": {"value": 614000000, "source": "AngloGold Ashanti plc Form 20-F for 2023, group income statement, 2021 comparative: profit attributable to equity shareholders (restated)", "as_of": "2021-12-31"},
+      "eps": {"value": 1.46, "source": "AngloGold Ashanti plc Form 20-F for 2023, 2021 comparative basic EPS (US$, restated)", "as_of": "2021-12-31"},
+      "book_value": {"value": 4101000000, "source": "AngloGold Ashanti plc Form 20-F for 2024, 2021 total equity (US$4,047m attributable to equity shareholders)", "as_of": "2021-12-31"}
+    }
+  ]
+}
