@@ -1,0 +1,15 @@
+{
+  "symbol": "TOTAL",
+  "profile": {
+    "description_short": {"value": "Ghanaian marketer of petroleum and allied products, about three-quarters owned by the TotalEnergies group.", "source": "Written by us from the TotalEnergies Marketing Ghana PLC 2024 annual report and financial statements (GSE PR 104/2025, report of the directors and appendix 1)", "as_of": "2024-12-31"},
+    "description_full": {"value": "TotalEnergies Marketing Ghana PLC markets and sells petroleum and allied products in Ghana. It is a subsidiary of TotalEnergies Marketing Afrique of France, and its ultimate parent is TotalEnergies SE. At the end of 2024 two TotalEnergies group companies held 76.74% of its shares between them. The company owns 55% of Ghanstock Limited, which builds and runs petroleum storage, and holds stakes in Ghana Bunkering Services (48.5%) and Road Safety Limited (50%), which trains drivers of petroleum haulage vehicles. Incorporated in 1951, it has been listed on the Ghana Stock Exchange since 19 July 1991. It was previously Total Petroleum Ghana, and its head office is Total House on Liberia Road, Accra.", "source": "Written by us from the TotalEnergies Marketing Ghana PLC 2024 annual report (GSE PR 104/2025: corporate information; report of the directors, principal activities, holding, subsidiary and associate companies; appendix 1, twenty largest shareholders: TotalEnergies Marketing Afrique 43.62% and TotalEnergies Marketing African 33.12%) and the GSE listed-company page for TOTAL (incorporation and listing dates, former name)", "as_of": "2026-10-21"},
+    "sector": {"value": "Energy", "source": "Our classification, from the principal activities in the TotalEnergies Marketing Ghana PLC 2024 annual report", "as_of": "2024-12-31"},
+    "industry": {"value": "Petroleum products marketing", "source": "Our classification, from the principal activities in the TotalEnergies Marketing Ghana PLC 2024 annual report", "as_of": "2024-12-31"},
+    "website": {"value": "https://totalenergies.com.gh/", "source": "Checked live; the GSE listed-company page's www.gh.totalenergies.com does not load", "as_of": "2026-10-21"},
+    "headquarters_city": {"value": "Accra", "source": "TotalEnergies Marketing Ghana PLC 2024 annual report, corporate information: registered office, Total House, 25 Liberia Road, Accra", "as_of": "2024-12-31"},
+    "headquarters_country": {"value": "Ghana", "source": "TotalEnergies Marketing Ghana PLC 2024 annual report, note 1 (reporting entity)", "as_of": "2024-12-31"},
+    "shares_outstanding": {"value": 111874072, "source": "TotalEnergies Marketing Ghana PLC 2024 annual report, appendix 1 (shares in issue); matches the GSE listed-company page", "as_of": "2024-12-31"},
+    "listing_date": {"value": "1991-07-19", "source": "GSE listed-company page for TOTAL (date listed 19th July, 1991)", "as_of": "2026-10-21"},
+    "registrar": {"value": "Universal Merchant Bank Limited", "source": "TotalEnergies Marketing Ghana PLC 2024 annual report, corporate information", "as_of": "2024-12-31"}
+  }
+}

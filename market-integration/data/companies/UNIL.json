@@ -1,0 +1,13 @@
+{
+  "symbol": "UNIL",
+  "profile": {
+    "description_short": {"value": "Makes and markets home care, personal care and food products in Ghana; about three-quarters owned by the Unilever group.", "source": "Written by us from the Unilever Ghana PLC 2023 Annual Report (GSE PR 136/2024, report of the directors)", "as_of": "2023-12-31"},
+    "description_full": {"value": "Unilever Ghana PLC manufactures and markets fast-moving consumer goods, mainly in home care, personal care and foods. Its factory and head office are in the Heavy Industrial Area of Tema. The Unilever group owns 74.5% of the company through Unilever Overseas Holding Limited (50.5%) and UAC International Limited (24%), and its ultimate parent is Unilever PLC of the United Kingdom; the remaining 25.5% is held by the public. Its four subsidiaries were dormant and being dissolved at the end of 2023. The company has been listed on the Ghana Stock Exchange since 12 November 1990.", "source": "Written by us from the Unilever Ghana PLC 2023 Annual Report (GSE PR 136/2024: corporate governance, legal structure; report of the directors, nature of business, holding company and subsidiaries) and the GSE listed-company page for UNIL (registered office, date listed)", "as_of": "2026-10-21"},
+    "sector": {"value": "Consumer Goods", "source": "Our classification, from the nature of business in the Unilever Ghana PLC 2023 Annual Report", "as_of": "2023-12-31"},
+    "industry": {"value": "Household and personal care products", "source": "Our classification, from the nature of business in the Unilever Ghana PLC 2023 Annual Report (home care, personal care and foods)", "as_of": "2023-12-31"},
+    "website": {"value": "https://www.unilever-ewa.com", "source": "Unilever Ghana PLC 2023 Annual Report, contact details", "as_of": "2023-12-31"},
+    "headquarters_city": {"value": "Tema", "source": "GSE listed-company page for UNIL: registered office, Tema Factory, Heavy Industrial Area, Tema; Unilever Ghana PLC 2023 Annual Report (head office and factory, Tema)", "as_of": "2026-10-21"},
+    "headquarters_country": {"value": "Ghana", "source": "Unilever Ghana PLC 2023 Annual Report", "as_of": "2023-12-31"},
+    "listing_date": {"value": "1990-11-12", "source": "GSE listed-company page for UNIL (date listed 12/11/1990)", "as_of": "2026-10-21"}
+  }
+}

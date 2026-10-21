@@ -12,8 +12,26 @@ that company's description goes blank.
 
 ## Coverage
 
-Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**. Every other listed equity has no entry
-yet and is served as all-null.
+Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**.
+
+Basic profiles only (description, classification, website, headquarters,
+listing date; no officers or financials yet): **SCB**, **SOGEGH**, **GOIL**,
+**TOTAL**, **UNIL**, **FML**.
+
+Every other listed equity has no file yet. Its API fields are all null,
+and the description page shows a one-line summary from the instrument
+master (name, board, sector) instead.
+
+Notes on the basic profiles:
+
+- **The GSE listed-company pages are partly out of date** (old company
+  names, dead websites, stale share counts). They are used for listing
+  dates and registered offices; websites were checked live.
+- **FML** is described from its 2022 annual report: the 2023 and 2024
+  reports on gse.com.gh are scanned images with no readable text. Its
+  ownership (Fan Milk International A/S, 62.11%) is as at end-2022.
+- **SCB** and **UNIL** are described from their 2023 annual reports, the
+  latest full reports on gse.com.gh.
 
 ## Conventions
 

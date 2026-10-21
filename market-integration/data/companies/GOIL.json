@@ -1,0 +1,13 @@
+{
+  "symbol": "GOIL",
+  "profile": {
+    "description_short": {"value": "Ghanaian marketer of petroleum and other energy products, with bulk import, bitumen and payments subsidiaries; about a third owned by the state.", "source": "Written by us from the GOIL PLC 2025 Annual Report and Consolidated Financial Statements (GSE PR 181/2026, report of the directors)", "as_of": "2025-12-31"},
+    "description_full": {"value": "GOIL PLC markets petroleum and other energy products and services in Ghana. It wholly owns four subsidiaries: Goenergy Limited, a bulk importer, storer, distributor and trader of petroleum products; GOIL Upstream Limited, which works in oil and gas operations and offers consultancy across West Africa; Gobitumen Limited, which produces and sells bitumen products; and Go Financial Services Limited, licensed for electronic payments and money transfers. It also holds 60% of African Bitumen Terminal Limited, a bitumen joint venture with Societe Multinationale De Bitumes of Cote d'Ivoire. The Government of Ghana owns 34.23% of the company and private investors the rest. GOIL has been listed on the Ghana Stock Exchange since 16 November 2007, and its head office is in Adabraka, Accra.", "source": "Written by us from the GOIL PLC 2025 Annual Report (GSE PR 181/2026: company information; report of the directors, nature of business, ownership and subsidiaries) and the GSE listed-company page for GOIL (date listed)", "as_of": "2026-10-21"},
+    "sector": {"value": "Energy", "source": "Our classification, from the nature of business in the GOIL PLC 2025 Annual Report", "as_of": "2025-12-31"},
+    "industry": {"value": "Petroleum products marketing", "source": "Our classification, from the nature of business in the GOIL PLC 2025 Annual Report", "as_of": "2025-12-31"},
+    "website": {"value": "https://www.goil.com.gh/", "source": "GSE listed-company page for GOIL (checked live)", "as_of": "2026-10-21"},
+    "headquarters_city": {"value": "Accra", "source": "GOIL PLC 2025 Annual Report, company information: registered office, House Number D659/4, Kojo Thompson Road, Adabraka, Accra", "as_of": "2025-12-31"},
+    "headquarters_country": {"value": "Ghana", "source": "GOIL PLC 2025 Annual Report, company information", "as_of": "2025-12-31"},
+    "listing_date": {"value": "2007-11-16", "source": "GSE listed-company page for GOIL (date listed November 16, 2007)", "as_of": "2026-10-21"}
+  }
+}

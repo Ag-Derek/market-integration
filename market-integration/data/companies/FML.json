@@ -1,0 +1,13 @@
+{
+  "symbol": "FML",
+  "profile": {
+    "description_short": {"value": "Ghanaian maker and distributor of dairy products and frozen treats, majority-owned through Danone.", "source": "Written by us from the Fan Milk PLC 2022 Annual Report (GSE PR 197/2023, report of the directors)", "as_of": "2022-12-31"},
+    "description_full": {"value": "Fan Milk PLC manufactures, produces and distributes recombined milk and other dairy products, and sells them wholesale and retail; the Ghana Stock Exchange also lists fruit drinks among its products. At the end of 2022 its majority shareholder was Fan Milk International A/S of Denmark, with 62.11% of the shares; Fan Milk International has been wholly owned by the French food group Danone since July 2019. The company's head office is in the North Industrial Area of Accra, and it has been listed on the Ghana Stock Exchange since 18 October 1991.", "source": "Written by us from the Fan Milk PLC 2022 Annual Report (GSE PR 197/2023, report of the directors: principal activity and holding company) and the GSE listed-company page for FML (nature of business, registered office, date listed). The 2023 and 2024 annual reports on gse.com.gh are scanned images that could not be read", "as_of": "2026-10-21"},
+    "sector": {"value": "Food & Beverage", "source": "Our classification, from the principal activity in the Fan Milk PLC 2022 Annual Report", "as_of": "2022-12-31"},
+    "industry": {"value": "Dairy products", "source": "Our classification, from the principal activity in the Fan Milk PLC 2022 Annual Report", "as_of": "2022-12-31"},
+    "website": {"value": "https://www.fanmilk.com/", "source": "Checked live; the GSE listed-company page's www.fanmilk-gh.net no longer resolves", "as_of": "2026-10-21"},
+    "headquarters_city": {"value": "Accra", "source": "GSE listed-company page for FML: registered office, No. 1 Dadeban Road, North Industrial Area", "as_of": "2026-10-21"},
+    "headquarters_country": {"value": "Ghana", "source": "GSE listed-company page for FML", "as_of": "2026-10-21"},
+    "listing_date": {"value": "1991-10-18", "source": "GSE listed-company page for FML (date listed 18th October 1991)", "as_of": "2026-10-21"}
+  }
+}

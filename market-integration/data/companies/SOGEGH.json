@@ -1,0 +1,14 @@
+{
+  "symbol": "SOGEGH",
+  "profile": {
+    "description_short": {"value": "Ghanaian universal bank majority-owned by France's Societe Generale group.", "source": "Written by us from the Societe Generale Ghana PLC 2024 Annual Report (GSE PR 070/2025, report of the directors: nature of business, holding company)", "as_of": "2024-12-31"},
+    "description_full": {"value": "Societe Generale Ghana PLC is licensed by the Bank of Ghana as a universal bank. It is a subsidiary of the French Societe Generale group, which owns 60.22% of its shares through its wholly owned SG Financial Services Holding. A wholly owned subsidiary, SSB Investments Limited, manages the bank's equity investments. The company was incorporated in February 1975 and has been listed on the Ghana Stock Exchange since 13 October 1995. Its head office is on Ring Road Central in Accra.", "source": "Written by us from the Societe Generale Ghana PLC 2024 Annual Report (GSE PR 070/2025: corporate information; report of the directors, nature of business, holding company and investments) and the GSE listed-company page for SOGEGH (incorporation and listing dates)", "as_of": "2026-10-21"},
+    "sector": {"value": "Banking", "source": "Our classification, from the nature of business in the Societe Generale Ghana PLC 2024 Annual Report", "as_of": "2024-12-31"},
+    "industry": {"value": "Commercial banking", "source": "Our classification, from the nature of business in the Societe Generale Ghana PLC 2024 Annual Report (universal bank)", "as_of": "2024-12-31"},
+    "website": {"value": "https://societegenerale.com.gh/", "source": "GSE listed-company page for SOGEGH (checked live)", "as_of": "2026-10-21"},
+    "headquarters_city": {"value": "Accra", "source": "Societe Generale Ghana PLC 2024 Annual Report, corporate information: registered office, 2nd Crescent, Royalt Castle Road, Ring Road Central, Accra", "as_of": "2024-12-31"},
+    "headquarters_country": {"value": "Ghana", "source": "Societe Generale Ghana PLC 2024 Annual Report, corporate information", "as_of": "2024-12-31"},
+    "listing_date": {"value": "1995-10-13", "source": "GSE listed-company page for SOGEGH (date listed October 13th, 1995)", "as_of": "2026-10-21"},
+    "registrar": {"value": "NTHC Limited", "source": "Societe Generale Ghana PLC 2024 Annual Report, corporate information", "as_of": "2024-12-31"}
+  }
+}
