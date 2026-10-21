@@ -1,0 +1,13 @@
+{
+  "symbol": "SCB",
+  "profile": {
+    "description_short": {"value": "Ghanaian universal bank majority-owned by the Standard Chartered group, with a wealth management subsidiary.", "source": "Written by us from the Standard Chartered Bank Ghana PLC 2023 Annual Report (GSE PR 095/2024, report of the directors: nature of business, parent company)", "as_of": "2023-12-31"},
+    "description_full": {"value": "Standard Chartered Bank Ghana PLC holds a universal banking licence from the Bank of Ghana. Its subsidiary, Standard Chartered Wealth Management Limited Company, is licensed by the Securities and Exchange Commission to distribute mutual funds and sell investment and wealth management products. The bank is part of the international Standard Chartered group: Standard Chartered Holdings (Africa) B.V., incorporated in the Netherlands, holds 69.42% of its shares. It operated 18 branches at the time of its 2023 annual report. Its history in Ghana goes back to 1896, when it began as the Bank of British West Africa, and it has been listed on the Ghana Stock Exchange since 12 November 1990. Both its ordinary and preference shares trade on the exchange.", "source": "Written by us from the Standard Chartered Bank Ghana PLC 2023 Annual Report (GSE PR 095/2024, report of the directors: nature of business, parent company, area of operation) and the GSE listed-company page for SCB (history, date listed, securities traded)", "as_of": "2026-10-21"},
+    "sector": {"value": "Banking", "source": "Our classification, from the nature of business in the Standard Chartered Bank Ghana PLC 2023 Annual Report", "as_of": "2023-12-31"},
+    "industry": {"value": "Commercial banking", "source": "Our classification, from the nature of business in the Standard Chartered Bank Ghana PLC 2023 Annual Report (universal banking)", "as_of": "2023-12-31"},
+    "website": {"value": "https://www.sc.com/gh/", "source": "GSE listed-company page for SCB gives www.standardchartered.com/gh, which redirects here (checked)", "as_of": "2026-10-21"},
+    "headquarters_city": {"value": "Accra", "source": "GSE listed-company page for SCB: registered office, 87 Independence Avenue, Accra", "as_of": "2026-10-21"},
+    "headquarters_country": {"value": "Ghana", "source": "GSE listed-company page for SCB", "as_of": "2026-10-21"},
+    "listing_date": {"value": "1990-11-12", "source": "GSE listed-company page for SCB (date listed 12/11/1990)", "as_of": "2026-10-21"}
+  }
+}

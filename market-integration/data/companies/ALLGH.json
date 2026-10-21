@@ -1,0 +1,62 @@
+{
+  "symbol": "ALLGH",
+  "profile": {
+    "description_short": {"value": "Lithium developer building the Ewoyaa spodumene project in Ghana, with exploration licences in Côte d'Ivoire; incorporated in Australia.", "source": "Written by us from the Atlantic Lithium Limited 2026 Annual Report (directors' report, principal activities)", "as_of": "2026-09-11"},
+    "description_full": {"value": "Atlantic Lithium Limited is developing the Ewoyaa Lithium Project in Ghana's Central Region, which it expects to become the country's first lithium mine. Ewoyaa is a spodumene pegmatite deposit with a Mineral Resource of 36.8 million tonnes at 1.24% Li2O. Its mining lease was granted in October 2023 and ratified by Ghana's Parliament in March 2026, after the fiscal terms were agreed with the government. The company also explores for lithium on about 771 km² of wholly owned licences in Côte d'Ivoire. It has no revenue yet. Elevra Lithium, formed from the merger of Piedmont Lithium and Sayona Mining, holds a 22.5% interest in the Ghana portfolio and can earn up to 50% by funding studies and development. The company is incorporated in Australia and has its registered office in Sydney. Its shares trade on AIM (ALL), the ASX (A11) and the Ghana Stock Exchange (ALLGH), where they were listed by introduction in May 2024. Assore International Holdings is the largest shareholder, with about 26% of the shares. In May 2026 the company agreed to be acquired by Zhejiang Huayou Cobalt for US$0.25486 a share in cash under an Australian scheme of arrangement, which still needs shareholder, court and regulatory approval; Elevra has separately agreed to transfer its Ewoyaa interest to Huayou. The company reports in Australian dollars, with a financial year ending 30 June.", "source": "Written by us from the Atlantic Lithium Limited 2026 Annual Report (company overview; chairman's message; directors' report: corporate structure, principal activities, Elevra funding agreement; twenty largest shareholders) and the 2026 Annual Financial Report announcement of 11 September 2026 (scheme terms)", "as_of": "2026-09-11"},
+    "sector": {"value": "Mining", "source": "Our classification, from principal activities in the Atlantic Lithium Limited 2026 Annual Report", "as_of": "2026-06-30"},
+    "industry": {"value": "Lithium mining", "source": "Our classification, from principal activities in the Atlantic Lithium Limited 2026 Annual Report (pre-production lithium developer)", "as_of": "2026-06-30"},
+    "website": {"value": "https://www.atlanticlithium.com.au", "source": "Atlantic Lithium Limited 2026 Annual Report, corporate directory", "as_of": "2026-09-11"},
+    "headquarters_city": {"value": "Sydney", "source": "Atlantic Lithium Limited 2026 Annual Report, corporate directory: registered office, Level 17, Angel Place, 123 Pitt Street, Sydney NSW 2000", "as_of": "2026-09-11"},
+    "headquarters_country": {"value": "Australia", "source": "Atlantic Lithium Limited 2026 Annual Report, directors' report (corporate structure: incorporated and domiciled in Australia)", "as_of": "2026-09-11"},
+    "shares_outstanding": {"value": 801503291, "source": "Atlantic Lithium Limited 2026 Annual Report, note 4.1(a): 795,003,291 fully paid ordinary shares plus 6,500,000 shares funded by limited recourse loans (accounted for as in-substance options); consistent with Assore's 211.8m shares being 26.43% at 11 September 2026", "as_of": "2026-06-30"},
+    "listing_date": {"value": "2024-05-13", "source": "Atlantic Lithium Limited 2026 Annual Report, directors' report (corporate structure: admitted to the GSE on 13 May 2024); listed by introduction per the company's 2 May 2024 announcement of GSE approval", "as_of": "2026-09-11"},
+    "registrar": {"value": "Computershare Investor Services Pty Limited", "source": "Atlantic Lithium Limited 2026 Annual Report, corporate directory: Australian registrar (London registrar: Computershare Investor Services PLC)", "as_of": "2026-09-11"}
+  },
+  "officers": [
+    {"name": "Neil Herbert", "role": "Non-Executive Chairman", "display_order": 1, "source": "Atlantic Lithium Limited 2026 Annual Report, remuneration report (key management personnel): Non-Executive Chairman from 1 July 2025, previously Executive Chairman", "as_of": "2026-09-11"},
+    {"name": "Keith Muller", "role": "Chief Executive Officer", "display_order": 2, "source": "Atlantic Lithium Limited 2026 Annual Report, remuneration report (key management personnel)", "as_of": "2026-09-11"},
+    {"name": "Amanda Harsas", "role": "Finance Director and Company Secretary", "display_order": 3, "source": "Atlantic Lithium Limited 2026 Annual Report, remuneration report (key management personnel) and corporate directory", "as_of": "2026-09-11"}
+  ],
+  "financials": [
+    {
+      "fiscal_year": 2026, "currency": "AUD",
+      "revenue": {"value": 0.0, "source": "No revenue: Atlantic Lithium Limited 2026 Annual Report, going concern note (\"The Group has not generated revenues from operations\"); the statement of profit or loss shows only interest, fair value gains and other income", "as_of": "2026-06-30"},
+      "net_income": {"value": -7023970, "source": "Atlantic Lithium Limited 2026 Annual Report, consolidated statement of profit or loss (loss for the year)", "as_of": "2026-06-30"},
+      "eps": {"value": -0.010, "source": "Atlantic Lithium Limited 2026 Annual Report, consolidated statement of profit or loss: basic loss per share (1.0) cents", "as_of": "2026-06-30"},
+      "book_value": {"value": 50599933, "source": "Atlantic Lithium Limited 2026 Annual Report, consolidated statement of financial position (total equity)", "as_of": "2026-06-30"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: Atlantic Lithium Limited 2026 Annual Report, note 4.2 (\"There were no dividends paid or recommended during the year or since the end of the year\")", "as_of": "2026-09-11"}
+    },
+    {
+      "fiscal_year": 2025, "currency": "AUD",
+      "revenue": {"value": 0.0, "source": "No revenue: Atlantic Lithium Limited 2026 Annual Report, 2025 comparative statement of profit or loss shows only interest and fair value gains", "as_of": "2025-06-30"},
+      "net_income": {"value": -6593824, "source": "Atlantic Lithium Limited 2026 Annual Report, consolidated statement of profit or loss, 2025 comparative (loss for the year)", "as_of": "2025-06-30"},
+      "eps": {"value": -0.010, "source": "Atlantic Lithium Limited 2026 Annual Report, 2025 comparative basic loss per share (1.0) cents", "as_of": "2025-06-30"},
+      "book_value": {"value": 40702643, "source": "Atlantic Lithium Limited 2026 Annual Report, consolidated statement of financial position, 2025 comparative total equity", "as_of": "2025-06-30"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: Atlantic Lithium Limited 2026 Annual Report, directors' report (\"No dividends were declared or paid during the financial year\" to 30 June 2026)", "as_of": "2026-09-11"}
+    },
+    {
+      "fiscal_year": 2024, "currency": "AUD",
+      "revenue": {"value": 0.0, "source": "No revenue: Atlantic Lithium Limited 2024 Annual Report, going concern note (\"The Group has not generated revenues from operations\")", "as_of": "2024-06-30"},
+      "net_income": {"value": -12645107, "source": "Atlantic Lithium Limited 2024 Annual Report, consolidated statement of profit or loss (loss for the year)", "as_of": "2024-06-30"},
+      "eps": {"value": -0.020, "source": "Atlantic Lithium Limited 2024 Annual Report, consolidated statement of profit or loss: basic loss per share (2.0) cents", "as_of": "2024-06-30"},
+      "book_value": {"value": 35451129, "source": "Atlantic Lithium Limited 2024 Annual Report, consolidated statement of financial position (total equity)", "as_of": "2024-06-30"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: Atlantic Lithium Limited 2024 Annual Report, capital note (\"There were no dividends paid or recommended during the year or since the end of the year\")", "as_of": "2024-09-18"}
+    },
+    {
+      "fiscal_year": 2023, "currency": "AUD",
+      "revenue": {"value": 0.0, "source": "No revenue: Atlantic Lithium Limited 2024 Annual Report, 2023 comparative statement of profit or loss", "as_of": "2023-06-30"},
+      "net_income": {"value": -12187617, "source": "Atlantic Lithium Limited 2024 Annual Report, consolidated statement of profit or loss, 2023 comparative (loss for the year)", "as_of": "2023-06-30"},
+      "eps": {"value": -0.020, "source": "Atlantic Lithium Limited 2024 Annual Report, 2023 comparative basic loss per share (2.0) cents", "as_of": "2023-06-30"},
+      "book_value": {"value": 30217368, "source": "Atlantic Lithium Limited 2024 Annual Report, consolidated statement of financial position, 2023 comparative total equity", "as_of": "2023-06-30"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: Atlantic Lithium Limited 2024 Annual Report, directors' report (\"No dividends were declared or paid during the financial year\" to 30 June 2024)", "as_of": "2024-09-18"}
+    },
+    {
+      "fiscal_year": 2022, "currency": "AUD",
+      "revenue": {"value": 0.0, "source": "No revenue: Atlantic Lithium Limited financial report for the year ended 30 June 2022, going concern note (the Group has not generated revenues from operations)", "as_of": "2022-06-30"},
+      "net_income": {"value": -34647546, "source": "Atlantic Lithium Limited financial report for the year ended 30 June 2022, consolidated statement of profit or loss (p. 39): loss for the year, including a A$16.2m write-down on the demerger and A$12.0m of share-based payments", "as_of": "2022-06-30"},
+      "eps": {"value": -0.061, "source": "Atlantic Lithium Limited financial report for the year ended 30 June 2022, consolidated statement of profit or loss (p. 39): basic loss per share (6.1) cents", "as_of": "2022-06-30"},
+      "book_value": {"value": 34778332, "source": "Atlantic Lithium Limited financial report for the year ended 30 June 2022, consolidated statement of financial position (total equity)", "as_of": "2022-06-30"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: Atlantic Lithium Limited financial report for the year ended 30 June 2022 (\"There were no dividends paid or recommended during the year or since the end of the year\")", "as_of": "2022-09-30"}
+    }
+  ]
+}

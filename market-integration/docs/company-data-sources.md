@@ -1,14 +1,37 @@
 # Company profile seed data: sources and conventions
 
-`data/company_profiles.json` holds the company information behind
-`GET /instruments/{symbol}/description` (format: `app/company/__init__.py`).
+`data/companies/` holds the company information behind
+`GET /instruments/{symbol}/description`, one file per company named after
+its symbol (`data/companies/EGH.json`; format: `app/company/__init__.py`).
 Every value carries its own `source` and `as_of`; this page records the
 conventions behind them and what is still missing.
 
+To add a company, add its file. The tests load every file strictly and
+fail on a bad one. At startup a bad file is logged and skipped, so only
+that company's description goes blank.
+
 ## Coverage
 
-Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**. Every other listed equity has no entry
-yet and is served as all-null.
+Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**.
+
+Basic profiles only (description, classification, website, headquarters,
+listing date; no officers or financials yet): **SCB**, **SOGEGH**, **GOIL**,
+**TOTAL**, **UNIL**, **FML**.
+
+Every other listed equity has no file yet. Its API fields are all null,
+and the description page shows a one-line summary from the instrument
+master (name, board, sector) instead.
+
+Notes on the basic profiles:
+
+- **The GSE listed-company pages are partly out of date** (old company
+  names, dead websites, stale share counts). They are used for listing
+  dates and registered offices; websites were checked live.
+- **FML** is described from its 2022 annual report: the 2023 and 2024
+  reports on gse.com.gh are scanned images with no readable text. Its
+  ownership (Fan Milk International A/S, 62.11%) is as at end-2022.
+- **SCB** and **UNIL** are described from their 2023 annual reports, the
+  latest full reports on gse.com.gh.
 
 ## Conventions
 
@@ -57,3 +80,9 @@ Left out (served as null) because they couldn't be found or confirmed:
 | ALLGH | `dividend_payment_dates` | No dividend for FY2022–FY2026. |
 | AGA | `employees` | The 2025 reports give only workforce averages that include contractors (38,243 at managed operations). |
 | AGA | FY2021–FY2023 `dividend_per_share`, `dividend_payment_dates` | Before the 2023 redomicile, interims were declared in South African cents (e.g. 70 SA cents for H1 2023), so there is no exact US-dollar total for those years. |
+| DIGICUT | `employees`; `officers` (Managing Director) | The audited statements give no headcount, and refer to a Managing Director without naming one. |
+| DIGICUT | FY2021–FY2022 `eps` | Only in the five-year summary, which gives no EPS. |
+| DIGICUT | FY2021–FY2023 `dividend_per_share` | No directors' report for those years was read; FY2024–FY2025 reports state no dividend. |
+| EGH | FY2025 `revenue`, `net_income`, `book_value` | The FY2025 audited summary (released 31 March 2026) could not be downloaded from gse.com.gh or ecobank.com. News reports give only rounded figures (profit GHS 1.82bn, equity GHS 7.2bn) and disagree on revenue (GHS 4.91bn vs 5.21bn). |
+| EGH | `shares_outstanding` | The GSE listed-company page shows 293.23 million, which is out of date: the 2024 EPS (527 GHp on GHS 1,699.9m) and the FY2021 dividend (GHS 199.98m at GHS 0.62) both imply about 322.55 million. No filing that was read gives the exact count. |
+| EGH | `listing_date`; `employees` | The GSE page gives only "July, 2006". The summary financial statements give no headcount. |

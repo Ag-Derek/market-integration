@@ -10,7 +10,7 @@ Three tables, all keyed by the instrument master's symbol:
   company_financials  one row per company and fiscal year; each figure
                       with its own _source and _as_of columns
 
-Like the instruments table, data/company_profiles.json is the source of
+Like the instruments table, the data/companies/ folder is the source of
 truth: seed() rebuilds all three from it on every startup, in one
 transaction, so the tables never drift from the file and a column added
 to a model needs no migration.

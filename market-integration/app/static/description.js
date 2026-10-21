@@ -75,6 +75,7 @@
   }
   .des-text { font-size: 13.5px; line-height: 1.6; color: var(--ink); margin: 0; }
   .des-text.na { color: var(--ink-faint); }
+  .des-pending { margin-top: 8px; font-size: 12.5px; }
   .des-link {
     font: inherit; font-size: 12.5px; font-weight: 600; color: var(--teal);
     background: none; border: 0; padding: 0; cursor: pointer; text-decoration: none;
@@ -402,7 +403,10 @@
       const p = data.profile;
       const full = has(p.description_full) ? p.description_full : has(p.description_short) ? p.description_short : null;
       if (!full) {
-        s.appendChild(el("p", "des-text na", NA));
+        // No profile written yet: say what the instrument master knows,
+        // so the panel is never just "Not available".
+        s.appendChild(el("p", "des-text", listingSummary(data.instrument)));
+        s.appendChild(el("p", "des-text na des-pending", "We haven't written a company profile for it yet."));
         return s;
       }
       const parts = sentences(full.value);
@@ -426,6 +430,18 @@
       if (full.source) asof.title = "Source: " + full.source;
       s.appendChild(asof);
       return s;
+    }
+
+    // One sentence from the instrument master, e.g. "Standard Chartered
+    // Bank Ghana PLC is listed on the Ghana Stock Exchange's Main Board,
+    // in the Banking sector."
+    function listingSummary(inst) {
+      const what = { preference: " (preference shares)", depositary: " (depositary shares)",
+                     etf: " (an exchange-traded fund)" }[inst.kind] || "";
+      const board = { main: "the Ghana Stock Exchange's Main Board", gax: "the Ghana Alternative Market" }[inst.board]
+        || "the Ghana Stock Exchange";
+      return (inst.name || inst.symbol) + what + " is listed on " + board +
+        (inst.sector ? ", in the " + inst.sector + " sector." : ".");
     }
 
     function corporatePanel() {

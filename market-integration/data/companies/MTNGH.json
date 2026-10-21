@@ -1,0 +1,67 @@
+{
+  "symbol": "MTNGH",
+  "profile": {
+    "description_short": {"value": "Mobile network operator providing voice, data and mobile money services across Ghana.", "source": "Written by us from the Scancom PLC 2024 Annual Report and FY2025 results", "as_of": "2026-02-26"},
+    "description_full": {"value": "Scancom PLC, which trades as MTN Ghana, runs a nationwide mobile network. Most of its revenue comes from voice calls, mobile data, SMS, interconnect and roaming, with smaller amounts from handset and accessory sales. Its subsidiary MobileMoney Ltd operates the MoMo platform, which lets customers send money, pay bills and make payments from a mobile wallet. The company had about 31.2 million mobile subscribers at the end of 2025. It was incorporated in 1994, became a public company in 2016 and listed on the Ghana Stock Exchange in September 2018. Its ultimate parent is MTN Group Limited of South Africa.", "source": "Written by us from the Scancom PLC 2024 Annual Report (notes, p. 91) and FY2025 results (subscribers)", "as_of": "2026-02-26"},
+    "sector": {"value": "Telecommunications", "source": "Our classification, from principal activities in the Scancom PLC 2024 Annual Report", "as_of": "2024-12-31"},
+    "industry": {"value": "Wireless telecommunications", "source": "Our classification, from principal activities in the Scancom PLC 2024 Annual Report", "as_of": "2024-12-31"},
+    "website": {"value": "https://www.mtn.com.gh", "source": "Scancom PLC 2024 Annual Report, corporate information (p. 160)", "as_of": "2024-12-31"},
+    "headquarters_city": {"value": "Accra", "source": "Scancom PLC 2024 Annual Report, corporate information (p. 160): MTN House, Independence Avenue, West Ridge, Accra", "as_of": "2024-12-31"},
+    "headquarters_country": {"value": "Ghana", "source": "Scancom PLC 2024 Annual Report, corporate information (p. 160)", "as_of": "2024-12-31"},
+    "employees": {"value": 1509, "source": "Scancom PLC 2024 Annual Report (p. 29)", "as_of": "2024-12-31"},
+    "shares_outstanding": {"value": 13236175050, "source": "Scancom PLC performance for the year ended 31 December 2025, declaration of final dividend (p. 9)", "as_of": "2026-02-26"},
+    "listing_date": {"value": "2018-09-05", "source": "Scancom PLC 2024 Annual Report, notes to the financial statements (p. 91)", "as_of": "2024-12-31"},
+    "registrar": {"value": "Central Securities Depository (Gh) Limited", "source": "Scancom PLC 2024 Annual Report, corporate information (p. 160)", "as_of": "2024-12-31"}
+  },
+  "officers": [
+    {"name": "Ishmael Yamson", "role": "Chairman", "display_order": 1, "source": "Scancom PLC 2024 Annual Report, corporate information (p. 160)", "as_of": "2025-03-25"},
+    {"name": "Stephen Blewett", "role": "Chief Executive Officer", "display_order": 2, "source": "Scancom PLC performance for the year ended 31 December 2025, signed by the Board (p. 12)", "as_of": "2026-02-26"},
+    {"name": "Antoinette Kwofie", "role": "Chief Financial Officer", "display_order": 3, "source": "Scancom PLC performance for the year ended 31 December 2025, signed by the Board (p. 12)", "as_of": "2026-02-26"},
+    {"name": "Pala Asiedu-Ofori", "role": "Company Secretary", "display_order": 4, "source": "Scancom PLC 2024 Annual Report, corporate information (p. 160)", "as_of": "2025-03-25"}
+  ],
+  "financials": [
+    {
+      "fiscal_year": 2025, "currency": "GHS",
+      "revenue": {"value": 24430308000, "source": "Scancom PLC performance for the year ended 31 December 2025, group statement of comprehensive income (revenue from contracts with customers)", "as_of": "2025-12-31"},
+      "net_income": {"value": 7839930000, "source": "Scancom PLC performance for the year ended 31 December 2025, group statement of comprehensive income", "as_of": "2025-12-31"},
+      "eps": {"value": 0.592, "source": "Scancom PLC performance for the year ended 31 December 2025, group basic EPS", "as_of": "2025-12-31"},
+      "book_value": {"value": 14171886000, "source": "Scancom PLC performance for the year ended 31 December 2025, group statement of financial position (total equity)", "as_of": "2025-12-31"},
+      "dividend_per_share": {"value": 0.48, "source": "Interim GHS 0.08 (Scancom PLC H1 2025 results, GSE PR 303/2025) plus final GHS 0.40 (FY2025 results)", "as_of": "2026-02-26"},
+      "dividend_payment_dates": {"value": ["2025-09-11", "2026-04-10"], "source": "Scancom PLC H1 2025 results (interim) and FY2025 results (final)", "as_of": "2026-02-26"}
+    },
+    {
+      "fiscal_year": 2024, "currency": "GHS",
+      "revenue": {"value": 17948326000, "source": "Scancom PLC performance for the year ended 31 December 2025, group 2024 comparative (restated)", "as_of": "2024-12-31"},
+      "net_income": {"value": 5029065000, "source": "Scancom PLC performance for the year ended 31 December 2025, group 2024 comparative (restated for lease adjustments)", "as_of": "2024-12-31"},
+      "eps": {"value": 0.380, "source": "Scancom PLC performance for the year ended 31 December 2025, group 2024 comparative (restated)", "as_of": "2024-12-31"},
+      "book_value": {"value": 10567177000, "source": "Scancom PLC performance for the year ended 31 December 2025, group 2024 comparative total equity (restated)", "as_of": "2024-12-31"},
+      "dividend_per_share": {"value": 0.305, "source": "Scancom PLC 2024 Annual Report, report of the directors: interim GHS 0.065 plus final GHS 0.24", "as_of": "2025-02-27"},
+      "dividend_payment_dates": {"value": ["2024-09-06", "2025-04-16"], "source": "Scancom PLC 2024 Annual Report: report of the directors (interim) and declaration of final dividend (p. 12)", "as_of": "2025-02-27"}
+    },
+    {
+      "fiscal_year": 2023, "currency": "GHS",
+      "revenue": {"value": 13349471000, "source": "Scancom PLC 2024 Annual Report, five year financial summary (p. 152)", "as_of": "2023-12-31"},
+      "net_income": {"value": 3982250000, "source": "Scancom PLC 2024 Annual Report, five year financial summary (p. 152)", "as_of": "2023-12-31"},
+      "eps": {"value": 0.301, "source": "Scancom PLC 2024 Annual Report, group statement of comprehensive income (2023 comparative)", "as_of": "2023-12-31"},
+      "book_value": {"value": 8619074000, "source": "Scancom PLC 2024 Annual Report, five year financial summary (p. 152)", "as_of": "2023-12-31"},
+      "dividend_per_share": {"value": 0.225, "source": "Scancom PLC 2024 Annual Report, dividends note: interim GHS 0.050 plus final GHS 0.175", "as_of": "2024-02-27"}
+    },
+    {
+      "fiscal_year": 2022, "currency": "GHS",
+      "revenue": {"value": 9916109000, "source": "Scancom PLC 2024 Annual Report, five year financial summary (p. 152)", "as_of": "2022-12-31"},
+      "net_income": {"value": 2855801000, "source": "Scancom PLC 2024 Annual Report, five year financial summary (p. 152)", "as_of": "2022-12-31"},
+      "eps": {"value": 0.232, "source": "Scancom PLC 2022 Annual Report, earnings per share note (p. 91)", "as_of": "2022-12-31"},
+      "book_value": {"value": 5709700000, "source": "Scancom PLC 2024 Annual Report, five year financial summary (p. 152)", "as_of": "2022-12-31"},
+      "dividend_per_share": {"value": 0.164, "source": "Scancom PLC 2022 Annual Report, report of the directors: interim GHS 0.04 plus final GHS 0.124", "as_of": "2023-05-29"}
+    },
+    {
+      "fiscal_year": 2021, "currency": "GHS",
+      "revenue": {"value": 7723259000, "source": "MTN Ghana annual result for the year ended 31 December 2021 (GSE PR 057/2022), group revenue from contracts with customers", "as_of": "2021-12-31"},
+      "net_income": {"value": 2001383000, "source": "MTN Ghana annual result for the year ended 31 December 2021 (GSE PR 057/2022)", "as_of": "2021-12-31"},
+      "eps": {"value": 0.163, "source": "MTN Ghana annual result for the year ended 31 December 2021 (GSE PR 057/2022), group basic EPS", "as_of": "2021-12-31"},
+      "book_value": {"value": 4363298000, "source": "MTN Ghana annual result for the year ended 31 December 2021 (GSE PR 057/2022), group total equity", "as_of": "2021-12-31"},
+      "dividend_per_share": {"value": 0.115, "source": "MTN Ghana annual result for the year ended 31 December 2021 (GSE PR 057/2022): interim GHS 0.03 plus final GHS 0.085", "as_of": "2022-02-25"},
+      "dividend_payment_dates": {"value": ["2021-09-14", "2022-06-16"], "source": "MTN Ghana annual result for the year ended 31 December 2021 (GSE PR 057/2022)", "as_of": "2022-02-25"}
+    }
+  ]
+}

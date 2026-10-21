@@ -1,0 +1,60 @@
+{
+  "symbol": "EGH",
+  "profile": {
+    "description_short": {"value": "Ghanaian bank in the pan-African Ecobank group, offering retail, corporate and investment banking.", "source": "Written by us from the Ecobank Ghana PLC summary financial statements for 2024 (GSE PR 095/2025, general information note)", "as_of": "2025-03-26"},
+    "description_full": {"value": "Ecobank Ghana PLC and its subsidiaries provide retail, corporate and investment banking and other financial services in Ghana. The bank is part of the pan-African Ecobank group: Ecobank Transnational Incorporated, the group's parent, holds 68.93% of its shares. Its registered office is at 2 Morocco Lane, off Independence Avenue, in Accra, and its shares have been listed on the Ghana Stock Exchange since July 2006. Impairment charges of GHS 1.7 billion pushed it to a small loss in 2022, and it paid no dividend for 2022 or 2023. It returned to profit in 2023, and profit after tax rose to GHS 1.7 billion in 2024, when it resumed dividends.", "source": "Written by us from the Ecobank Ghana PLC summary financial statements for 2022 (GSE PR 122/2023) and 2024 (GSE PR 095/2025: general information note, statements of comprehensive income and changes in equity) and the GSE listed-company page (date listed)", "as_of": "2026-10-21"},
+    "sector": {"value": "Banking", "source": "Our classification, from the general information note in the Ecobank Ghana PLC summary financial statements for 2024 (GSE PR 095/2025)", "as_of": "2024-12-31"},
+    "industry": {"value": "Commercial banking", "source": "Our classification, from the general information note in the Ecobank Ghana PLC summary financial statements for 2024 (retail, corporate and investment banking)", "as_of": "2024-12-31"},
+    "website": {"value": "https://www.ecobank.com", "source": "GSE listed-company page for EGH; ecobank.com on the Ecobank Ghana 2022 summary financial statements (GSE PR 122/2023)", "as_of": "2026-10-21"},
+    "headquarters_city": {"value": "Accra", "source": "Ecobank Ghana PLC summary financial statements for 2024 (GSE PR 095/2025), general information note: registered office, 2 Morocco Lane, off Independence Avenue, Ministerial Area, Accra", "as_of": "2024-12-31"},
+    "headquarters_country": {"value": "Ghana", "source": "Ecobank Ghana PLC summary financial statements for 2024 (GSE PR 095/2025), general information note", "as_of": "2024-12-31"},
+    "registrar": {"value": "GCB Registrars", "source": "GSE PR 095/2025 distribution list (\"GCB Registrars, (Registrars for EGH shares)\")", "as_of": "2025-03-28"}
+  },
+  "officers": [
+    {"name": "Alhassan Andani", "role": "Chairman", "display_order": 1, "source": "GSE listed-company page for EGH (board of directors: \"Chief Alhassan Andani (Chairman)\"); Ghanaian Times, 18 June 2026, quotes him as Board Chairman", "as_of": "2026-10-21"},
+    {"name": "Abena Osei-Poku", "role": "Managing Director", "display_order": 2, "source": "Ecobank Ghana PLC summary financial statements for 2024 (GSE PR 095/2025), signatories; GSE listed-company page for EGH", "as_of": "2026-10-21"},
+    {"name": "Edward Nartey Botchway", "role": "Executive Director", "display_order": 3, "source": "Ecobank Ghana PLC summary financial statements for 2022 (GSE PR 122/2023), signatories; still on the board per the GSE listed-company page for EGH", "as_of": "2026-10-21"}
+  ],
+  "financials": [
+    {
+      "fiscal_year": 2025, "currency": "GHS",
+      "eps": {"value": 5.65, "source": "Graphic Online, \"Ecobank Ghana reports GH¢1.82billion profit for 2025\", reporting the audited statements released 31 March 2026: basic and diluted EPS of 565 pesewas", "as_of": "2025-12-31"},
+      "dividend_per_share": {"value": 1.21, "source": "Ecobank Ghana PLC final dividend and closure of register notice for the 2025 financial year (GH¢1.21 per share, as carried by AfricanFinancials); Ghanaian Times, 18 June 2026", "as_of": "2026-06-18"},
+      "dividend_payment_dates": {"value": ["2026-07-08"], "source": "Ecobank Ghana PLC final dividend and closure of register notice for the 2025 financial year (\"The final dividend will be paid on Wednesday, July 08, 2026\", as carried by AfricanFinancials)", "as_of": "2026-06-18"}
+    },
+    {
+      "fiscal_year": 2024, "currency": "GHS",
+      "revenue": {"value": 5359271000, "source": "Ecobank Ghana PLC summary financial statements for 2024 (GSE PR 095/2025), group operating income", "as_of": "2024-12-31"},
+      "net_income": {"value": 1699624000, "source": "Ecobank Ghana PLC summary financial statements for 2024 (GSE PR 095/2025), group profit after tax", "as_of": "2024-12-31"},
+      "eps": {"value": 5.27, "source": "Ecobank Ghana PLC summary financial statements for 2024 (GSE PR 095/2025), group basic and diluted EPS (527 GHp)", "as_of": "2024-12-31"},
+      "book_value": {"value": 5399672000, "source": "Ecobank Ghana PLC summary financial statements for 2024 (GSE PR 095/2025), group total equity", "as_of": "2024-12-31"},
+      "dividend_per_share": {"value": 0.34, "source": "Graphic Online, \"Ecobank Ghana declares GH¢0.34\", 22 May 2025 (final dividend for the 2024 financial year; no interim: the 2024 statement of changes in equity in GSE PR 095/2025 shows no dividends)", "as_of": "2025-05-22"},
+      "dividend_payment_dates": {"value": ["2025-06-27"], "source": "Graphic Online, \"Ecobank Ghana declares GH¢0.34\", 22 May 2025", "as_of": "2025-05-22"}
+    },
+    {
+      "fiscal_year": 2023, "currency": "GHS",
+      "revenue": {"value": 5325207000, "source": "Ecobank Ghana PLC summary financial statements for 2024 (GSE PR 095/2025), group 2023 comparative operating income", "as_of": "2023-12-31"},
+      "net_income": {"value": 632699000, "source": "Ecobank Ghana PLC summary financial statements for 2024 (GSE PR 095/2025), group 2023 comparative profit after tax", "as_of": "2023-12-31"},
+      "eps": {"value": 1.96, "source": "Ecobank Ghana PLC summary financial statements for 2024 (GSE PR 095/2025), group 2023 basic and diluted EPS (196 GHp)", "as_of": "2023-12-31"},
+      "book_value": {"value": 3662068000, "source": "Ecobank Ghana PLC summary financial statements for 2024 (GSE PR 095/2025), group 2023 total equity", "as_of": "2023-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: the group's 2024 statement of changes in equity (GSE PR 095/2025) shows no dividends", "as_of": "2024-12-31"}
+    },
+    {
+      "fiscal_year": 2022, "currency": "GHS",
+      "revenue": {"value": 2968058000, "source": "Ecobank Ghana PLC summary financial statements for 2022 (GSE PR 122/2023), group net income (total operating income)", "as_of": "2022-12-31"},
+      "net_income": {"value": -15304000, "source": "Ecobank Ghana PLC summary financial statements for 2022 (GSE PR 122/2023), group net loss after tax", "as_of": "2022-12-31"},
+      "eps": {"value": -0.05, "source": "Ecobank Ghana PLC summary financial statements for 2022 (GSE PR 122/2023), group basic and diluted EPS (-5 GHp)", "as_of": "2022-12-31"},
+      "book_value": {"value": 2705795000, "source": "Ecobank Ghana PLC summary financial statements for 2022 (GSE PR 122/2023), group total equity", "as_of": "2022-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: the group's 2023 statement of changes in equity (GSE PR 095/2025, comparative) shows no dividends", "as_of": "2023-12-31"}
+    },
+    {
+      "fiscal_year": 2021, "currency": "GHS",
+      "revenue": {"value": 2115181000, "source": "Ecobank Ghana PLC summary financial statements for 2022 (GSE PR 122/2023), group 2021 comparative net income (total operating income)", "as_of": "2021-12-31"},
+      "net_income": {"value": 581897000, "source": "Ecobank Ghana PLC summary financial statements for 2022 (GSE PR 122/2023), group 2021 comparative net income after tax", "as_of": "2021-12-31"},
+      "eps": {"value": 1.80, "source": "Ecobank Ghana PLC summary financial statements for 2022 (GSE PR 122/2023), group 2021 basic and diluted EPS (180 GHp)", "as_of": "2021-12-31"},
+      "book_value": {"value": 2683342000, "source": "Ecobank Ghana PLC summary financial statements for 2022 (GSE PR 122/2023), group 2021 total equity", "as_of": "2021-12-31"},
+      "dividend_per_share": {"value": 0.62, "source": "Ecobank Ghana PLC final dividend and closure of register notice (GSE PR 186/2022); matches the GHS 199.98m dividends paid in 2022 (GSE PR 122/2023), with no interim", "as_of": "2022-05-23"},
+      "dividend_payment_dates": {"value": ["2022-07-01"], "source": "Ecobank Ghana PLC final dividend and closure of register notice (GSE PR 186/2022)", "as_of": "2022-05-23"}
+    }
+  ]
+}
