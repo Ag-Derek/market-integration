@@ -16,7 +16,7 @@ Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP
 
 Basic profiles only (description, classification, website, headquarters,
 listing date; no officers or financials yet): **SCB**, **SOGEGH**, **GOIL**,
-**TOTAL**, **UNIL**, **FML**.
+**TOTAL**, **UNIL**, **FML**, **CLYD**.
 
 Every other listed equity has no file yet. Its API fields are all null,
 and the description page shows a one-line summary from the instrument

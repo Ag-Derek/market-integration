@@ -1,0 +1,15 @@
+{
+  "symbol": "CLYD",
+  "profile": {
+    "description_short": {"value": "Accra-based payments and banking technology company: transaction switching, card and ATM systems, and IT services for banks.", "source": "Written by us from the Clydestone Ghana PLC consolidated financial statements for 2024 (GSE PR 151/2025, report of the directors: nature of business)", "as_of": "2024-12-31"},
+    "description_full": {"value": "Clydestone (Ghana) PLC is a payments service provider and technology supplier to banks. It runs transaction switching and settlement and clearing services, and represents manufacturers of banking equipment such as ATMs, cheque scanners and EMV card printers. It also supplies instant card issuance, authentication and 3D Secure, ATM monitoring, and KYC and anti-money-laundering systems, and provides IT services from system design and integration to technical support and project management. It owns all of Clydestone Nigeria Limited and 85% of Remittance Processing Limited in Ghana. Its founder and acting chairman, Paul Jacquaye, held 59.97% of the shares at the end of 2024. The company is based in North Labone, Accra, and has been listed on the Ghana Stock Exchange since 19 May 2004.", "source": "Written by us from the Clydestone Ghana PLC consolidated financial statements for 2024 (GSE PR 151/2025: corporate information; report of the directors, nature of business and subsidiary companies; note 25, twenty largest shareholders) and the GSE listed-company page for CLYD (date listed)", "as_of": "2026-10-22"},
+    "sector": {"value": "Technology", "source": "Our classification, from the nature of business in the Clydestone Ghana PLC 2024 financial statements", "as_of": "2024-12-31"},
+    "industry": {"value": "Payments and banking technology", "source": "Our classification, from the nature of business in the Clydestone Ghana PLC 2024 financial statements", "as_of": "2024-12-31"},
+    "website": {"value": "https://www.clydestone.com", "source": "GSE listed-company page for CLYD; the site is up but refuses automated requests, so it was not opened", "as_of": "2026-10-22"},
+    "headquarters_city": {"value": "Accra", "source": "Clydestone Ghana PLC 2024 financial statements, corporate information: registered office, No. 14 Adebeto Close, North Labone, Accra (the GSE page gives No. 16)", "as_of": "2024-12-31"},
+    "headquarters_country": {"value": "Ghana", "source": "Clydestone Ghana PLC 2024 financial statements, corporate information", "as_of": "2024-12-31"},
+    "shares_outstanding": {"value": 34000000, "source": "GSE listed-company page for CLYD (issued shares 34,000,000); consistent with note 25 of the 2024 financial statements (20,389,500 shares = 59.97%)", "as_of": "2026-10-22"},
+    "listing_date": {"value": "2004-05-19", "source": "GSE listed-company page for CLYD (date listed May 19th, 2004)", "as_of": "2026-10-22"},
+    "registrar": {"value": "NTHC Limited", "source": "Clydestone Ghana PLC 2024 financial statements, corporate information", "as_of": "2024-12-31"}
+  }
+}
