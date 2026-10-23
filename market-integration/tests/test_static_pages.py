@@ -33,6 +33,7 @@ def test_the_market_strip_is_served(client):
     ("/fixed-income", "fixed_income"),
     ("/yield-curve", "fixed_income"),
     ("/bond/GHGGOG069931", "fixed_income"),
+    ("/commodity/GEJWM2", "commodity"),
 ])
 def test_pages_mount_the_market_strip_after_the_render_helpers(client, path, crawl):
     page = client.get(path).text
@@ -43,7 +44,7 @@ def test_pages_mount_the_market_strip_after_the_render_helpers(client, path, cra
     assert f'{{ crawl: "{crawl}" }}' in page
 
 
-@pytest.mark.parametrize("path", ["/ticker", "/stock/MTNGH", "/fixed-income", "/bond/GHGGOG069931"])
+@pytest.mark.parametrize("path", ["/ticker", "/stock/MTNGH", "/fixed-income", "/bond/GHGGOG069931", "/commodity/GEJWM2"])
 def test_live_pages_load_the_render_helpers_first(client, path):
     page = client.get(path).text
     tag = '<script src="/static/render.js"></script>'

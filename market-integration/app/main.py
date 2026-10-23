@@ -54,6 +54,7 @@ from app.bond_math import settlement_date
 from app.bond_math.conventions import add_months
 from app.bond_math.calculator import calculate, quoted_yield, security_for
 from app.commodities import COMMODITIES, SOURCES as COMMODITY_SOURCES, Price, month_key, monthly_means, parse_month
+from app.commodities.gcx import BENCHMARKS as GCX_BENCHMARKS, Benchmark, benchmark_code
 from app.commodities.prices import RETRY_SECONDS as COMMODITY_RETRY_SECONDS, CommodityPrices
 from app.commodities.store import CommodityStore
 from app.commodities.worldbank import WorldBankClient
@@ -67,6 +68,7 @@ from app.connectors.composite_connector import CompositeConnector
 from app.connectors.depository import Depository, EmailDepository, MockDepository, OutboxSender, SmtpSender
 from app.connectors.fixed_income_connector import MockFixedIncomeConnector
 from app.connectors.fixed_income_mock import MockFixedIncomeMarket
+from app.connectors.gcx_mock import MockCommodityConnector
 from app.connectors.load_connector import LoadConnector
 from app.connectors.market_connector import MockMarketConnector
 from app.connectors.supervisor import SupervisedConnector
@@ -110,8 +112,9 @@ from app.models.auction import AuctionMonitor, AuctionResultOut
 from app.models.company import Company
 from app.models.econ import EconCalendar, PolicyRatePoint
 from app.models.candle import INTERVALS, Candle
+from app.models.commodity import KG_PER_BAG, KG_PER_MT, CommodityTick
 from app.models.fx import FxRate
-from app.models.instrument import AssetClass, Instrument
+from app.models.instrument import COMMODITY_NAMES, AssetClass, Instrument
 from app.models.market_data import MarketData
 from app.models.ticket import Notification, Ticket, TicketConfirmation, TicketRequest, TicketStatus
 from app.processors.market_processor import MarketProcessor
@@ -147,6 +150,14 @@ fixed_income_calendar = calendar.with_hours(
     hours_source="GFIM Rules 2022, Rule 12: trading 09:00-16:00 GMT",
 )
 
+# GCX trades shorter hours than GFIM, on the same days.
+commodity_calendar = calendar.with_hours(
+    open=time.fromisoformat(config.GCX_SESSION_OPEN),
+    close=time.fromisoformat(config.GCX_SESSION_CLOSE),
+    exchange="GCX",
+    hours_source="gcx.com.gh contract pages: trading Monday-Friday 09:00-15:00 GMT",
+)
+
 if config.FEED_MODE == "load":
     # Synthetic equities at a fixed rate, for load tests and benchmarks.
     equities = LoadConnector(
@@ -175,9 +186,17 @@ fixed_income_connector = MockFixedIncomeConnector(
     burst_rate=config.FI_BURST_RATE,
 )
 
+# Commodities (GCX spot contracts): every active one in the instrument
+# master. See app/connectors/gcx_mock.py.
+gcx_connector = MockCommodityConnector(
+    symbols=[i.symbol for i in INSTRUMENTS.values() if i.asset_class == "commodity" and i.status == "active"],
+    interval_seconds=config.GCX_MOCK_INTERVAL_SECONDS,
+    calendar=commodity_calendar,
+)
+
 # Each feed reconnects on its own if it drops (with backoff; see
 # connectors/supervisor.py), so an equities outage doesn't take the
-# fixed-income feed down with it, nor the service.
+# fixed-income or commodities feed down with it, nor the service.
 _status_tasks: set[asyncio.Task] = set()
 
 
@@ -206,15 +225,18 @@ def _supervised(feed, name: str) -> SupervisedConnector:
 
 equities_feed = _supervised(equities, "equities")
 fixed_income_feed = _supervised(fixed_income_connector, "fixed_income")
-feeds = (equities_feed, fixed_income_feed)
+commodities_feed = _supervised(gcx_connector, "commodities")
+feeds = (equities_feed, fixed_income_feed, commodities_feed)
 
-# One feed for the pipeline: equities and fixed income ticks together.
+# One feed for the pipeline: equity, fixed income and commodity ticks together.
 connector = CompositeConnector(list(feeds))
 
 
 def asset_class(symbol: str) -> str:
     if symbol in equities.symbols:
         return "equity"
+    if symbol in gcx_connector.symbols:
+        return "commodity"
     return fixed_income.asset_class(symbol)
 
 
@@ -227,7 +249,8 @@ def _reconnecting(*candidates: SupervisedConnector) -> Optional[dict]:
 def current_status() -> dict:
     """Session state plus feed freshness: what the UI's badge shows. The
     top level is the equity market's; `fixed_income` is the same for
-    GFIM, whose session is longer, for the Fixed Income tab's badge.
+    GFIM, whose session is longer, for the Fixed Income tab's badge, and
+    `commodities` for GCX's.
     While a feed is being reconnected, feed.state is "reconnecting" and
     feed.reconnect says which feed, which attempt and when the next one
     is."""
@@ -248,6 +271,14 @@ def current_status() -> dict:
         now=now,
         stale_after=stale_after,
         reconnect=_reconnecting(fixed_income_feed),
+    )
+    status["commodities"] = market_status(
+        commodity_calendar,
+        running=commodities_feed.running,
+        last_heartbeat=commodities_feed.last_heartbeat,
+        now=now,
+        stale_after=stale_after,
+        reconnect=_reconnecting(commodities_feed),
     )
     return status
 
@@ -278,6 +309,9 @@ company_store = CompanyStore(config.DB_PATH)
 # Each user's pinned equities (#26). User data: kept across restarts,
 # never re-seeded.
 watchlist_store = WatchlistStore(config.DB_PATH)
+# Each user's pinned GCX contracts, on the Commodities tab: a list of
+# their own, so the ticker stays equities only.
+commodity_watchlist_store = WatchlistStore(config.DB_PATH, table="commodity_watchlists")
 # Each user's drawings on each stock chart (trend lines, levels,
 # retracements). User data: kept across restarts, never re-seeded.
 drawing_store = DrawingStore(config.DB_PATH)
@@ -831,8 +865,9 @@ def _short_label(instrument: Instrument) -> str:
 
 async def _graph_series(series_id: str, since: Optional[date]) -> tuple[dict, list[GraphPoint], GraphChange]:
     """(description, daily points from `since`, how it changes) for one
-    /graph series id: an equity symbol (its daily closes, GHS), a bill or
-    bond ISIN (its closing yield; price for price-only corporates),
+    /graph series id: an equity symbol (its daily closes, GHS), a GCX
+    contract (its daily closes, GHS per MT), a bill or bond ISIN (its
+    closing yield; price for price-only corporates),
     GSE-CI (the simulated index), FX:<code> (the Bank of Ghana mid, in
     cedis per unit) or CMD:<code> (a commodity's monthly average in US
     dollars, one point a month, dated the 1st). 404 for an unknown id;
@@ -869,6 +904,10 @@ async def _graph_series(series_id: str, since: Optional[date]) -> tuple[dict, li
     candles = await aggregator.get_candles(series_id, "1d", start)
     if asset_class(series_id) == "equity":
         meta = {"label": series_id, "name": instrument.name, "kind": "equity", "unit": FX_BASE}
+        return meta, [GraphPoint(c.window_start.date(), c.close, c.volume > 0) for c in candles], "return"
+    if asset_class(series_id) == "commodity":
+        meta = {"label": series_id, "name": f"{instrument.name} (GCX), cedis per tonne",
+                "kind": "spot", "unit": f"{FX_BASE} per MT"}
         return meta, [GraphPoint(c.window_start.date(), c.close, c.volume > 0) for c in candles], "return"
     label = _short_label(instrument)
     if candles and all(c.yield_close is not None for c in candles):
@@ -958,11 +997,14 @@ async def graph_correlation(
 def _last_price(symbol: str) -> tuple[Optional[float], Optional[float]]:
     """(price, change) as the UI headlines them: an equity's session VWAP
     (the GSE closing price) and its change on the previous close; a bill
-    or bond's closing price and its change on the open. None where
-    there's no quote yet."""
+    or bond's closing price and its change on the open; a commodity's
+    last trade (GHS per MT, the GCX closing price) and its change on the
+    previous close. None where there's no quote yet."""
     quote = processor.get_latest(symbol)
     if quote is None:
         return None, None
+    if isinstance(quote, CommodityTick):
+        return quote.price, quote.change
     if isinstance(quote, FixedIncomeTick):
         close, open_ = quote.closing_price, quote.opening_price
         change = None if close is None or open_ is None else round(close - open_, 4)
@@ -1404,8 +1446,143 @@ async def get_commodity_history(code: str, since: Optional[str] = Query(None, de
 
 @app.get("/commodities", response_class=HTMLResponse)
 async def commodities_page():
-    """The Commodities tab: monthly reference prices in US$ and cedis."""
+    """The Commodities tab: live GCX spot contracts, and monthly world
+    reference prices in US$ and cedis."""
     return (STATIC_DIR / "commodities.html").read_text(encoding="utf-8")
+
+
+# ---------------------------------------------------------------- GCX spot contracts
+
+
+def _gcx_benchmarks() -> dict[str, Benchmark]:
+    """COMMODITIES code -> its latest month, in dollars and cedis per
+    tonne, for each benchmark a GCX crop is compared with and held."""
+    latest = {code: p for code in set(GCX_BENCHMARKS.values()) if (p := commodity_prices.latest(code))}
+    if not latest:
+        return {}
+    earliest = min(p.month for p in latest.values())
+    fx = monthly_means(fx_rates.history("USD", earliest)) if fx_rates.has("USD") else {}
+    return {
+        code: Benchmark(code, COMMODITIES[code].name, p.month, p.value, _in_cedis(p.value, fx, p.month))
+        for code, p in latest.items()
+    }
+
+
+def _gcx_contract(instrument: Instrument, benchmarks: dict[str, Benchmark]) -> dict:
+    """One GCX contract: its terms, latest quote (null fields before the
+    first one) and the world benchmark it is compared with, if any."""
+    quote = processor.get_latest(instrument.symbol)
+    q = quote if isinstance(quote, CommodityTick) else None
+    code = benchmark_code(instrument.commodity)
+    b = benchmarks.get(code) if code else None
+    return {
+        "symbol": instrument.symbol,
+        "name": instrument.name,
+        "commodity": instrument.commodity,
+        "commodity_name": COMMODITY_NAMES[instrument.commodity],
+        "grade": instrument.grade,
+        "delivery_centre": instrument.delivery_centre,
+        "currency": instrument.currency,
+        "unit": instrument.unit,
+        "price": q.price if q else None,
+        "price_per_bag": round(q.price * KG_PER_BAG / KG_PER_MT, 2) if q else None,
+        "previous_close": q.previous_close if q else None,
+        "change": q.change if q else None,
+        "change_percent": (q.change / q.previous_close * 100) if q else None,
+        "open": q.open if q else None,
+        "day_high": q.day_high if q else None,
+        "day_low": q.day_low if q else None,
+        "bid": q.bid if q else None,
+        "ask": q.ask if q else None,
+        "volume_mt": q.volume / KG_PER_MT if q else None,
+        "value_traded": q.value_traded if q else None,
+        "trade_count": q.trade_count if q else None,
+        "last_trade_at": q.last_trade_at if q else None,
+        "exchange_label": q.exchange_label if q else None,
+        "benchmark": None if b is None else {
+            "code": b.code,
+            "name": b.name,
+            "month": month_key(b.month),
+            "usd_per_mt": b.usd_per_mt,
+            "ghs_per_mt": b.ghs_per_mt,
+            "basis_percent": b.basis_percent(q.price) if q else None,
+        },
+    }
+
+
+def _gcx_instruments() -> list[Instrument]:
+    return [INSTRUMENTS[s] for s in gcx_connector.symbols]
+
+
+@app.get("/gcx/contracts")
+async def gcx_contracts():
+    """Every GCX spot contract the feed carries, by crop, with its latest
+    quote in cedis per metric tonne (and per 50 kg bag, as GCX also
+    quotes), the session so far, and the world benchmark it is compared
+    with where there is one: the latest Pink Sheet month in dollars and
+    cedis per tonne, and `basis_percent`, the GCX price's premium (+) or
+    discount (-) to it. Benchmarks are null until the World Bank pull
+    has landed. See docs/commodities-gcx.md."""
+    benchmarks = _gcx_benchmarks()
+    order = list(COMMODITY_NAMES)
+    contracts = sorted(_gcx_instruments(), key=lambda i: (order.index(i.commodity), i.delivery_centre, i.grade))
+    return {
+        "exchange": "GCX",
+        "currency": FX_BASE,
+        "unit": "MT",
+        "status": current_status()["commodities"],
+        "contracts": [_gcx_contract(i, benchmarks) for i in contracts],
+        "benchmark_source": COMMODITY_SOURCES["worldbank"].name,
+    }
+
+
+@app.get("/gcx/contracts/{symbol}")
+async def gcx_contract(symbol: str):
+    """One GCX contract, as in /gcx/contracts. 404 for anything else."""
+    symbol = symbol.strip().upper()
+    if symbol not in gcx_connector.symbols:
+        raise HTTPException(status_code=404, detail=f"Unknown GCX contract '{symbol}'")
+    return _gcx_contract(INSTRUMENTS[symbol], _gcx_benchmarks())
+
+
+def _commodity_watchlist_body(user_id: str, saved: Optional[dict]) -> dict:
+    return {
+        "user_id": user_id,
+        "symbols": saved["symbols"] if saved else [],
+        "updated_at": saved["updated_at"] if saved else None,
+        "max_pins": MAX_PINS,
+    }
+
+
+@app.get("/gcx/watchlist/me")
+async def get_my_commodity_watchlist(user_id: str = Depends(current_user_id)):
+    """The requesting user's pinned GCX contracts, in pin order: empty
+    until they pin one. Kept apart from the ticker's equity watchlist;
+    the user is found the same way (app/identity.py)."""
+    saved = await asyncio.to_thread(commodity_watchlist_store.get, user_id)
+    return _commodity_watchlist_body(user_id, saved)
+
+
+@app.put("/gcx/watchlist/me")
+async def put_my_commodity_watchlist(update: WatchlistUpdate, user_id: str = Depends(current_user_id)):
+    """Replace the requesting user's pinned GCX contracts with `symbols`,
+    in that order. 422 for unknown symbols, anything but a GCX contract,
+    duplicates or more than max_pins; nothing is saved then."""
+    try:
+        symbols = validate_watchlist(update.symbols, asset_class="commodity")
+    except WatchlistError as e:
+        raise HTTPException(status_code=422, detail={"message": str(e), "symbols": e.symbols})
+    saved = await asyncio.to_thread(commodity_watchlist_store.put, user_id, symbols)
+    return _commodity_watchlist_body(user_id, saved)
+
+
+@app.get("/commodity/{symbol}", response_class=HTMLResponse)
+async def commodity_page(symbol: str):
+    """A GCX contract's detail page, opened from the Commodities tab or
+    search: live quote, chart, the session and the world benchmark."""
+    if symbol.upper() not in gcx_connector.symbols:
+        raise HTTPException(status_code=404, detail=f"Unknown GCX contract '{symbol.upper()}'")
+    return (STATIC_DIR / "commodity.html").read_text(encoding="utf-8")
 
 
 # ---------------------------------------------------------------- calculators
@@ -1838,12 +2015,13 @@ async def get_candles(
     average or RSI needs to have a value from the chart's first candle.
     Fewer come back where history runs out, none for Max.
 
-    `currency` (an equity only) gives prices in that currency at the
-    Bank of Ghana mid (`fx` says how): daily and weekly candles at the
-    fix in force on their day (a week's last day), so a long chart
-    shows what the shares were worth in that currency at the time;
+    `currency` (an equity or commodity only) gives prices in that
+    currency at the Bank of Ghana mid (`fx` says how): daily and weekly
+    candles at the fix in force on their day (a week's last day), so a
+    long chart shows what it was worth in that currency at the time;
     intraday candles all at the latest fix, as BoG fixes once a day.
-    400 for bills and bonds, quoted per 100 of face value.
+    400 for bills and bonds, quoted per 100 of face value. Commodity
+    prices are per metric tonne and volumes in kilograms.
     """
     symbol = symbol.upper()
     if symbol not in connector.symbols:
@@ -1862,9 +2040,9 @@ async def get_candles(
             detail=f"Unknown interval '{interval}'. Expected one of: {', '.join(aggregator.intervals)}",
         )
 
-    equity = asset_class(symbol) == "equity"
+    in_cedis = asset_class(symbol) in ("equity", "commodity")
     if currency is not None:
-        if not equity:
+        if not in_cedis:
             raise HTTPException(
                 status_code=400,
                 detail=f"'{symbol}' is quoted per 100 of face value, so it isn't converted; currency is for equities",
@@ -1900,7 +2078,7 @@ async def get_candles(
         "start": start.isoformat() if start else None,
         # What OHLC is in: GHS unless converted; null for bills and bonds
         # (per 100 of face value).
-        "currency": (currency or FX_BASE) if equity else None,
+        "currency": (currency or FX_BASE) if in_cedis else None,
         "fx": fx,
         "warmup": [as_json(c) for c in earlier],
         "candles": [as_json(c) for c in candles],

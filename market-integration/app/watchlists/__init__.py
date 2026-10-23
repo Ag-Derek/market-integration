@@ -7,6 +7,10 @@ A user who has never saved one gets DEFAULT_WATCHLIST. A list may hold
 up to MAX_PINS listed equities (any status: a suspended name can stay
 pinned), each once; bills and bonds can't be pinned yet, as the ticker
 only shows equities.
+
+GCX commodity contracts have a list of their own, pinned on the
+Commodities tab (GET and PUT /gcx/watchlist/me): the same rules for
+asset class "commodity", empty until the user pins something.
 """
 
 from typing import Iterable, Mapping, Optional
@@ -30,18 +34,20 @@ def validate(
     symbols: Iterable[str],
     max_pins: int = MAX_PINS,
     instruments: Optional[Mapping[str, Instrument]] = None,
+    asset_class: str = "equity",
 ) -> list[str]:
     """The list as stored: symbols upper-cased and trimmed, in the order
-    given. Raises WatchlistError for unknown symbols, non-equities,
-    duplicates or more than `max_pins`."""
+    given. Raises WatchlistError for unknown symbols, symbols of another
+    asset class than the list's, duplicates or more than `max_pins`."""
     instruments = INSTRUMENTS if instruments is None else instruments
     cleaned = [s.strip().upper() for s in symbols]
     unknown = [s for s in cleaned if s not in instruments]
     if unknown:
         raise WatchlistError("Unknown symbols: " + ", ".join(unknown), unknown)
-    not_equities = [s for s in cleaned if instruments[s].asset_class != "equity"]
-    if not_equities:
-        raise WatchlistError("Only equities can be pinned: " + ", ".join(not_equities), not_equities)
+    wrong = [s for s in cleaned if instruments[s].asset_class != asset_class]
+    if wrong:
+        what = {"equity": "equities", "commodity": "GCX contracts"}[asset_class]
+        raise WatchlistError(f"Only {what} can be pinned here: " + ", ".join(wrong), wrong)
     duplicates = sorted({s for s in cleaned if cleaned.count(s) > 1})
     if duplicates:
         raise WatchlistError("Pinned more than once: " + ", ".join(duplicates), duplicates)

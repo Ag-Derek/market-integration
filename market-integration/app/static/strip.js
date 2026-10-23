@@ -2,11 +2,13 @@
  * The market strip: a Bloomberg-style band under the page header. A
  * fixed panel updated in place -- the GSE-CI, USD/GHS, the on-the-run
  * 91-, 182- and 364-day bill yields, the session and the Accra clock --
- * over a crawl that scrolls right to left. Shared by /ticker and the
- * fixed income pages (/fixed-income, /yield-curve, /bond/{symbol}).
+ * over a crawl that scrolls right to left. Shared by /ticker, the
+ * fixed income pages (/fixed-income, /yield-curve, /bond/{symbol}) and
+ * the GCX contract page (/commodity/{symbol}).
  *
  *   MarketStrip.mount(el, { crawl: "equity" });        // GSE equities: gainers, losers, unchanged
  *   MarketStrip.mount(el, { crawl: "fixed_income" });  // bills and bonds: most active, then GoG bonds
+ *   MarketStrip.mount(el, { crawl: "commodity" });     // GCX spot contracts, by crop
  *
  * It opens its own /ws/market connection and needs nothing from the page
  * but render.js loaded first (Render.batch, .text, .flash). Where
@@ -16,7 +18,9 @@
  * Conventions are the rest of the UI's. An equity's price is its session
  * VWAP and its change is against the previous VWAP close, as the GSE
  * reports them. A bill or bond shows its closing yield and the change on
- * the open in basis points, coloured by price: a rising yield is red.
+ * the open in basis points, coloured by price: a rising yield is red. A
+ * GCX contract shows its last trade in cedis per tonne and its change on
+ * the previous close.
  * Values flash green or red as they move.
  *
  * The crawl is regrouped only as it wraps around, so names don't jump
@@ -37,6 +41,12 @@
   const BADGE_TEXT = { live: "Live", delayed: "Delayed", closed: "Market closed", disconnected: "Disconnected" };
   const ARROW = { up: "▲ ", down: "▼ ", flat: "" };
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  // GCX crops in the crawl's order, with its group headings.
+  const CROPS = [
+    ["white_maize", "White maize"], ["yellow_maize", "Yellow maize"], ["soya_bean", "Soya bean"],
+    ["sesame", "Sesame"], ["sorghum", "Sorghum"], ["rice", "Rice"],
+  ];
+  const CRAWLS = ["equity", "fixed_income", "commodity"];
 
   const CSS = `
   .ms {
@@ -181,6 +191,10 @@
     if (q.tick_type === "equity") {
       return { text: price(q.vwap), move: move(q.change, q.change / q.previous_close * 100, price, 2) };
     }
+    if (q.tick_type === "commodity") {
+      const two = function (v) { return grouped(v, 2); };
+      return { text: two(q.price), move: move(q.change, q.change / q.previous_close * 100, two, 2) };
+    }
     if (q.closing_yield != null) {
       return { text: q.closing_yield.toFixed(2) + "%", move: yieldMove(q.closing_yield, q.opening_yield) };
     }
@@ -197,6 +211,10 @@
   function flashDir(prev, q) {
     if (q.tick_type === "equity") {
       const d = Math.round(q.vwap * 100) - Math.round(prev.vwap * 100);
+      return d > 0 ? "up" : d < 0 ? "down" : null;
+    }
+    if (q.tick_type === "commodity") {
+      const d = Math.round(q.price * 100) - Math.round(prev.price * 100);
       return d > 0 ? "up" : d < 0 ? "down" : null;
     }
     if (q.closing_yield != null && prev.closing_yield != null) {
@@ -312,12 +330,24 @@
     });
   }
 
+  const LABELS = {
+    equity: ["GSE equities", "GSE · At close"],
+    fixed_income: ["GFIM bills & bonds", "GFIM · At close"],
+    commodity: ["GCX spot", "GCX · At close"],
+  };
+
   function setBadge(b) {
     if (!BADGE_TEXT[b]) return;
     el.session.setAttribute("data-badge", b);
     Render.text(el.state, BADGE_TEXT[b]);
-    Render.text(el.label, opts.crawl === "equity" ? (b === "closed" ? "GSE · At close" : "GSE equities")
-      : (b === "closed" ? "GFIM · At close" : "GFIM bills & bonds"));
+    Render.text(el.label, LABELS[opts.crawl][b === "closed" ? 1 : 0]);
+  }
+
+  // The badge for this crawl from a status message: GCX keeps its own
+  // hours, so the commodity crawl follows its session, not the GSE's.
+  function statusBadge(status) {
+    if (opts.crawl === "commodity" && status.commodities) return status.commodities.badge;
+    return status.badge;
   }
 
   let clockFmt = null;
@@ -368,9 +398,19 @@
     return [["Most active", active], ["GoG bonds", bonds]];
   }
 
+  // Every GCX contract, by crop, then by symbol.
+  function commodityGroups() {
+    const qs = Object.keys(quotes).map(function (s) { return quotes[s]; })
+      .filter(function (q) { return q.tick_type === "commodity"; });
+    return CROPS.map(function (c) {
+      return [c[1], qs.filter(function (q) { return q.commodity === c[0]; }).sort(bySymbol)];
+    });
+  }
+
   function groups() {
-    return (opts.crawl === "equity" ? equityGroups() : fixedIncomeGroups())
-      .filter(function (g) { return g[1].length; });
+    const gs = opts.crawl === "equity" ? equityGroups()
+      : opts.crawl === "commodity" ? commodityGroups() : fixedIncomeGroups();
+    return gs.filter(function (g) { return g[1].length; });
   }
 
   function signatureOf(gs) {
@@ -379,10 +419,11 @@
 
   function makeItem(q, hidden) {
     const a = make("a", "ms-item");
-    a.href = (q.tick_type === "equity" ? "/stock/" : "/bond/") + encodeURIComponent(q.symbol);
+    const page = { equity: "/stock/", commodity: "/commodity/" }[q.tick_type] || "/bond/";
+    a.href = page + encodeURIComponent(q.symbol);
     a.title = q.name;
     if (hidden) a.tabIndex = -1;
-    a.appendChild(make("span", "ms-sym", q.tick_type === "equity" ? q.symbol : fiLabel(q)));
+    a.appendChild(make("span", "ms-sym", q.tick_type === "fixed_income" ? fiLabel(q) : q.symbol));
     a.appendChild(make("span", "ms-val num"));
     a.appendChild(make("span", "ms-chg num"));
     return a;
@@ -449,7 +490,7 @@
   let schedule = noop;   // Render.batch(flush), once mounted
 
   function apply(q) {
-    if (q.tick_type !== "equity" && q.tick_type !== "fixed_income") return;
+    if (q.tick_type !== "equity" && q.tick_type !== "fixed_income" && q.tick_type !== "commodity") return;
     const prev = quotes[q.symbol];
     quotes[q.symbol] = q;
     const dir = prev ? flashDir(prev, q) : null;
@@ -472,7 +513,8 @@
 
   function wanted(symbol, assetClass) {
     if (benchmarks[symbol]) return true;
-    return opts.crawl === "equity" ? assetClass === "equity" : assetClass === "bill" || assetClass === "bond";
+    if (opts.crawl === "fixed_income") return assetClass === "bill" || assetClass === "bond";
+    return assetClass === opts.crawl;
   }
 
   let retry = 1000;
@@ -484,7 +526,7 @@
       let m;
       try { m = JSON.parse(e.data); } catch (err) { return; }
       if (m.type === "welcome") {
-        if (m.status) setBadge(m.status.badge);
+        if (m.status) setBadge(statusBadge(m.status));
         ready.then(function () {
           const classes = m.asset_classes || {};
           const symbols = m.symbols.filter(function (s) { return wanted(s, classes[s]); });
@@ -498,7 +540,7 @@
       } else if (m.type === "ticks") {
         m.data.forEach(apply);
       } else if (m.type === "status") {
-        setBadge(m.badge);
+        setBadge(statusBadge(m));
       }
     };
     ws.onclose = function () {
@@ -512,7 +554,8 @@
 
   function mount(container, options) {
     if (opts) return;   // one strip a page: it has one feed connection
-    opts = { crawl: (options && options.crawl) === "fixed_income" ? "fixed_income" : "equity" };
+    const crawl = options && options.crawl;
+    opts = { crawl: CRAWLS.indexOf(crawl) >= 0 ? crawl : "equity" };
     if (!document.getElementById("ms-css")) {
       const style = document.createElement("style");
       style.id = "ms-css";
@@ -533,9 +576,9 @@
     el.clock = el.session.appendChild(make("span", "ms-clock num"));
     el.session.title = "Session and feed state; the time in Accra";
 
-    const crawl = root.appendChild(make("div", "ms-crawl"));
-    el.label = crawl.appendChild(make("span", "ms-label"));
-    el.window = crawl.appendChild(make("div", "ms-window" + (reduced ? " manual" : "")));
+    const band = root.appendChild(make("div", "ms-crawl"));
+    el.label = band.appendChild(make("span", "ms-label"));
+    el.window = band.appendChild(make("div", "ms-window" + (reduced ? " manual" : "")));
     el.track = el.window.appendChild(make("div", "ms-track"));
     el.track.addEventListener("animationiteration", regroup);
     container.appendChild(root);
@@ -555,7 +598,7 @@
     setInterval(function () { if (!el.track.classList.contains("moving")) regroup(); }, REGROUP_MS);
     if (window.Currency) Currency.onChange(function () { Object.keys(items).forEach(function (s) { paintItem(quotes[s]); }); });
 
-    const classes = opts.crawl === "equity" ? ["bill"] : ["bill", "bond"];
+    const classes = opts.crawl === "fixed_income" ? ["bill", "bond"] : ["bill"];
     const ready = Promise.all(classes.map(function (c) {
       return getJSON("/instruments?asset_class=" + c).catch(function () { return []; });
     })).then(function (lists) {

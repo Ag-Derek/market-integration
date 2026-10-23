@@ -11,6 +11,8 @@ basis.
 Fixed income sources, quoting and pricing conventions (day count, settlement,
 bill yield vs discount rate) are in
 [fixed-income-sources-and-conventions.md](fixed-income-sources-and-conventions.md).
+The Ghana Commodity Exchange's market report, and how its columns map to
+`CommodityTick`, is in [commodities-gcx.md](commodities-gcx.md).
 
 ## Samples
 

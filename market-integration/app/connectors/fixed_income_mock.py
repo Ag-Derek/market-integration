@@ -447,7 +447,7 @@ class MockFixedIncomeMarket:
         the session up to now."""
         now = self._clock()
         for inst in self._instruments.values():
-            if inst.asset_class == "equity" or inst.status != "active":
+            if inst.asset_class not in ("bill", "bond") or inst.status != "active":
                 continue
             seed = self._seeds.get(inst.symbol, {})
             rate = max(float(seed.get("trades", 0)), BASE_TRADES_PER_DAY[inst.segment])

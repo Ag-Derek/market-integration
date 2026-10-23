@@ -27,7 +27,7 @@ EQUITIES = {s for s, i in INSTRUMENTS.items() if i.asset_class == "equity"}
 def test_checked_in_seed_covers_the_gse_and_every_equity_is_calibrated():
     assert len(EQUITIES) == 42
     assert {"MTNGH", "GCB", "SCB", "SCB-PREF", "TOTAL", "UNIL", "PBC", "GLD"} <= EQUITIES
-    assert set(MOCK_SEEDS) == set(INSTRUMENTS)  # every instrument, equity or fixed income
+    assert set(MOCK_SEEDS) == set(INSTRUMENTS)  # every instrument: equity, fixed income or commodity
     assert INSTRUMENTS["MTNGH"].isin == "GHEMTN051541"
     assert INSTRUMENTS["GLD"].kind == "etf"
     # Marked **ALW** / PBC** in the 28-Sep-2026 daily shares report.
@@ -36,7 +36,7 @@ def test_checked_in_seed_covers_the_gse_and_every_equity_is_calibrated():
 
 
 def test_checked_in_seed_has_every_gfim_sample_security():
-    fixed = [i for i in INSTRUMENTS.values() if i.asset_class != "equity"]
+    fixed = [i for i in INSTRUMENTS.values() if i.asset_class in ("bill", "bond")]
     counts = {}
     for i in fixed:
         counts[i.segment] = counts.get(i.segment, 0) + 1
@@ -55,10 +55,10 @@ def test_checked_in_seed_has_every_gfim_sample_security():
 
 
 def test_fixed_income_terms_follow_the_conventions_doc():
-    fixed = [i for i in INSTRUMENTS.values() if i.asset_class != "equity"]
+    fixed = [i for i in INSTRUMENTS.values() if i.asset_class in ("bill", "bond")]
     assert all(i.face_value == 100 for i in fixed)
     assert all(i.face_value is None and i.frequency is None for i in INSTRUMENTS.values()
-               if i.asset_class == "equity")
+               if i.asset_class in ("equity", "commodity"))
 
     # Bills: zero coupon, ACT/364, issued on a Monday for their tenor.
     bill = INSTRUMENTS["GHGGOGI01925"]  # 91-day, matures 05-Oct-2026
@@ -237,6 +237,7 @@ def test_list_instruments(client):
         "status": "active", "kind": "ordinary", "board": "main", "related_symbols": [],
         "issuer": None, "segment": None, "tenor": None, "maturity_date": None, "coupon_rate": None,
         "issue_date": None, "frequency": None, "day_count": None, "face_value": None,
+        "commodity": None, "grade": None, "delivery_centre": None, "unit": None,
     }
     assert all("mock" not in i for i in body)
 
@@ -248,6 +249,17 @@ def test_list_instruments(client):
         "issuer": "Government of Ghana", "segment": "treasury_bill",
         "tenor": "364-DAY BILL", "maturity_date": "2027-06-21", "coupon_rate": 0.0,
         "issue_date": "2026-06-22", "frequency": 0, "day_count": "ACT/364", "face_value": 100.0,
+        "commodity": None, "grade": None, "delivery_centre": None, "unit": None,
+    }
+
+    maize = next(i for i in body if i["symbol"] == "GEJWM2")
+    assert maize == {
+        "symbol": "GEJWM2", "name": "White Maize, Grade 2, Ejura", "asset_class": "commodity",
+        "sector": "Agriculture", "currency": "GHS", "isin": None, "status": "active",
+        "kind": None, "board": None, "related_symbols": [],
+        "issuer": None, "segment": None, "tenor": None, "maturity_date": None, "coupon_rate": None,
+        "issue_date": None, "frequency": None, "day_count": None, "face_value": None,
+        "commodity": "white_maize", "grade": 2, "delivery_centre": "Ejura", "unit": "MT",
     }
 
 
@@ -256,6 +268,7 @@ def test_filter_instruments_by_asset_class_and_sector(client):
     assert {i["symbol"] for i in equities} == EQUITIES
     assert len(client.get("/instruments", params={"asset_class": "bond"}).json()) == 70
     assert len(client.get("/instruments", params={"asset_class": "bill"}).json()) == 91
+    assert len(client.get("/instruments", params={"asset_class": "commodity"}).json()) == 17
 
     gov_bills = client.get("/instruments", params={"asset_class": "bill", "sector": "government"}).json()
     assert len(gov_bills) == 91

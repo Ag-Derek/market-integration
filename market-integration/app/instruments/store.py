@@ -20,6 +20,7 @@ _COLUMNS = (
     "symbol", "name", "asset_class", "kind", "board", "related_symbols", "sector", "currency", "isin", "status",
     "issuer", "segment", "tenor", "maturity_date", "coupon_rate",
     "issue_date", "frequency", "day_count", "face_value",
+    "commodity", "grade", "delivery_centre", "unit",
 )
 
 _CREATE_TABLE = """
@@ -43,6 +44,10 @@ _CREATE_TABLE = """
         frequency INTEGER,
         day_count TEXT,
         face_value REAL,
+        commodity TEXT,
+        grade INTEGER,
+        delivery_centre TEXT,
+        unit TEXT,
         updated_at TEXT NOT NULL
     )
 """

@@ -25,6 +25,7 @@ from typing import Callable, Mapping, Optional
 from app.connectors.depository import Depository, DepositoryUnavailable
 from app.bond_math.conventions import BusinessCalendar
 from app.gateways.notification_gateway import NotificationGateway
+from app.models.commodity import format_tonnes
 from app.models.instrument import Instrument
 from app.models.ticket import (
     Notification,
@@ -178,6 +179,9 @@ def _describe(ticket: Ticket, party: str) -> str:
     other = ticket.seller if bought else ticket.buyer
     if ticket.asset_class == "equity":
         what = f"{ticket.quantity:,.0f} {ticket.symbol} at {ticket.currency} {ticket.price:,.2f}"
+    elif ticket.asset_class == "commodity":
+        what = (f"{format_tonnes(ticket.quantity)} of {ticket.name} ({ticket.symbol}) "
+                f"at {ticket.currency} {ticket.price:,.2f} per MT")
     else:
         what = f"{ticket.currency} {ticket.quantity:,.2f} face of {ticket.name} at {ticket.price:,.4f}"
     return (

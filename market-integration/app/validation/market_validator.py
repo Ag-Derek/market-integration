@@ -17,6 +17,10 @@ yield no lower than the ask. Repo (sell/buy-back) ticks get the same
 price, yield and maturity checks, and a bond yield equal to the bond
 price is rejected as a price in the yield field (GFIM quirk 12).
 
+GCX commodity ticks get the equity book and range checks, except that
+the day's open, high and low are blank until the contract trades in the
+session, and must be set once it has.
+
 `validate_tick` is a plain, dependency-free function on purpose: it is
 called independently by more than one downstream branch off the buffer
 (a real-time ValidatingStream here, and the aggregator's own filtering
@@ -31,6 +35,7 @@ from typing import AsyncIterator
 
 from app import config
 from app.models.candle import INTERVALS, Candle, bucket_end, bucket_start
+from app.models.commodity import CommodityTick
 from app.models.fixed_income import FixedIncomeTick, RepoTick
 from app.models.market_data import MarketData
 from app.models.tick import Tick
@@ -79,6 +84,8 @@ def validate_tick(
     now = now or datetime.now(timezone.utc)
     if isinstance(tick, MarketData):
         failures = _equity_errors(tick)
+    elif isinstance(tick, CommodityTick):
+        failures = _commodity_errors(tick)
     else:
         bounds = yield_bounds or (config.FI_YIELD_MIN, config.FI_YIELD_MAX)
         if isinstance(tick, FixedIncomeTick):
@@ -122,6 +129,39 @@ def _equity_errors(tick: MarketData) -> list[_Failure]:
         if not (low <= tick.price <= high):
             errors.append((rule, f"price ({tick.price}) outside {label} range [{low}, {high}]"))
 
+    return errors
+
+
+def _commodity_errors(tick: CommodityTick) -> list[_Failure]:
+    errors: list[_Failure] = []
+    if tick.bid is not None and tick.ask is not None and tick.bid >= tick.ask:
+        errors.append(("crossed_book", f"bid ({tick.bid}) is not less than ask ({tick.ask})"))
+
+    # The day's range only exists once the contract has traded this
+    # session; until then all three are blank, as in the GCX report.
+    traded = tick.volume > 0
+    blank = [f for f in ("open", "day_high", "day_low") if getattr(tick, f) is None]
+    if traded and blank:
+        errors.append(("missing_day_range", f"traded ({tick.volume} kg) but no {', '.join(blank)}"))
+    elif not traded and len(blank) < 3:
+        errors.append(("day_range_without_trade", "open, day_high or day_low set with no volume traded"))
+    elif traded:
+        if tick.day_low > tick.day_high:
+            errors.append(("day_range_inverted", f"day_low ({tick.day_low}) > day_high ({tick.day_high})"))
+        else:
+            for field in ("price", "open"):
+                value = getattr(tick, field)
+                if not (tick.day_low <= value <= tick.day_high):
+                    errors.append((
+                        "outside_day_range",
+                        f"{field} ({value}) outside day range [{tick.day_low}, {tick.day_high}]",
+                    ))
+
+    if not (tick.week52_low <= tick.price <= tick.week52_high):
+        errors.append((
+            "outside_52_week_range",
+            f"price ({tick.price}) outside 52-week range [{tick.week52_low}, {tick.week52_high}]",
+        ))
     return errors
 
 
