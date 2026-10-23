@@ -308,7 +308,7 @@
   const RANGES = ["1M", "3M", "6M", "YTD", "1Y", "2Y", "5Y", "Max"];
   const DEFAULT_SERIES = ["GSE-CI", "MTNGH", "GCB", "SCB"];
   const INDEX_ID = "GSE-CI";
-  const KIND_LABEL = { equity: "Stock", index: "Index", yield: "Yield", price: "Price", fx: "FX", commodity: "Commodity" };
+  const KIND_LABEL = { equity: "Stock", index: "Index", yield: "Yield", price: "Price", fx: "FX", commodity: "Commodity", spot: "GCX" };
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   // Diverging scale for the matrix: blue (moves together) and red
   // (opposite) poles, a neutral grey at 0, never a hue in the middle.
@@ -377,7 +377,7 @@
   }
   function unitText(s) {
     if (s.kind === "equity") return "GH₵";
-    if (s.kind === "fx" || s.kind === "commodity") return s.unit;
+    if (s.kind === "fx" || s.kind === "commodity" || s.kind === "spot") return s.unit;
     return "";
   }
   function pct(rebased) {
@@ -559,7 +559,8 @@
       showResults(fixed.concat(rows.map(function (r) {
         return {
           id: r.symbol, label: r.symbol, name: r.name,
-          badge: r.asset_class === "equity" ? "Stock" : r.asset_class === "bill" ? "Bill yield" : "Bond yield",
+          badge: r.asset_class === "equity" ? "Stock" : r.asset_class === "commodity" ? "GCX spot"
+            : r.asset_class === "bill" ? "Bill yield" : "Bond yield",
         };
       })));
     }).catch(function () { if (mine === picker.seq) showResults(fixed); });
@@ -924,7 +925,7 @@
       first.title = s.name;
       tr.appendChild(first);
       const c = pct(s.last && s.last.rebased);
-      const traded = s.kind === "equity" || s.kind === "yield" || s.kind === "price";
+      const traded = s.kind === "equity" || s.kind === "yield" || s.kind === "price" || s.kind === "spot";
       [
         [s.base ? dateText(s.base.date) + (s.late_start ? " (first)" : "") : "—", "muted"],
         [s.base ? fmtValue(s, s.base.value) : "—", "num"],

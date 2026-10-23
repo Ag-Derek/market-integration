@@ -13,7 +13,8 @@ Matching ignores case and punctuation ("fan milk" finds Fan Milk PLC,
   1  symbol or ISIN prefix
   2  every query word starts a word of the name
   3  every query word starts a word of the other terms: tenor, issuer,
-     maturity date (so "2027" finds bonds maturing in 2027)
+     maturity date (so "2027" finds bonds maturing in 2027), and a
+     commodity's crop and delivery centre ("soya tamale")
   4  substring of any of the above
 
 then active before suspended/delisted, shorter symbols (equities) before
@@ -31,7 +32,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Iterable, Optional
 
-from app.models.instrument import Instrument
+from app.models.instrument import COMMODITY_NAMES, Instrument
 
 _NON_ALNUM = re.compile(r"[^a-z0-9]+")
 
@@ -66,6 +67,7 @@ class InstrumentSearch:
         codes = tuple(dict.fromkeys(_compact(c) for c in (i.symbol, i.isin) if c))
         terms = " ".join(t for t in (
             i.tenor, i.issuer, i.maturity_date.isoformat() if i.maturity_date else None,
+            COMMODITY_NAMES.get(i.commodity) if i.commodity else None, i.delivery_centre,
         ) if t)
         return _Entry(
             instrument=i,

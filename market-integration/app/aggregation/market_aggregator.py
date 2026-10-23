@@ -26,6 +26,10 @@ History: backfill() pulls historical candles from the connector on
 startup and replaces whatever is stored for that span, so charts have
 data older than "since the service started".
 
+Commodities: a GCX contract is charted on its last trade in cedis per
+tonne, like an equity, with volume in kilograms (see
+app/models/commodity.py).
+
 Fixed income: a bill or bond tick is charted on its clean closing price
 (the GFIM "so far" close), and each candle also carries the same window
 in closing yield, so a chart can toggle between the two. A tick with no
@@ -53,6 +57,7 @@ from typing import TYPE_CHECKING, AsyncIterator, Iterable, Optional
 
 from app.aggregation.ranges import HISTORY_DEPTH
 from app.models.candle import INTERVALS, Candle, bucket_end, bucket_start
+from app.models.commodity import CommodityTick
 from app.models.fixed_income import RepoTick
 from app.models.market_data import MarketData
 from app.models.tick import Tick
@@ -167,10 +172,11 @@ class _WindowAggregate:
 
 
 def _mark(tick: Tick) -> tuple[Optional[float], Optional[float]]:
-    """The (price, yield) a tick is charted at. Fixed income charts the
-    clean closing price and closing yield: the GFIM close so far, which
-    is what the report and the chart's history are made of."""
-    if isinstance(tick, MarketData):
+    """The (price, yield) a tick is charted at. Equities and commodities
+    chart the last trade. Fixed income charts the clean closing price and
+    closing yield: the GFIM close so far, which is what the report and
+    the chart's history are made of."""
+    if isinstance(tick, (MarketData, CommodityTick)):
         return tick.price, None
     return tick.closing_price, tick.closing_yield
 

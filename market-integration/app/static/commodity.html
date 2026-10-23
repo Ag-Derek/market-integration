@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GCX Contract</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0E1613;
+    --panel: #16211B;
+    --panel-strong: #1C2921;
+    --ink: #EAE7DA;
+    --ink-soft: #AEB6A9;
+    --ink-faint: #6F766D;
+    --line: #26362F;
+    --teal: #3E9C82;
+    --gold: #D9A44C;
+    --gold-bg: #2A2313;
+    --green: #34C57F;
+    --red: #E5675A;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .num {
+    font-family: ui-monospace, "SFMono-Regular", "Cascadia Mono", Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .page { max-width: 1180px; margin: 0 auto; padding: 28px 20px 60px; }
+
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px; margin-bottom: 20px;
+  }
+  .back { font-size: 13px; font-weight: 600; color: var(--ink-soft); text-decoration: none; letter-spacing: 0.02em; }
+  .back:hover { color: var(--ink); }
+  .ticket-btn {
+    font-size: 12px; font-weight: 600; color: var(--bg); background: var(--teal); text-decoration: none;
+    border-radius: 7px; padding: 6px 12px;
+  }
+  .ticket-btn:hover { filter: brightness(1.1); }
+  .actions { display: inline-flex; align-items: center; gap: 8px; }
+  .pin-btn {
+    font: inherit; font-size: 12px; font-weight: 600; color: var(--ink-soft); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 7px; padding: 5px 11px; cursor: pointer;
+  }
+  .pin-btn:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .pin-btn:focus-visible { outline: 2px solid var(--teal); outline-offset: 1px; }
+  .pin-btn[aria-pressed="true"] { color: var(--gold); border-color: var(--gold); }
+  .pin-btn:disabled { opacity: 0.6; cursor: default; }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 18px 18px 16px; min-width: 0;
+  }
+  .card-title {
+    font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--ink-faint); margin: 0 0 12px; font-weight: 600;
+  }
+
+  /* Header */
+
+  .exchange-row { font-size: 11px; color: var(--ink-faint); margin-bottom: 10px; }
+  .name { font-size: 20px; font-weight: 700; margin: 0 0 4px; }
+  .name .sym { font-family: ui-monospace, monospace; color: var(--ink-soft); font-weight: 600; margin-right: 8px; }
+  .terms { font-size: 12.5px; color: var(--ink-soft); }
+
+  .quote { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+  @media (max-width: 560px) { .quote { grid-template-columns: 1fr; } }
+  .side { background: var(--panel-strong); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+  .side-label { font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-faint); }
+  .side-main { font-size: 22px; font-weight: 700; margin-top: 4px; }
+  .side-sub { font-size: 12.5px; color: var(--ink-soft); margin-top: 2px; }
+  .side-chg { font-size: 12px; margin-left: 6px; }
+  .up { color: var(--green); }
+  .down { color: var(--red); }
+  .flat { color: var(--ink-faint); }
+  .muted { color: var(--ink-faint); }
+
+  .asof { font-size: 11.5px; color: var(--ink-faint); margin: 10px 0 0; }
+
+  /* Session, benchmark and terms */
+
+  .lower { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
+  @media (max-width: 900px) { .lower { grid-template-columns: 1fr; } }
+  .stat { display: flex; justify-content: space-between; gap: 12px; font-size: 12.5px; padding: 6px 0; border-top: 1px solid var(--line); }
+  .stat:first-child { border-top: 0; padding-top: 0; }
+  .stat-label { color: var(--ink-soft); }
+  .stat-value { color: var(--ink); text-align: right; }
+  .note { font-size: 11.5px; color: var(--ink-faint); line-height: 1.5; margin: 10px 0 0; }
+
+  /* History chart */
+
+  .chart-card { margin-top: 16px; padding-bottom: 12px; }
+  .chart-controls { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+  .seg { display: flex; gap: 4px; flex-wrap: wrap; }
+  .seg-btn {
+    font-family: ui-monospace, monospace; font-size: 12.5px; font-weight: 600; color: var(--ink-soft);
+    background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 6px 11px; cursor: pointer;
+  }
+  .seg-btn:hover { color: var(--ink); background: var(--panel-strong); }
+  .seg-btn.active { color: var(--ink); background: var(--panel-strong); border-color: var(--line); }
+  .seg-btn:focus-visible { outline: 2px solid var(--teal); outline-offset: 1px; }
+  .chart-wrap { position: relative; background: var(--panel-strong); border: 1px solid var(--line); border-radius: 8px; padding: 6px; }
+  .chart { display: block; width: 100%; height: 320px; touch-action: pan-y; }
+  @media (max-width: 620px) { .chart { height: 240px; } }
+  .chart-msg {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 13px; color: var(--ink-faint); pointer-events: none;
+  }
+  .tooltip {
+    position: absolute; top: 10px; pointer-events: none; background: var(--bg); border: 1px solid var(--line);
+    border-radius: 6px; padding: 7px 9px; font-size: 11.5px; line-height: 1.5; color: var(--ink-soft);
+    white-space: nowrap; display: none; z-index: 2;
+  }
+  .tooltip .t-time { color: var(--ink); font-weight: 600; margin-bottom: 2px; }
+  .tooltip .t-row { display: flex; justify-content: space-between; gap: 14px; }
+  .tooltip .t-row span:last-child { color: var(--ink); }
+  .chart-foot { font-size: 11px; color: var(--ink-faint); margin-top: 8px; }
+
+  footer { margin-top: 26px; font-size: 12px; color: var(--ink-faint); line-height: 1.6; }
+  footer code { font-family: ui-monospace, monospace; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <div class="topbar">
+    <a class="back" href="/commodities">&larr; Commodities</a>
+    <span class="actions">
+      <button class="pin-btn" id="pinBtn" type="button" aria-pressed="false" hidden>☆ Pin</button>
+      <a class="ticket-btn" id="ticketBtn" href="/tickets" title="New trade ticket for this contract at the last price">New trade ticket</a>
+    </span>
+  </div>
+
+  <div id="strip"></div>
+
+  <section class="card">
+    <div class="exchange-row" id="exchange">Ghana Commodity Exchange · spot</div>
+    <h1 class="name"><span class="sym" id="sym">…</span><span id="name"></span></h1>
+    <div class="terms" id="terms"></div>
+    <div class="quote">
+      <div class="side">
+        <div class="side-label">Last · GH₵ per MT</div>
+        <div class="side-main num"><span id="last">—</span><span class="side-chg num" id="chg"></span></div>
+        <div class="side-sub num" id="lastBag"></div>
+      </div>
+      <div class="side">
+        <div class="side-label">Bid</div>
+        <div class="side-main num" id="bid">—</div>
+        <div class="side-sub num" id="bidSize"></div>
+      </div>
+      <div class="side">
+        <div class="side-label">Ask</div>
+        <div class="side-main num" id="ask">—</div>
+        <div class="side-sub num" id="askSize"></div>
+      </div>
+    </div>
+    <p class="asof" id="asof">Waiting for the first update…</p>
+  </section>
+
+  <div class="lower">
+    <section class="card">
+      <h2 class="card-title">Session</h2>
+      <div id="session"></div>
+    </section>
+    <section class="card">
+      <h2 class="card-title">Against the world price</h2>
+      <div id="benchmark"></div>
+      <p class="note" id="benchmarkNote"></p>
+    </section>
+    <section class="card">
+      <h2 class="card-title">Contract</h2>
+      <div id="contract"></div>
+    </section>
+  </div>
+
+  <section class="card chart-card">
+    <div class="chart-controls">
+      <div class="seg" id="ranges" role="tablist" aria-label="Chart range"></div>
+    </div>
+    <div class="chart-wrap">
+      <canvas class="chart" id="chart"></canvas>
+      <div class="chart-msg" id="chartMsg">Loading chart…</div>
+      <div class="tooltip num" id="tooltip"></div>
+    </div>
+    <div class="chart-foot" id="chartMeta"></div>
+  </section>
+
+  <footer>
+    Simulated, modelled on the GCX market report: the last price is the latest trade, which becomes the closing price at
+    the end of the session; open, high and low are blank until the contract trades. Prices are cedis per metric tonne,
+    with the 50 kg bag (a twentieth of a tonne) beside them; volumes are tonnes. The quote comes from
+    <code>/gcx/contracts/{symbol}</code> and updates live over <code>/ws/market</code>.
+  </footer>
+
+</div>
+
+<script src="/static/render.js"></script>
+<script src="/static/strip.js"></script>
+<script>MarketStrip.mount(document.getElementById("strip"), { crawl: "commodity" });</script>
+<script>
+(function () {
+  "use strict";
+
+  const SYMBOL = decodeURIComponent(location.pathname.split("/").filter(Boolean).pop() || "").toUpperCase();
+  const $ = function (id) { return document.getElementById(id); };
+
+  const KG_PER_MT = 1000, KG_PER_BAG = 50;
+  const RANGES = ["1D", "5D", "1M", "6M", "YTD", "1Y", "5Y", "Max"];
+  const INTERVAL_MS = { "5m": 5 * 60e3, "15m": 15 * 60e3, "1h": 3600e3, "1d": 86400e3, "1w": 7 * 86400e3 };
+  const COLORS = {
+    line: "#3E9C82", fill: "rgba(62,156,130,",
+    grid: "rgba(38, 54, 47, 0.9)", axis: "#6F766D", crosshair: "rgba(174, 182, 169, 0.55)", bg: "#0E1613",
+  };
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  let contract = null;   // /gcx/contracts/{symbol}: terms and benchmark
+  let quote = null;      // latest CommodityTick
+
+  function fixed(n, dp) {
+    return Number(n).toLocaleString(undefined, { minimumFractionDigits: dp, maximumFractionDigits: dp });
+  }
+  function ghs(n) { return n == null ? "—" : "GH₵ " + fixed(n, 2); }
+  function tonnes(kg) {
+    if (kg == null) return "—";
+    return (kg / KG_PER_MT).toLocaleString(undefined, { maximumFractionDigits: 4 }) + " MT";
+  }
+  function signed(n, dp) { return (n > 0 ? "+" : n < 0 ? "−" : "") + fixed(Math.abs(n), dp); }
+  function cls(n) { return n > 0 ? "up" : n < 0 ? "down" : "flat"; }
+  function monthText(key) { const p = key.split("-"); return MONTHS[Number(p[1]) - 1] + " " + p[0]; }
+  function fmtWhen(iso) {
+    return new Date(iso).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  }
+
+  function rows(container, defs) {
+    container.textContent = "";
+    defs.forEach(function (d) {
+      const row = document.createElement("div");
+      row.className = "stat";
+      const a = document.createElement("span"); a.className = "stat-label"; a.textContent = d[0];
+      const b = document.createElement("span"); b.className = "stat-value num" + (d[2] ? " " + d[2] : ""); b.textContent = d[1];
+      row.appendChild(a); row.appendChild(b);
+      container.appendChild(row);
+    });
+  }
+
+  // ---------------------------------------------------------------- quote
+
+  function renderTerms() {
+    if (!contract) return;
+    document.title = contract.symbol + " · " + contract.name;
+    $("sym").textContent = contract.symbol;
+    $("name").textContent = contract.name;
+    $("terms").textContent = contract.commodity_name + " · Grade " + contract.grade + " · delivered to GCX " +
+      contract.delivery_centre + " · " + contract.currency + " per " + contract.unit;
+    rows($("contract"), [
+      ["Crop", contract.commodity_name],
+      ["Grade", "GCX Grade " + contract.grade],
+      ["Delivery centre", contract.delivery_centre + " warehouse"],
+      ["Quoted in", contract.currency + " per metric tonne"],
+      ["Settlement", "T+1"],
+      ["Trading hours", "09:00–15:00 GMT, Mon–Fri"],
+    ]);
+  }
+
+  function renderQuote() {
+    const q = quote;
+    if (!q) return;
+    Render.text($("last"), fixed(q.price, 2));
+    const pct = q.previous_close ? (q.change / q.previous_close) * 100 : 0;
+    Render.text($("chg"), signed(q.change, 2) + " (" + signed(pct, 2) + "%)");
+    Render.cls($("chg"), "side-chg num " + cls(q.change));
+    Render.text($("lastBag"), ghs(q.price * KG_PER_BAG / KG_PER_MT) + " per 50 kg bag");
+    Render.text($("bid"), q.bid == null ? "—" : fixed(q.bid, 2));
+    Render.text($("bidSize"), q.bid == null ? "No bid" : tonnes(q.bid_size));
+    Render.text($("ask"), q.ask == null ? "—" : fixed(q.ask, 2));
+    Render.text($("askSize"), q.ask == null ? "No offer" : tonnes(q.ask_size));
+    rows($("session"), [
+      ["Open", q.open == null ? "—" : fixed(q.open, 2)],
+      ["High", q.day_high == null ? "—" : fixed(q.day_high, 2)],
+      ["Low", q.day_low == null ? "—" : fixed(q.day_low, 2)],
+      ["Previous close", fixed(q.previous_close, 2)],
+      ["Volume", tonnes(q.volume)],
+      ["Value traded", ghs(q.value_traded)],
+      ["Trades", String(q.trade_count)],
+      ["52-week range", fixed(q.week52_low, 2) + " – " + fixed(q.week52_high, 2)],
+    ]);
+    renderBenchmark();
+    renderAsOf();
+  }
+
+  function renderAsOf() {
+    if (!quote) return;
+    const last = quote.last_trade_at ? "last traded " + fmtWhen(quote.last_trade_at) : "no trades recorded";
+    Render.text($("asof"), "Quote at " + fmtWhen(quote.timestamp) + " · " + last);
+  }
+
+  function renderBenchmark() {
+    const b = contract && contract.benchmark;
+    if (!contract) return;
+    if (!b) {
+      rows($("benchmark"), [["World benchmark", "None"]]);
+      $("benchmarkNote").textContent = contract.commodity === "sorghum"
+        ? "The World Bank stopped publishing a sorghum price in August 2020."
+        : "The World Bank publishes no " + contract.commodity_name.toLowerCase() + " price.";
+      return;
+    }
+    const price = quote ? quote.price : contract.price;
+    const basis = b.ghs_per_mt && price != null ? (price / b.ghs_per_mt - 1) * 100 : null;
+    rows($("benchmark"), [
+      ["Benchmark", b.name],
+      ["Month", monthText(b.month)],
+      ["US$ per MT", fixed(b.usd_per_mt, 2)],
+      ["GH₵ per MT", b.ghs_per_mt == null ? "—" : fixed(b.ghs_per_mt, 2)],
+      ["GCX vs world", basis == null ? "—" : signed(basis, 2) + "%", basis == null ? "" : cls(basis)],
+    ]);
+    $("benchmarkNote").textContent = (b.ghs_per_mt == null
+      ? "No Bank of Ghana USD fixes are held for that month yet, so it can't be put in cedis. "
+      : "The benchmark in cedis at that month's average Bank of Ghana USD mid. ") +
+      "It's a monthly export price at a foreign port, so the gap mixes grade, transport and the cedi with the price itself.";
+  }
+
+  // ---------------------------------------------------------------- chart
+
+  const chart = { range: "1M", interval: null, candles: [], hoverIndex: null, geometry: null, seq: 0 };
+
+  function buildRanges() {
+    RANGES.forEach(function (key) {
+      const b = document.createElement("button");
+      b.className = "seg-btn";
+      b.type = "button";
+      b.setAttribute("role", "tab");
+      b.textContent = key;
+      b.dataset.range = key;
+      b.addEventListener("click", function () { selectRange(key); });
+      $("ranges").appendChild(b);
+    });
+  }
+
+  function selectRange(key) {
+    chart.range = key;
+    try { localStorage.setItem("commodity.range", key); } catch (e) { /* storage unavailable */ }
+    $("ranges").querySelectorAll(".seg-btn").forEach(function (b) {
+      const on = b.dataset.range === key;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-selected", on ? "true" : "false");
+    });
+    loadCandles();
+  }
+
+  function loadCandles() {
+    const seq = ++chart.seq;
+    $("chartMsg").textContent = "Loading chart…";
+    $("chartMsg").style.display = "flex";
+    fetch("/candles?symbol=" + encodeURIComponent(SYMBOL) + "&range=" + encodeURIComponent(chart.range))
+      .then(function (res) {
+        if (!res.ok) {
+          const err = new Error("HTTP " + res.status);
+          err.permanent = res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429;
+          throw err;
+        }
+        return res.json();
+      })
+      .then(function (body) {
+        if (seq !== chart.seq) return;
+        chart.interval = body.interval;
+        chart.candles = body.candles.map(function (c) {
+          return { ts: Date.parse(c.time), o: c.open, h: c.high, l: c.low, c: c.close, v: c.volume };
+        });
+        chart.hoverIndex = null;
+        renderChartState();
+      })
+      .catch(function (err) {
+        if (seq !== chart.seq) return;
+        $("chartMsg").style.display = "flex";
+        if (err.permanent) { $("chartMsg").textContent = "No chart data for " + SYMBOL + "."; return; }
+        $("chartMsg").textContent = "Couldn't load the chart. Retrying…";
+        setTimeout(function () { if (seq === chart.seq) loadCandles(); }, 3000);
+      });
+  }
+
+  function renderChartState() {
+    const n = chart.candles.length;
+    $("chartMsg").style.display = n >= 2 ? "none" : "flex";
+    if (n < 2) $("chartMsg").textContent = "No history for this range yet.";
+    $("chartMeta").textContent = n ? n + " × " + chart.interval + " candles · last trade, GH₵ per metric tonne" : "";
+    drawChart();
+  }
+
+  // Fold a live tick into the newest candle, or open the next one.
+  function applyTickToChart(t) {
+    if (!chart.candles.length || !chart.interval) return;
+    const px = t.price, step = INTERVAL_MS[chart.interval], ts = Date.parse(t.timestamp);
+    const last = chart.candles[chart.candles.length - 1];
+    if (ts >= last.ts + step) {
+      chart.candles.push({ ts: last.ts + Math.floor((ts - last.ts) / step) * step, o: px, h: px, l: px, c: px, v: 0 });
+    } else if (ts >= last.ts) {
+      last.h = Math.max(last.h, px);
+      last.l = Math.min(last.l, px);
+      last.c = px;
+    } else {
+      return;
+    }
+    chartDirty = true;
+  }
+
+  function axisLabel(ts) {
+    const d = new Date(ts), iv = chart.interval;
+    if (iv === "5m") return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    if (iv === "15m") return d.toLocaleDateString(undefined, { weekday: "short" }) + " " + d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    if (iv === "1h") return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    if (iv === "1d") return d.toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+    return d.toLocaleDateString(undefined, { month: "short", year: "numeric", timeZone: "UTC" });
+  }
+  function tooltipLabel(ts) {
+    const d = new Date(ts), iv = chart.interval;
+    if (iv === "1w") return "Week of " + d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+    if (iv === "1d") return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+    return d.toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  }
+
+  function niceStep(span, target) {
+    const raw = span / target;
+    const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    const norm = raw / mag;
+    return (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10) * mag;
+  }
+
+  function drawChart() {
+    chart.geometry = null;
+    const surface = Render.canvas($("chart"), 320);
+    if (!surface) return;
+    const ctx = surface.ctx, W = surface.w, H = surface.h;
+    const pts = chart.candles;
+    if (pts.length < 2) return;
+
+    const padL = 6, padR = 72, padT = 10, padB = 22;
+    const plotW = W - padL - padR, plotH = H - padT - padB;
+    let min = Infinity, max = -Infinity;
+    pts.forEach(function (c) { if (c.c < min) min = c.c; if (c.c > max) max = c.c; });
+    const pad = (max - min) * 0.08 || Math.abs(max) * 0.01 || 1;
+    min -= pad; max += pad;
+    function xAt(i) { return padL + (i / (pts.length - 1)) * plotW; }
+    function yAt(v) { return padT + (1 - (v - min) / (max - min)) * plotH; }
+    chart.geometry = { padL: padL, plotW: plotW, W: W, xAt: xAt };
+
+    const last = pts[pts.length - 1].c;
+    const tagY = yAt(last);
+
+    ctx.font = "10px ui-monospace, monospace";
+    ctx.textBaseline = "middle";
+    const step = niceStep(max - min, 5);
+    for (let v = Math.ceil(min / step) * step; v <= max; v += step) {
+      const y = Math.round(yAt(v)) + 0.5;
+      ctx.strokeStyle = COLORS.grid;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(padL, y);
+      ctx.lineTo(padL + plotW, y);
+      ctx.stroke();
+      if (Math.abs(y - tagY) < 14) continue;
+      ctx.fillStyle = COLORS.axis;
+      ctx.fillText(fixed(v, 0), padL + plotW + 8, y);
+    }
+
+    ctx.textBaseline = "alphabetic";
+    ctx.textAlign = "center";
+    const labelCount = Math.max(2, Math.min(6, Math.floor(plotW / 110)));
+    for (let k = 0; k < labelCount; k++) {
+      const i = Math.round((k + 0.5) * (pts.length - 1) / labelCount);
+      ctx.fillStyle = COLORS.axis;
+      ctx.fillText(axisLabel(pts[i].ts), xAt(i), H - 6);
+    }
+    ctx.textAlign = "left";
+
+    const grad = ctx.createLinearGradient(0, padT, 0, padT + plotH);
+    grad.addColorStop(0, COLORS.fill + "0.24)");
+    grad.addColorStop(1, COLORS.fill + "0)");
+    ctx.beginPath();
+    pts.forEach(function (c, i) { if (i) ctx.lineTo(xAt(i), yAt(c.c)); else ctx.moveTo(xAt(0), yAt(c.c)); });
+    ctx.lineTo(xAt(pts.length - 1), padT + plotH);
+    ctx.lineTo(xAt(0), padT + plotH);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    ctx.beginPath();
+    pts.forEach(function (c, i) { if (i) ctx.lineTo(xAt(i), yAt(c.c)); else ctx.moveTo(xAt(0), yAt(c.c)); });
+    ctx.strokeStyle = COLORS.line;
+    ctx.lineWidth = 1.6;
+    ctx.lineJoin = "round";
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(xAt(pts.length - 1), tagY, 3, 0, Math.PI * 2);
+    ctx.fillStyle = COLORS.line;
+    ctx.fill();
+    const tag = fixed(last, 2);
+    const tagW = ctx.measureText(tag).width + 10;
+    ctx.fillRect(padL + plotW + 4, tagY - 8, tagW, 16);
+    ctx.fillStyle = COLORS.bg;
+    ctx.textBaseline = "middle";
+    ctx.fillText(tag, padL + plotW + 9, tagY);
+
+    if (chart.hoverIndex != null && pts[chart.hoverIndex]) {
+      const i = chart.hoverIndex;
+      const x = Math.round(xAt(i)) + 0.5;
+      ctx.strokeStyle = COLORS.crosshair;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([2, 3]);
+      ctx.beginPath();
+      ctx.moveTo(x, padT);
+      ctx.lineTo(x, padT + plotH);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.arc(xAt(i), yAt(pts[i].c), 4, 0, Math.PI * 2);
+      ctx.fillStyle = COLORS.line;
+      ctx.fill();
+      ctx.strokeStyle = COLORS.bg;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+  }
+
+  function showTooltip() {
+    const tip = $("tooltip");
+    const c = chart.candles[chart.hoverIndex];
+    const g = chart.geometry;
+    if (!c || !g) { tip.style.display = "none"; return; }
+    tip.textContent = "";
+    const time = document.createElement("div");
+    time.className = "t-time";
+    time.textContent = tooltipLabel(c.ts);
+    tip.appendChild(time);
+    [["Close", fixed(c.c, 2)], ["High", fixed(c.h, 2)], ["Low", fixed(c.l, 2)], ["Volume", tonnes(c.v)]].forEach(function (r) {
+      const row = document.createElement("div");
+      row.className = "t-row";
+      const a = document.createElement("span"); a.textContent = r[0];
+      const b = document.createElement("span"); b.textContent = r[1];
+      row.appendChild(a); row.appendChild(b);
+      tip.appendChild(row);
+    });
+    tip.style.display = "block";
+    const x = g.xAt(chart.hoverIndex) + 6;
+    const tipW = tip.offsetWidth;
+    tip.style.left = Math.max(6, x + 14 + tipW > g.W ? x - 14 - tipW : x + 14) + "px";
+  }
+
+  function onPointer(evt) {
+    const g = chart.geometry, n = chart.candles.length;
+    if (!g || n < 2) return;
+    const x = evt.clientX - $("chart").getBoundingClientRect().left;
+    chart.hoverIndex = Math.max(0, Math.min(n - 1, Math.round(((x - g.padL) / g.plotW) * (n - 1))));
+    drawChart();
+    showTooltip();
+  }
+
+  // ---------------------------------------------------------------- feed
+
+  function ingest(t, isSnapshot) {
+    quote = t;
+    if (!isSnapshot) applyTickToChart(t);
+    schedulePaint();
+  }
+
+  let chartDirty = false;
+  const schedulePaint = Render.batch(function () {
+    if (quote) renderQuote();
+    if (chartDirty) {
+      chartDirty = false;
+      renderChartState();
+    }
+  });
+
+  let hadConnection = false;
+  function connect() {
+    const proto = location.protocol === "https:" ? "wss" : "ws";
+    const ws = new WebSocket(proto + "://" + location.host + "/ws/market");
+    ws.onopen = function () {
+      if (hadConnection) loadCandles();   // pick up what was missed offline
+      hadConnection = true;
+      ws.send(JSON.stringify({ action: "subscribe", symbols: [SYMBOL] }));
+    };
+    ws.onmessage = function (evt) {
+      const msg = JSON.parse(evt.data);
+      if (msg.type === "snapshot") {
+        const t = msg.data[SYMBOL];
+        if (t && t.tick_type === "commodity") ingest(t, true);
+      } else if (msg.type === "ticks") {
+        msg.data.forEach(function (t) {
+          if (t.symbol === SYMBOL && t.tick_type === "commodity") ingest(t, false);
+        });
+      }
+    };
+    ws.onclose = function () { setTimeout(connect, 2000); };
+    ws.onerror = function () { ws.close(); };
+  }
+
+  // ---------------------------------------------------------------- boot
+
+  buildRanges();
+  const canvas = $("chart");
+  canvas.addEventListener("pointermove", onPointer);
+  canvas.addEventListener("pointerdown", onPointer);
+  canvas.addEventListener("pointerleave", function () {
+    chart.hoverIndex = null;
+    $("tooltip").style.display = "none";
+    drawChart();
+  });
+  let resizeTimer = null;
+  window.addEventListener("resize", function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(drawChart, 120);
+  });
+  setInterval(renderAsOf, 1000);
+
+  let initialRange = "1M";
+  try {
+    const r = localStorage.getItem("commodity.range");
+    if (r && RANGES.indexOf(r) !== -1) initialRange = r;
+  } catch (e) { /* storage unavailable */ }
+  selectRange(initialRange);
+
+  fetch("/gcx/contracts/" + encodeURIComponent(SYMBOL))
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (c) {
+      if (!c) return;
+      contract = c;
+      renderTerms();
+      renderBenchmark();
+    });
+  fetch("/market/" + encodeURIComponent(SYMBOL))
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (t) { if (t && !quote) ingest(t, true); });
+  connect();
+
+  // Pinning: the same list as the Commodities tab's (/gcx/watchlist/me).
+  let pins = null, maxPins = 12;
+  function paintPin() {
+    const on = pins.indexOf(SYMBOL) >= 0;
+    const b = $("pinBtn");
+    b.hidden = false;
+    b.textContent = on ? "★ Pinned" : "☆ Pin";
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+    b.title = on ? "Unpin from the top of the Commodities tab"
+      : pins.length >= maxPins ? "You can pin at most " + maxPins + " contracts" : "Pin to the top of the Commodities tab";
+    b.disabled = !on && pins.length >= maxPins;
+  }
+  fetch("/gcx/watchlist/me")
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (w) { if (w) { pins = w.symbols; maxPins = w.max_pins; paintPin(); } });
+  $("pinBtn").addEventListener("click", function () {
+    const before = pins;
+    pins = pins.indexOf(SYMBOL) >= 0 ? pins.filter(function (s) { return s !== SYMBOL; }) : pins.concat([SYMBOL]);
+    paintPin();
+    fetch("/gcx/watchlist/me", {
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbols: pins }),
+    }).then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    }).then(function (w) { pins = w.symbols; paintPin(); }, function () { pins = before; paintPin(); });
+  });
+
+  // A ticket for this contract at the last price.
+  $("ticketBtn").addEventListener("click", function () {
+    const params = new URLSearchParams({ symbol: SYMBOL });
+    if (quote) params.set("price", quote.price.toFixed(2));
+    this.href = "/tickets?" + params.toString();
+  });
+})();
+</script>
+
+</body>
+</html>

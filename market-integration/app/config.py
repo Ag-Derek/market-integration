@@ -202,10 +202,22 @@ FI_BURST_RATE: float = float(os.getenv("FI_BURST_RATE", "0"))
 FI_SESSION_OPEN: str = os.getenv("FI_SESSION_OPEN", "09:00")
 FI_SESSION_CLOSE: str = os.getenv("FI_SESSION_CLOSE", "16:00")
 
+# The Ghana Commodity Exchange (GCX) mock: how often its stream wakes, in
+# seconds, and its session hours, GMT. 09:00-15:00 is what gcx.com.gh
+# gives on its contract pages (its home page says 8 AM - 4 PM; see
+# docs/commodities-gcx.md). Trading days and holidays are the equity
+# calendar's.
+GCX_MOCK_INTERVAL_SECONDS: float = float(os.getenv("GCX_MOCK_INTERVAL_SECONDS", "0.5"))
+GCX_SESSION_OPEN: str = os.getenv("GCX_SESSION_OPEN", "09:00")
+GCX_SESSION_CLOSE: str = os.getenv("GCX_SESSION_CLOSE", "15:00")
+
 # Trade tickets (app/tickets/): business days from trade to settlement
 # for equities. Bills and bonds use GFIM's T+2 (Rule 28). Not yet
 # confirmed against the GSE/CSD rule book: check before relying on it.
 EQUITY_SETTLEMENT_LAG: int = int(os.getenv("EQUITY_SETTLEMENT_LAG", "3"))
+# GCX spot contracts settle T+1 (gcx.com.gh: "sellers are paid and
+# buyers receive full delivery within 24 hours after trade").
+COMMODITY_SETTLEMENT_LAG: int = int(os.getenv("COMMODITY_SETTLEMENT_LAG", "1"))
 
 # How tickets reach the depository (app/connectors/depository.py):
 # "email" sends each as a PDF to DEPOSITORY_EMAIL (copied to

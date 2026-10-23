@@ -7,7 +7,10 @@ mining sector trades against. Prices are in US dollars as published, and in
 cedis at the Bank of Ghana's USD fixes. The code is in `app/commodities/`.
 
 These are reference prices, like the FX fixes, not tradable instruments.
-Nothing here goes through the tick pipeline, candles or tickets.
+Nothing here goes through the tick pipeline, candles or tickets. The
+tradable commodities on the same tab, Ghana Commodity Exchange spot
+contracts, are in [commodities-gcx.md](commodities-gcx.md); they are
+compared with the maize, soybean and rice series here.
 
 ## Source: the World Bank Pink Sheet
 
@@ -83,6 +86,7 @@ Every series in the workbook is stored. `COMMODITIES` in
 | `RUBBER`    | Rubber, TSR20        | $/kg          | Agriculture |
 | `COTTON`    | Cotton, A Index      | $/kg          | Agriculture |
 | `MAIZE`     | Maize                | $/mt          | Agriculture |
+| `SOYBEANS`  | Soybeans             | $/mt          | Agriculture |
 | `RICE`      | Rice, Thai 5%        | $/mt          | Agriculture |
 | `WHEAT`     | Wheat, US HRW        | $/mt          | Agriculture |
 | `SUGAR`     | Sugar, world         | $/kg          | Agriculture |

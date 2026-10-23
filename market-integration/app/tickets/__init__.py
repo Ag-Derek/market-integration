@@ -6,7 +6,8 @@ connector in app/connectors/depository.py.
 
 build_ticket() turns what the trader fills in into a ticket: it looks up
 the instrument, settles it on the exchange calendar and works out the
-amounts. Equities: consideration = shares x price. Bills and bonds: the
+amounts. Equities: consideration = shares x price. GCX commodities:
+tonnes x price per tonne, settling T+1 (COMMODITY_SETTLEMENT_LAG). Bills and bonds: the
 invoice from app/bond_math (principal at the clean price, plus accrued
 interest on bonds), so a ticket and the bond calculator agree. Bonds the
 bond math can't price yet take face x price / 100 and the accrued
@@ -48,13 +49,14 @@ def build_ticket(
     today: date,
     now: datetime,
     equity_settlement_lag: int = config.EQUITY_SETTLEMENT_LAG,
+    commodity_settlement_lag: int = config.COMMODITY_SETTLEMENT_LAG,
     complete: bool = True,
 ) -> Ticket:
     """A new draft ticket. Raises TicketError for an unknown or
     non-trading instrument, a counterparty who is the trader, a trade
     date in the future or on a non-trading day, a fractional number of
-    shares, a bill the bond math can't price, or accrued interest given
-    where it is calculated or nil.
+    shares, commodity tonnes to more than 4 decimals, a bill the bond math
+    can't price, or accrued interest given where it is calculated or nil.
 
     A bond the bond math can't price takes the accrued interest from the
     request. Without one it is refused, unless `complete` is False (a
@@ -77,11 +79,18 @@ def build_ticket(
 
     accrued, days_accrued, accrued_source = 0.0, None, "none"
     if instrument.asset_class != "bond" and request.accrued_interest is not None:
-        raise TicketError(f"{symbol} is {'an equity' if instrument.asset_class == 'equity' else 'a bill'}: no accrued interest")
+        what = {"equity": "an equity", "bill": "a bill", "commodity": "a commodity"}[instrument.asset_class]
+        raise TicketError(f"{symbol} is {what}: no accrued interest")
     if instrument.asset_class == "equity":
         if request.quantity != int(request.quantity):
             raise TicketError("Equity quantity must be a whole number of shares")
         settle = settlement_date(trade_date, calendar, equity_settlement_lag)
+        consideration = request.quantity * request.price
+    elif instrument.asset_class == "commodity":
+        # Metric tonnes, to four decimals (100 g), as GCX reports volumes.
+        if round(request.quantity, 4) != round(request.quantity, 9):
+            raise TicketError("Commodity quantity is in metric tonnes, to 4 decimal places at most")
+        settle = settlement_date(trade_date, calendar, commodity_settlement_lag)
         consideration = request.quantity * request.price
     else:
         settle = settlement_date(trade_date, calendar, SETTLEMENT_LAG)

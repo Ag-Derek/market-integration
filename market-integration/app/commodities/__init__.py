@@ -88,6 +88,7 @@ COMMODITIES: dict[str, Commodity] = {c.code: c for c in [
     _c("RUBBER", "Rubber, TSR20", "Agriculture", "kg", "$/kg", "Rubber, TSR20"),
     _c("COTTON", "Cotton, A Index", "Agriculture", "kg", "$/kg", "Cotton, A Index"),
     _c("MAIZE", "Maize", "Agriculture", "tonne", "$/mt", "Maize"),
+    _c("SOYBEANS", "Soybeans", "Agriculture", "tonne", "$/mt", "Soybeans"),
     _c("RICE", "Rice, Thai 5%", "Agriculture", "tonne", "$/mt", "Rice, Thai 5%"),
     _c("WHEAT", "Wheat, US HRW", "Agriculture", "tonne", "$/mt", "Wheat, US HRW"),
     _c("SUGAR", "Sugar, world", "Agriculture", "kg", "$/kg", "Sugar, world"),

@@ -37,6 +37,7 @@ from email.utils import formatdate, make_msgid
 from pathlib import Path
 from typing import Literal, Optional, Protocol
 
+from app.models.commodity import format_tonnes
 from app.models.ticket import Ticket
 from app.tickets.pdf import render_ticket_pdf
 
@@ -137,8 +138,12 @@ class EmailDepository:
     def message(self, ticket: Ticket) -> EmailMessage:
         """The email for `ticket`: a plain-text summary with the PDF ticket
         attached."""
-        equity = ticket.asset_class == "equity"
-        quantity = f"{ticket.quantity:,.0f}" if equity else f"{ticket.currency} {ticket.quantity:,.2f} face"
+        if ticket.asset_class == "equity":
+            quantity = f"{ticket.quantity:,.0f}"
+        elif ticket.asset_class == "commodity":
+            quantity = format_tonnes(ticket.quantity)
+        else:
+            quantity = f"{ticket.currency} {ticket.quantity:,.2f} face"
         msg = EmailMessage()
         msg["Subject"] = (
             f"Trade ticket {ticket.id}: {ticket.symbol} {quantity} @ {ticket.price:,.4g}, "
@@ -160,7 +165,8 @@ class EmailDepository:
             f"  Buyer:            {ticket.buyer} (account {ticket.buyer_account or '-'})\n"
             f"  Seller:           {ticket.seller} (account {ticket.seller_account or '-'})\n"
             f"  Quantity:         {quantity}\n"
-            f"  Price:            {ticket.price:,.4f}\n"
+            f"  Price:            {ticket.price:,.4f}"
+            f"{f' {ticket.currency} per MT' if ticket.asset_class == 'commodity' else ''}\n"
             f"  Trade date:       {ticket.trade_date:%d %b %Y}\n"
             f"  Settlement date:  {ticket.settlement_date:%d %b %Y}\n"
             f"  Net amount:       {ticket.currency} {ticket.net_amount:,.2f}\n\n"

@@ -10,7 +10,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-AssetClass = Literal["equity", "bill", "bond"]
+AssetClass = Literal["equity", "bill", "bond", "commodity"]
 InstrumentStatus = Literal["active", "suspended", "delisted"]
 # Finer-grained than asset_class for equities, so an ETF or preference
 # share can still be told apart from an ordinary share.
@@ -25,6 +25,21 @@ FixedIncomeSegment = Literal["new_gog", "ddep", "old_gog", "corporate", "treasur
 # Day-count bases in use on the GFIM; see
 # docs/fixed-income-sources-and-conventions.md.
 DayCount = Literal["ACT/364", "ACT/365", "ACT/ACT"]
+# The crops a Ghana Commodity Exchange (GCX) spot contract can be for,
+# with the code GCX symbols carry for each: GEJWM2 is White Maize ("WM")
+# at Ejura, grade 2. See docs/commodities-gcx.md.
+Commodity = Literal["white_maize", "yellow_maize", "soya_bean", "sesame", "sorghum", "rice"]
+COMMODITY_NAMES: dict[str, str] = {
+    "white_maize": "White Maize",
+    "yellow_maize": "Yellow Maize",
+    "soya_bean": "Soya Bean",
+    "sesame": "Sesame",
+    "sorghum": "Sorghum",
+    "rice": "Rice",
+}
+# What a GCX price is per, and what volume is counted in.
+CommodityUnit = Literal["MT"]
+_COMMODITY_FIELDS = ("commodity", "grade", "delivery_centre", "unit")
 
 _ISIN_FORMAT = re.compile(r"[A-Z]{2}[A-Z0-9]{9}[0-9]")
 
@@ -72,6 +87,25 @@ class Instrument(BaseModel):
     frequency: Optional[int] = Field(default=None, ge=0)  # coupons a year; 0 = zero coupon (bills)
     day_count: Optional[DayCount] = None
     face_value: Optional[float] = Field(default=None, gt=0)  # what prices are quoted per: 100
+
+    # Commodities only (None for everything else): a GCX spot contract is
+    # one crop, of one grade, delivered to one GCX warehouse, priced in
+    # GHS per `unit`. The symbol is GCX's code, e.g. "GEJWM2".
+    commodity: Optional[Commodity] = None
+    grade: Optional[int] = Field(default=None, ge=1, le=5)
+    delivery_centre: Optional[str] = None
+    unit: Optional[CommodityUnit] = None
+
+    @model_validator(mode="after")
+    def _commodity_terms(self) -> "Instrument":
+        given = [f for f in _COMMODITY_FIELDS if getattr(self, f) is not None]
+        if self.asset_class == "commodity":
+            missing = [f for f in _COMMODITY_FIELDS if f not in given]
+            if missing:
+                raise ValueError(f"a commodity needs {', '.join(missing)}")
+        elif given:
+            raise ValueError(f"{', '.join(given)} are for commodities, not a {self.asset_class}")
+        return self
 
     @model_validator(mode="after")
     def _issued_before_maturity(self) -> "Instrument":

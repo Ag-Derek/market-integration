@@ -429,13 +429,22 @@
     if (v == null) return "—";
     return (ccy ? ccy + " " : "") + Number(v).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
+  // Shares, tonnes (GCX reports them to 4 decimals) or face value.
+  const QTY_DIGITS = { equity: 0, commodity: 4 };
   function qty(t) {
-    return t.asset_class === "equity"
-      ? Number(t.quantity).toLocaleString("en-GB", { maximumFractionDigits: 0 })
-      : Number(t.quantity).toLocaleString("en-GB", { maximumFractionDigits: 2 });
+    const digits = t.asset_class in QTY_DIGITS ? QTY_DIGITS[t.asset_class] : 2;
+    const n = Number(t.quantity).toLocaleString("en-GB", { maximumFractionDigits: digits });
+    return t.asset_class === "commodity" ? n + " MT" : n;
   }
   function priceText(t) {
-    return t.asset_class === "equity" ? Number(t.price).toFixed(2) : Number(t.price).toFixed(4);
+    return t.asset_class === "equity" || t.asset_class === "commodity"
+      ? Number(t.price).toFixed(2) : Number(t.price).toFixed(4);
+  }
+  // What quantity and price are, by asset class: [quantity, price per].
+  function terms(assetClass) {
+    if (assetClass === "equity") return ["Shares", "Price per share"];
+    if (assetClass === "commodity") return ["Quantity (tonnes)", "Price per tonne"];
+    return ["Face value", "Clean price (per 100)"];
   }
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   function day(iso) {
@@ -558,17 +567,31 @@
   function renderInstrument() {
     const info = $("secInfo");
     info.innerHTML = "";
-    const equity = !instrument || instrument.asset_class === "equity";
-    $("qtyLabel").textContent = equity ? "Shares" : "Face value";
-    $("qtyHint").textContent = equity ? "" : (instrument ? instrument.currency : "");
-    $("priceLabel").textContent = equity ? "Price per share" : "Clean price";
-    $("priceHint").textContent = equity ? (instrument ? instrument.currency : "") : "per 100";
+    const kind = instrument ? instrument.asset_class : "equity";
+    const ccy = instrument ? instrument.currency : "";
+    if (kind === "equity") {
+      $("qtyLabel").textContent = "Shares";
+      $("qtyHint").textContent = "";
+      $("priceLabel").textContent = "Price per share";
+      $("priceHint").textContent = ccy;
+    } else if (kind === "commodity") {
+      $("qtyLabel").textContent = "Quantity";
+      $("qtyHint").textContent = "metric tonnes";
+      $("priceLabel").textContent = "Price";
+      $("priceHint").textContent = ccy + " per tonne";
+    } else {
+      $("qtyLabel").textContent = "Face value";
+      $("qtyHint").textContent = ccy;
+      $("priceLabel").textContent = "Clean price";
+      $("priceHint").textContent = "per 100";
+    }
     $("accruedField").hidden = true;
     if (!instrument) return;
     info.appendChild(el("span", "pill asset", instrument.asset_class));
     let text = instrument.name;
     if (instrument.maturity_date) text += " · matures " + day(instrument.maturity_date);
     if (instrument.coupon_rate) text += " · " + instrument.coupon_rate + "% coupon";
+    if (kind === "commodity") text += " · GCX spot, settles T+1";
     info.appendChild(document.createTextNode(text));
   }
 
@@ -794,14 +817,14 @@
     const body = $("dBody");
     body.innerHTML = "";
 
-    const equity = t.asset_class === "equity";
+    const labels = terms(t.asset_class);
     body.appendChild(section("Trade", [
       ["You", (mySide(t) === "buy" ? "BOUGHT" : "SOLD"), mySide(t)],
       ["Security", t.symbol],
       ["Name", t.name],
-      ["ISIN", t.isin],
-      [equity ? "Shares" : "Face value", qty(t), "num"],
-      [equity ? "Price per share" : "Clean price (per 100)", priceText(t), "num"],
+      t.asset_class === "commodity" ? ["Exchange", "GCX spot"] : ["ISIN", t.isin],
+      [labels[0], qty(t), "num"],
+      [labels[1], priceText(t), "num"],
       ["Trade date", day(t.trade_date)],
       ["Settlement date", day(t.settlement_date)],
     ]));

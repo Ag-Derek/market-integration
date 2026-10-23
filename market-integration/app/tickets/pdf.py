@@ -17,6 +17,7 @@ from reportlab.lib.units import mm
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.platypus import Flowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
+from app.models.commodity import format_tonnes
 from app.models.ticket import Ticket
 
 _INK = colors.HexColor("#1A1A1A")
@@ -188,6 +189,8 @@ def _header(ticket: Ticket) -> list:
 def _summary(ticket: Ticket) -> Table:
     if ticket.asset_class == "equity":
         amount, price = f"{ticket.quantity:,.0f}", _money(ticket, ticket.price)
+    elif ticket.asset_class == "commodity":
+        amount, price = format_tonnes(ticket.quantity), _money(ticket, ticket.price) + "/MT"
     else:
         amount, price = _face(ticket), f"{ticket.price:,.4f}"
     plain = f"{amount} {ticket.symbol} @ {price}"
@@ -323,13 +326,22 @@ def _signatures() -> Table:
 def render_ticket_pdf(ticket: Ticket, generated_at: Optional[datetime] = None) -> bytes:
     generated_at = generated_at or datetime.now(timezone.utc)
     equity = ticket.asset_class == "equity"
-    quantity = f"{ticket.quantity:,.0f} shares" if equity else f"{_face(ticket)} face"
-    price = f"{_money(ticket, ticket.price)} / share" if equity else f"{ticket.price:,.4f} per 100 face (clean)"
+    commodity = ticket.asset_class == "commodity"
+    if equity:
+        quantity, price = f"{ticket.quantity:,.0f} shares", f"{_money(ticket, ticket.price)} / share"
+        consideration = f"Consideration ({ticket.quantity:,.0f} × {_money(ticket, ticket.price)})"
+    elif commodity:
+        quantity, price = format_tonnes(ticket.quantity), f"{_money(ticket, ticket.price)} / MT"
+        consideration = f"Consideration ({format_tonnes(ticket.quantity)} × {_money(ticket, ticket.price)})"
+    else:
+        quantity, price = f"{_face(ticket)} face", f"{ticket.price:,.4f} per 100 face (clean)"
+        consideration = f"Consideration ({_face(ticket)} × {ticket.price:,.4f} / 100)"
     lag = _business_days(ticket.trade_date, ticket.settlement_date)
 
     security = _rows("Security", [
         ("Symbol", Paragraph(f"<b>{escape(ticket.symbol)}</b>", _BODY_R)),
         ("Name", ticket.name),
+        ("Exchange", "Ghana Commodity Exchange (spot)") if commodity else
         ("ISIN", Paragraph(f'<font name="{_MONO}">{escape(ticket.isin or "-")}</font>', _BODY_R)),
         ("Asset class", ticket.asset_class.capitalize()),
     ], _HALF)
@@ -341,8 +353,6 @@ def render_ticket_pdf(ticket: Ticket, generated_at: Optional[datetime] = None) -
             f'<b>{ticket.settlement_date:%a %d %b %Y}</b> <font color="#6B6B6B">· T+{lag}</font>', _BODY_R)),
     ], _HALF)
 
-    consideration = (f"Consideration ({ticket.quantity:,.0f} × {_money(ticket, ticket.price)})" if equity
-                     else f"Consideration ({_face(ticket)} × {ticket.price:,.4f} / 100)")
     amounts = _rows("Amounts", [
         (consideration, _money(ticket, ticket.consideration)),
         *([("Accrued interest " + (

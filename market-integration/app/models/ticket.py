@@ -5,8 +5,9 @@ up so it can be filed with the depository (app/tickets/).
 A ticket is written from the trader's side: `side` is what the trader
 did, and buyer/seller follow from it. Amounts are in the instrument's
 currency. For equities `quantity` is shares and `price` is per share;
-for bills and bonds `quantity` is face value and `price` is the clean
-price per 100 face.
+for GCX commodities `quantity` is metric tonnes and `price` is per
+tonne; for bills and bonds `quantity` is face value and `price` is the
+clean price per 100 face.
 """
 
 from datetime import date, datetime

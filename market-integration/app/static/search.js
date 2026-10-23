@@ -8,7 +8,7 @@
  * Keyboard: "/" focuses, Up/Down move, Enter opens the highlighted (or
  * first) result, Shift+Enter pins it, Esc closes (a second Esc clears
  * and leaves the box). Equities open /stock/{symbol}, bills and bonds
- * /bond/{symbol}. The best-matching equity is followed by a row for its
+ * /bond/{symbol}, GCX commodity contracts /commodity/{symbol}. The best-matching equity is followed by a row for its
  * Description page (/stock/{symbol}#description).
  *
  * Filters: focusing the box opens a panel with two pills, Sector and
@@ -41,7 +41,8 @@
   // Where pins were kept before they moved to the server; read once to
   // carry an existing list over, then cleared.
   const LEGACY_WATCHLIST_KEY = "watchlist";
-  const BADGE = { equity: "Equity", bill: "Bill", bond: "Bond", description: "DES" };
+  const BADGE = { equity: "Equity", bill: "Bill", bond: "Bond", commodity: "GCX", description: "DES" };
+  const DETAIL_PAGE = { equity: "/stock/", commodity: "/commodity/" };
   const MOVERS = [
     { key: "gainers", label: "Top gainers", none: "No gainers" },
     { key: "losers", label: "Top losers", none: "No losers" },
@@ -125,6 +126,7 @@
   .msearch-badge.bill { color: var(--gold); background: var(--gold-bg); }
   .msearch-badge.bond { color: var(--status-live, #5AA9E6); background: rgba(90, 169, 230, 0.12); }
   .msearch-badge.description { color: var(--teal); background: rgba(62, 156, 130, 0.12); }
+  .msearch-badge.commodity { color: var(--green, #34C57F); background: rgba(52, 197, 127, 0.12); }
   .msearch-opt.description .msearch-sym { color: var(--ink-soft); font-weight: 500; }
   .msearch-opt.description .msearch-pin { visibility: hidden; }
   .msearch-px { font: 12px ui-monospace, monospace; font-variant-numeric: tabular-nums; color: var(--ink); text-align: right; }
@@ -233,7 +235,7 @@
 
   function detailUrl(r) {
     if (r.asset_class === "description") return "/stock/" + encodeURIComponent(r.symbol) + "#description";
-    return (r.asset_class === "equity" ? "/stock/" : "/bond/") + encodeURIComponent(r.symbol);
+    return (DETAIL_PAGE[r.asset_class] || "/bond/") + encodeURIComponent(r.symbol);
   }
 
   // A Description row right after the best-matching equity, so a search
@@ -251,11 +253,13 @@
   }
 
   // Equities in the page's display currency (/static/currency.js, when
-  // the page loads it); bills and bonds per 100 of face value.
+  // the page loads it); GCX contracts in cedis per tonne; bills and bonds
+  // per 100 of face value.
   function fmtPrice(r) {
     if (r.price == null) return "—";
     if (r.asset_class === "equity" && window.Currency) return Currency.money(r.price);
     const n = Number(r.price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (r.asset_class === "commodity") return "GH₵" + n + "/t";
     return r.asset_class === "equity" ? "GH₵" + n : n;
   }
   function fmtChange(r) {

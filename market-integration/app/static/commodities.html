@@ -17,6 +17,8 @@
     --teal-bg: rgba(62, 156, 130, 0.14);
     --gold: #D9A44C;
     --gold-bg: #2A2313;
+    --green: #34C57F;
+    --red: #E5675A;
   }
 
   * { box-sizing: border-box; }
@@ -78,11 +80,28 @@
   }
   tbody tr.group:hover td { background: none; }
   th.split, td.split { border-left: 1px solid var(--line); }
+  td .sym { font-family: ui-monospace, monospace; font-weight: 600; color: var(--ink); text-decoration: none; }
+  td a.sym:hover { color: var(--teal); text-decoration: underline; }
+  td .what { color: var(--ink-soft); margin-left: 8px; }
+  .up { color: var(--green); }
+  .down { color: var(--red); }
+  section + section { margin-top: 18px; }
+  th.pin-col, td.pin-col { width: 1%; padding-right: 0; text-align: center; }
+  .pin {
+    font: inherit; font-size: 15px; line-height: 1; color: var(--ink-faint); background: none;
+    border: 0; border-radius: 5px; padding: 3px 5px; cursor: pointer;
+  }
+  .pin:hover { color: var(--ink); background: var(--panel-strong); }
+  .pin:focus-visible { outline: 2px solid var(--teal); outline-offset: 1px; }
+  .pin[aria-pressed="true"] { color: var(--gold); }
+  .pin:disabled { cursor: default; opacity: 0.5; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
   .error { color: var(--gold); background: var(--gold-bg); border: 1px solid var(--gold); border-radius: 10px; padding: 10px 14px; font-size: 13px; margin-bottom: 14px; }
   .error[hidden] { display: none; }
 
   footer { margin-top: 26px; font-size: 12px; color: var(--ink-faint); line-height: 1.6; }
+  footer + footer { margin-top: 10px; }
   footer code { font-family: ui-monospace, monospace; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
   footer a { color: var(--teal); }
 
@@ -113,6 +132,26 @@
   </div>
 
   <div class="error" id="error" hidden></div>
+  <div class="error" id="gcxError" hidden></div>
+
+  <section class="panel flush">
+    <div class="panel-head">
+      <h2>GCX spot market</h2>
+      <span class="sub">Ghana Commodity Exchange · GH₵ per metric tonne, per 50 kg bag beside it · simulated</span>
+      <span class="sub right" id="pinNote">☆ pins a contract to the top</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th class="pin-col"><span class="sr-only">Pin</span></th><th class="l">Contract</th><th class="l">Delivery centre</th><th>Grade</th>
+          <th>Last</th><th>Per bag</th><th>Chg</th><th>Chg %</th>
+          <th>Bid</th><th>Ask</th><th>High</th><th>Low</th><th>Vol (MT)</th>
+          <th class="split" title="The GCX price against the latest World Bank monthly average for the crop, both in cedis per tonne">vs world</th>
+        </tr></thead>
+        <tbody id="gcxBody"><tr><td class="l muted" colspan="14">Loading&hellip;</td></tr></tbody>
+      </table>
+    </div>
+  </section>
 
   <section class="panel flush">
     <div class="panel-head">
@@ -136,6 +175,13 @@
     </div>
   </section>
 
+  <footer>
+    GCX spot contracts are simulated, modelled on the exchange's market report (<code>/gcx/contracts</code>, live over
+    <code>/ws/market</code>): each is one crop and grade, delivered to one GCX warehouse, and settles T+1. A 50 kg bag is a
+    twentieth of a tonne. "vs world" is the GCX price's premium or discount to the crop's World Bank benchmark in cedis
+    (maize: US no. 2 yellow f.o.b. Gulf; soya: soybeans; rice: Thai 5%); it mixes grade, transport and the cedi with the
+    price itself, so read it as indicative. Sesame and sorghum have no current benchmark.
+  </footer>
   <footer>
     Monthly averages from the <a id="sourceLink" href="https://www.worldbank.org/en/research/commodity-markets" rel="noopener" target="_blank">World Bank's
     Pink Sheet</a>, via <code>/commodities/prices</code>, in nominal US dollars per the unit shown (cocoa, coffee, rubber,
@@ -269,6 +315,198 @@
 
   if (month) $("month").value = month;
   load();
+
+  // ------------------------------------------------------------ GCX spot market
+
+  const KG_PER_MT = 1000, KG_PER_BAG = 50;
+  const gcx = {};      // symbol -> contract (terms, benchmark, latest quote)
+  const gcxRows = {};  // symbol -> { cell name -> <td> }
+
+  function money(v) {
+    if (v == null) return "—";
+    return Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function signed(v) {
+    if (v == null) return "—";
+    return (v > 0 ? "+" : v < 0 ? "−" : "") + money(Math.abs(v));
+  }
+  function tonnes(kg) {
+    if (kg == null) return "—";
+    return (kg / KG_PER_MT).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  }
+  function dir(v) { return v > 0 ? " up" : v < 0 ? " down" : ""; }
+
+  let order = [];      // symbols as /gcx/contracts lists them: by crop
+  let pins = [];       // the user's pinned contracts, in pin order (/gcx/watchlist/me)
+  let maxPins = 12;
+
+  function addGroup(body, label) {
+    const g = el("tr", "group");
+    const td = el("td", null, label);
+    td.colSpan = 14;
+    g.appendChild(td);
+    body.appendChild(g);
+  }
+
+  // Pinned contracts first, in pin order; the rest by crop.
+  function layoutGcx() {
+    const body = $("gcxBody");
+    body.textContent = "";
+    Object.keys(gcxRows).forEach(function (s) { delete gcxRows[s]; });
+    const pinned = pins.filter(function (s) { return gcx[s]; });
+    if (pinned.length) {
+      addGroup(body, "Pinned");
+      pinned.forEach(function (s) { addRow(body, gcx[s]); });
+    }
+    let crop = null;
+    order.forEach(function (s) {
+      if (pinned.indexOf(s) >= 0) return;
+      const c = gcx[s];
+      if (c.commodity !== crop) {
+        crop = c.commodity;
+        addGroup(body, c.commodity_name);
+      }
+      addRow(body, c);
+    });
+    $("pinNote").textContent = pins.length ? pins.length + " of " + maxPins + " pinned" : "☆ pins a contract to the top";
+  }
+
+  function addRow(body, c) {
+    const tr = el("tr");
+    const pinned = pins.indexOf(c.symbol) >= 0;
+    const pinCell = el("td", "pin-col");
+    const pin = el("button", "pin", pinned ? "★" : "☆");
+    pin.type = "button";
+    pin.setAttribute("aria-pressed", pinned ? "true" : "false");
+    pin.setAttribute("aria-label", (pinned ? "Unpin " : "Pin ") + c.symbol);
+    pin.title = pinned ? "Unpin" : "Pin to the top";
+    pin.addEventListener("click", function () { togglePin(c.symbol); });
+    pinCell.appendChild(pin);
+    tr.appendChild(pinCell);
+    const name = el("td", "l");
+    const a = el("a", "sym", c.symbol);
+    a.href = "/commodity/" + encodeURIComponent(c.symbol);
+    a.title = c.name;
+    name.appendChild(a);
+    tr.appendChild(name);
+    tr.appendChild(el("td", "l", c.delivery_centre));
+    tr.appendChild(el("td", "num", String(c.grade)));
+    const cells = {};
+    ["price", "bag", "chg", "pct", "bid", "ask", "high", "low", "vol"].forEach(function (k) {
+      cells[k] = el("td", "num");
+      tr.appendChild(cells[k]);
+    });
+    cells.basis = el("td", "num split");
+    tr.appendChild(cells.basis);
+    cells.pin = pin;
+    gcxRows[c.symbol] = cells;
+    body.appendChild(tr);
+    paintGcx(c.symbol);
+  }
+
+  function savePins(symbols) {
+    return fetch("/gcx/watchlist/me", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ symbols: symbols }),
+    }).then(function (r) {
+      return r.json().then(function (b) {
+        if (!r.ok) throw new Error((b.detail && b.detail.message) || r.statusText);
+        return b;
+      });
+    });
+  }
+
+  // Shown at once; put back if the server refuses it.
+  function togglePin(symbol) {
+    const before = pins.slice();
+    const pinned = pins.indexOf(symbol) >= 0;
+    if (!pinned && pins.length >= maxPins) {
+      $("gcxError").textContent = "You can pin at most " + maxPins + " contracts. Unpin one first.";
+      $("gcxError").hidden = false;
+      return;
+    }
+    $("gcxError").hidden = true;
+    pins = pinned ? pins.filter(function (s) { return s !== symbol; }) : pins.concat([symbol]);
+    layoutGcx();
+    gcxRows[symbol].pin.focus();   // the row moved; keep the keyboard on it
+    savePins(pins).then(function (b) { pins = b.symbols; }, function (e) {
+      pins = before;
+      layoutGcx();
+      $("gcxError").textContent = "Couldn't save your pins: " + e.message;
+      $("gcxError").hidden = false;
+    });
+  }
+
+  function paintGcx(symbol) {
+    const c = gcx[symbol], cells = gcxRows[symbol];
+    if (!c || !cells) return;
+    const pct = c.price != null && c.previous_close ? (c.price / c.previous_close - 1) * 100 : null;
+    cells.price.textContent = money(c.price);
+    cells.bag.textContent = c.price == null ? "—" : money(c.price * KG_PER_BAG / KG_PER_MT);
+    cells.chg.textContent = signed(c.change);
+    cells.chg.className = "num" + dir(c.change);
+    cells.pct.textContent = signedPct(pct);
+    cells.pct.className = "num" + dir(pct);
+    cells.bid.textContent = money(c.bid);
+    cells.ask.textContent = money(c.ask);
+    cells.high.textContent = money(c.day_high);
+    cells.low.textContent = money(c.day_low);
+    cells.vol.textContent = c.volume_kg == null ? "—" : tonnes(c.volume_kg);
+    const b = c.benchmark;
+    const basis = b && b.ghs_per_mt && c.price != null ? (c.price / b.ghs_per_mt - 1) * 100 : null;
+    cells.basis.textContent = signedPct(basis);
+    cells.basis.className = "num split" + (basis == null ? " muted" : "");
+    cells.basis.title = !b ? "No current World Bank benchmark for " + c.commodity_name.toLowerCase()
+      : b.ghs_per_mt == null ? b.name + ", " + monthText(b.month) + ": US$ " + money(b.usd_per_mt) + "/MT; no BoG fixes held to put it in cedis"
+      : b.name + ", " + monthText(b.month) + ": US$ " + money(b.usd_per_mt) + " = GH₵ " + money(b.ghs_per_mt) + " per MT";
+  }
+
+  function ingestGcx(t) {
+    const c = gcx[t.symbol];
+    if (!c || t.tick_type !== "commodity") return;
+    ["price", "previous_close", "change", "open", "day_high", "day_low", "bid", "ask"].forEach(function (k) { c[k] = t[k]; });
+    c.volume_kg = t.volume;
+    paintGcx(t.symbol);
+  }
+
+  function connectGcx() {
+    const proto = location.protocol === "https:" ? "wss" : "ws";
+    const ws = new WebSocket(proto + "://" + location.host + "/ws/market");
+    ws.onmessage = function (evt) {
+      const msg = JSON.parse(evt.data);
+      if (msg.type === "welcome") {
+        const classes = msg.asset_classes || {};
+        const symbols = msg.symbols.filter(function (s) { return classes[s] === "commodity"; });
+        if (symbols.length) ws.send(JSON.stringify({ action: "subscribe", symbols: symbols }));
+      } else if (msg.type === "snapshot") {
+        Object.values(msg.data).forEach(ingestGcx);
+      } else if (msg.type === "ticks") {
+        msg.data.forEach(ingestGcx);
+      }
+    };
+    ws.onclose = function () { setTimeout(connectGcx, 2000); };
+    ws.onerror = function () { ws.close(); };
+  }
+
+  Promise.all([
+    getJson("/gcx/contracts"),
+    getJson("/gcx/watchlist/me").catch(function () { return null; }),   // the table works without pins
+  ]).then(function (got) {
+    const body = got[0], saved = got[1];
+    body.contracts.forEach(function (c) {
+      c.volume_kg = c.volume_mt == null ? null : c.volume_mt * KG_PER_MT;
+      gcx[c.symbol] = c;
+    });
+    order = body.contracts.map(function (c) { return c.symbol; });
+    if (saved) { pins = saved.symbols; maxPins = saved.max_pins; }
+    layoutGcx();
+    connectGcx();
+  }).catch(function (e) {
+    $("gcxError").textContent = "GCX market unavailable: " + e.message;
+    $("gcxError").hidden = false;
+    $("gcxBody").textContent = "";
+  });
 })();
 </script>
 </body>
