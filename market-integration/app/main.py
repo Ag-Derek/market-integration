@@ -53,6 +53,10 @@ from app.econ.tracker import RETRY_SECONDS as ECON_RETRY_SECONDS, EconTracker
 from app.bond_math import settlement_date
 from app.bond_math.conventions import add_months
 from app.bond_math.calculator import calculate, quoted_yield, security_for
+from app.commodities import COMMODITIES, SOURCES as COMMODITY_SOURCES, Price, month_key, monthly_means, parse_month
+from app.commodities.prices import RETRY_SECONDS as COMMODITY_RETRY_SECONDS, CommodityPrices
+from app.commodities.store import CommodityStore
+from app.commodities.worldbank import WorldBankClient
 from app.company import COMPANIES
 from app.company.figures import INDEX_NAME, calculated_figures, with_market_cap
 from app.company.index import BASE_LEVEL, simulated_gse_ci
@@ -290,6 +294,10 @@ auctions = AuctionTracker(AuctionStore(config.DB_PATH), BogAuctionClient())
 # calendar (pulled, kept across restarts), MPC meeting dates (seed file).
 econ = EconTracker(EconStore(config.DB_PATH), BogPolicyRateClient(), GssCalendarClient())
 mpc_meetings = load_mpc_meetings(config.ECON_CALENDAR_PATH)
+# Monthly commodity reference prices (Brent, gold, cocoa, ...): pulled
+# from the World Bank's Pink Sheet and kept across restarts; see
+# app/commodities/.
+commodity_prices = CommodityPrices(CommodityStore(config.DB_PATH), [WorldBankClient()])
 def _depository() -> Depository:
     """Per DEPOSITORY_MODE: by email (through SMTP, or saved to the
     outbox to send by hand), or the mock."""
@@ -362,6 +370,7 @@ fx_task: Optional[asyncio.Task] = None
 overnight_task: Optional[asyncio.Task] = None
 auction_task: Optional[asyncio.Task] = None
 econ_task: Optional[asyncio.Task] = None
+commodity_task: Optional[asyncio.Task] = None
 
 
 def pipeline_metrics() -> dict:
@@ -425,6 +434,9 @@ async def health():
             "auctions": auctions.describe(),
             # The economic calendar's pulled sources (BoG policy rate, GSS).
             "economic_calendar": econ.describe(),
+            # Commodity reference prices, likewise: the latest month held
+            # and each source's last pull.
+            "commodities": commodity_prices.describe(),
         },
     )
 
@@ -777,6 +789,7 @@ async def gse_ci_series():
 
 GRAPH_INDEX_ID = "GSE-CI"
 GRAPH_FX_PREFIX = "FX:"
+GRAPH_COMMODITY_PREFIX = "CMD:"
 # Read this far ahead of a range's start, so a series has a value to
 # rebase on when the start falls on a weekend, a holiday or a day a thin
 # stock didn't trade.
@@ -820,9 +833,11 @@ async def _graph_series(series_id: str, since: Optional[date]) -> tuple[dict, li
     """(description, daily points from `since`, how it changes) for one
     /graph series id: an equity symbol (its daily closes, GHS), a bill or
     bond ISIN (its closing yield; price for price-only corporates),
-    GSE-CI (the simulated index) or FX:<code> (the Bank of Ghana mid, in
-    cedis per unit). 404 for an unknown id; 400/503 for an FX code we
-    don't offer or have no rates for yet."""
+    GSE-CI (the simulated index), FX:<code> (the Bank of Ghana mid, in
+    cedis per unit) or CMD:<code> (a commodity's monthly average in US
+    dollars, one point a month, dated the 1st). 404 for an unknown id;
+    400/503 for an FX or commodity code we don't offer or have no prices
+    for yet."""
     start = None if since is None else datetime.combine(since, time(), tzinfo=timezone.utc)
     if series_id == GRAPH_INDEX_ID:
         levels = [d for d in await gse_ci(None) if since is None or d.on >= since]
@@ -838,6 +853,15 @@ async def _graph_series(series_id: str, since: Optional[date]) -> tuple[dict, li
         meta = {"label": f"{code}/{FX_BASE}", "name": f"{name}, cedis per {code} (Bank of Ghana mid)",
                 "kind": "fx", "unit": f"GHS per {code}"}
         return meta, [GraphPoint(r.date, r.mid) for r in fx_rates.history(code, since)], "return"
+
+    if series_id.startswith(GRAPH_COMMODITY_PREFIX):
+        code = _commodity_code(series_id[len(GRAPH_COMMODITY_PREFIX):])
+        c = COMMODITIES[code]
+        # From the month `since` falls in, so the range's start has a base.
+        start_month = None if since is None else since.replace(day=1)
+        meta = {"label": c.name, "name": f"{c.name}, US$ per {c.per} (monthly average)",
+                "kind": "commodity", "unit": f"US$ per {c.per}"}
+        return meta, [GraphPoint(p.month, p.value) for p in commodity_prices.history(code, start_month)], "return"
 
     instrument = INSTRUMENTS.get(series_id)
     if instrument is None or series_id not in connector.symbols:
@@ -871,8 +895,9 @@ async def graph_series(series: str, range_: str = Query(DEFAULT_RANGE, alias="ra
     range's start (Bloomberg's G); see app/analytics/graph.py. `series`
     is comma-separated ids: equity symbols (daily close, GHS), bill and
     bond ISINs (closing yield; clean price for price-only corporates),
-    GSE-CI (the simulated index) and FX:USD etc. (Bank of Ghana mid,
-    cedis per unit). `range` is 1M, 3M, 6M, YTD, 1Y, 2Y, 5Y or Max; 5Y
+    GSE-CI (the simulated index), FX:USD etc. (Bank of Ghana mid,
+    cedis per unit) and CMD:GOLD etc. (commodity monthly averages, US$;
+    see /commodities/prices). `range` is 1M, 3M, 6M, YTD, 1Y, 2Y, 5Y or Max; 5Y
     and Max give one point a week. Each point is [date, value, rebased].
     400 for a bad range or too many series, 404 for an unknown id."""
     spec = _graph_range(range_)
@@ -1236,6 +1261,151 @@ async def fx_forwards():
 async def fx_page():
     """The FX tab: BoG reference rates, the cross matrix and synthetic forwards."""
     return (STATIC_DIR / "fx.html").read_text(encoding="utf-8")
+
+
+# ---------------------------------------------------------------- /commodities
+
+def _commodity_code(code: str) -> str:
+    """A commodity we offer, upper-cased. 400 if we don't offer it; 503
+    if we do but hold no prices for it yet."""
+    code = code.strip().upper()
+    if code not in COMMODITIES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown commodity '{code}'. Expected one of: {', '.join(COMMODITIES)}",
+        )
+    if not commodity_prices.has(code):
+        raise HTTPException(status_code=503, detail=f"No prices for {code} yet; try again shortly")
+    return code
+
+
+def _require_commodities() -> None:
+    """503 until the first pull has landed."""
+    if not commodity_prices.commodities():
+        raise HTTPException(
+            status_code=503,
+            detail={"message": "No commodity prices yet; the first pull may still be running",
+                    **commodity_prices.describe()},
+        )
+
+
+def _month_param(text: Optional[str], name: str) -> Optional[date]:
+    """A YYYY-MM query parameter as its month's first day. 400 if malformed."""
+    if text is None:
+        return None
+    try:
+        return parse_month(text)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"{name} must be YYYY-MM, got '{text}'")
+
+
+def _in_cedis(usd: float, fx: dict[date, tuple[float, int]], month: date) -> Optional[float]:
+    """`usd` (a month's average) in cedis at that month's average BoG
+    USD mid, or None if no fixes are held for the month."""
+    rate = fx.get(month)
+    return None if rate is None else usd * rate[0]
+
+
+def _percent(now: float, then: Optional[float]) -> Optional[float]:
+    return None if then is None or then <= 0 else (now / then - 1) * 100
+
+
+@app.get("/commodities/prices")
+async def get_commodity_prices(month: Optional[str] = Query(None, description="YYYY-MM; default the latest")):
+    """Monthly average prices of the commodities offered: in US dollars
+    per unit as published (`usd`, `unit`), and in cedis at that month's
+    average Bank of Ghana USD mid (`ghs`; null for a month with no fixes
+    held). The latest month by default; `month` gives the one in force
+    then (a series that skipped it shows its month before). Each row has
+    the move on the month before (`change_percent`) and on the year
+    before (`yoy_percent`, and `ghs_yoy_percent` in cedis, which includes
+    the cedi's own move). 400 for a malformed month, 503 until the first
+    pull has landed, 404 for a month before the history. See
+    app/commodities/."""
+    _require_commodities()
+    in_force = _month_param(month, "month")
+    picked = []
+    for code in commodity_prices.commodities():
+        p = commodity_prices.latest(code) if in_force is None else commodity_prices.on(code, in_force)
+        if p is not None:
+            picked.append((code, p))
+    if not picked:
+        raise HTTPException(status_code=404, detail=f"No commodity prices held for {month}")
+    earliest = min(p.month for _, p in picked)
+    fx = monthly_means(fx_rates.history("USD", add_months(earliest, -12))) if fx_rates.has("USD") else {}
+
+    rows = []
+    for code, p in picked:
+        c = COMMODITIES[code]
+        prev = commodity_prices.on(code, add_months(p.month, -1))
+        year_ago = commodity_prices.on(code, add_months(p.month, -12))
+        ghs =_in_cedis(p.value, fx, p.month)
+        ghs_year_ago = None if year_ago is None else _in_cedis(year_ago.value, fx, year_ago.month)
+        rate = fx.get(p.month)
+        rows.append({
+            "code": code,
+            "name": c.name,
+            "group": c.group,
+            "per": c.per,
+            "unit": p.unit,
+            "source": p.source,
+            "series": p.series,
+            "month": month_key(p.month),
+            "usd": p.value,
+            "previous_month": month_key(prev.month) if prev else None,
+            "previous_usd": prev.value if prev else None,
+            "change_percent": _percent(p.value, prev.value if prev else None),
+            "year_ago_month": month_key(year_ago.month) if year_ago else None,
+            "year_ago_usd": year_ago.value if year_ago else None,
+            "yoy_percent": _percent(p.value, year_ago.value if year_ago else None),
+            "ghs": ghs,
+            "ghs_per_usd": rate[0] if rate else None,
+            "fx_fixes": rate[1] if rate else 0,
+            "ghs_yoy_percent": None if ghs is None else _percent(ghs, ghs_year_ago),
+        })
+    return {
+        "currency": "USD",
+        "base": FX_BASE,
+        "month": month_key(in_force) if in_force else None,
+        "as_of": max(r["month"] for r in rows),
+        "commodities": rows,
+        "sources": {k: {"name": s.name, "url": s.url} for k, s in COMMODITY_SOURCES.items()},
+        "fx_source": FX_SOURCE,
+        "status": commodity_prices.describe(),
+    }
+
+
+@app.get("/commodities/{code}/history")
+async def get_commodity_history(code: str, since: Optional[str] = Query(None, description="YYYY-MM; default all")):
+    """One commodity's monthly averages from `since` (all if omitted),
+    oldest first: `usd` as published and `ghs` at that month's average
+    Bank of Ghana USD mid (null before the FX history held). 400 for a
+    commodity we don't offer or a malformed month, 503 before its first
+    pull."""
+    code = _commodity_code(code)
+    start = _month_param(since, "since")
+    prices = commodity_prices.history(code, start)
+    fx = monthly_means(fx_rates.history("USD", prices[0].month)) if prices and fx_rates.has("USD") else {}
+    c = COMMODITIES[code]
+    latest: Optional[Price] = commodity_prices.latest(code)
+    return {
+        "code": code,
+        "name": c.name,
+        "per": c.per,
+        "unit": latest.unit if latest else c.unit,
+        "source": latest.source if latest else None,
+        "series": latest.series if latest else None,
+        "points": [
+            {"month": month_key(p.month), "usd": p.value, "ghs": _in_cedis(p.value, fx, p.month)}
+            for p in prices
+        ],
+    }
+
+
+@app.get("/commodities", response_class=HTMLResponse)
+async def commodities_page():
+    """The Commodities tab: monthly reference prices in US$ and cedis."""
+    return (STATIC_DIR / "commodities.html").read_text(encoding="utf-8")
 
 
 # ---------------------------------------------------------------- calculators
@@ -2095,9 +2265,23 @@ async def econ_loop() -> None:
         await asyncio.sleep(config.ECON_REFRESH_SECONDS if ok else min(ECON_RETRY_SECONDS, config.ECON_REFRESH_SECONDS))
 
 
+async def commodity_loop() -> None:
+    """Keep the commodity prices current, as fx_loop does the FX fixes:
+    pull now, then every COMMODITY_REFRESH_SECONDS, or after
+    COMMODITY_RETRY_SECONDS when a pull fails."""
+    while True:
+        try:
+            ok = await commodity_prices.refresh()
+        except Exception:
+            logger.exception("Commodity prices refresh crashed")
+            ok = False
+        await asyncio.sleep(
+            config.COMMODITY_REFRESH_SECONDS if ok else min(COMMODITY_RETRY_SECONDS, config.COMMODITY_REFRESH_SECONDS))
+
+
 @app.on_event("startup")
 async def startup():
-    global consumer_task, status_task, fx_task, overnight_task, auction_task, econ_task
+    global consumer_task, status_task, fx_task, overnight_task, auction_task, econ_task, commodity_task
     await asyncio.to_thread(instrument_store.seed, INSTRUMENTS.values())
     await asyncio.to_thread(company_store.seed, COMPANIES.values())
     # Rates stored by earlier runs are usable at once; the pull for
@@ -2114,6 +2298,9 @@ async def startup():
     await asyncio.to_thread(econ.reload)
     if config.ECON_REFRESH_SECONDS > 0:
         econ_task = asyncio.create_task(econ_loop())
+    await asyncio.to_thread(commodity_prices.reload)
+    if config.COMMODITY_REFRESH_SECONDS > 0:
+        commodity_task = asyncio.create_task(commodity_loop())
     await connector.connect()
     # Before any live ticks flow, so history is in place (and open
     # windows seeded) by the time the aggregator starts recording.
@@ -2128,7 +2315,7 @@ async def startup():
 async def shutdown():
     fx_rates.close()  # a pull in progress stops at its next page
     auctions.close()
-    for task in (fx_task, overnight_task, auction_task, econ_task, status_task, consumer_task):
+    for task in (fx_task, overnight_task, auction_task, econ_task, commodity_task, status_task, consumer_task):
         if task is not None:
             task.cancel()
             try:

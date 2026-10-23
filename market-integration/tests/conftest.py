@@ -20,6 +20,7 @@ os.environ["FX_REFRESH_SECONDS"] = "0"
 os.environ["OVERNIGHT_REFRESH_SECONDS"] = "0"
 os.environ["AUCTION_REFRESH_SECONDS"] = "0"
 os.environ["ECON_REFRESH_SECONDS"] = "0"
+os.environ["COMMODITY_REFRESH_SECONDS"] = "0"
 
 from app.models.market_data import MarketData  # noqa: E402
 

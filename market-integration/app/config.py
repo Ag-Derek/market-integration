@@ -117,6 +117,13 @@ AUCTION_REFRESH_SECONDS: float = float(os.getenv("AUCTION_REFRESH_SECONDS", "360
 # when a release is out). 0 never pulls. The MPC meeting dates are a
 # seed file kept by hand, like the holidays.
 ECON_REFRESH_SECONDS: float = float(os.getenv("ECON_REFRESH_SECONDS", "21600"))
+
+# Commodity prices (app/commodities/): how often to pull the World Bank's
+# monthly Pink Sheet, in seconds. It is updated once a month, in the
+# first week, and a pull is the whole workbook (about 600 KB), so daily
+# picks a release up within the day. 0 never pulls: what's stored is
+# shown (tests, offline).
+COMMODITY_REFRESH_SECONDS: float = float(os.getenv("COMMODITY_REFRESH_SECONDS", "86400"))
 ECON_CALENDAR_PATH: Path = Path(os.getenv("ECON_CALENDAR_PATH", str(ECON_SEED_PATH)))
 
 # Queue size for the branches that must see every tick (the candle
