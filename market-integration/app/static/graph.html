@@ -212,6 +212,7 @@
       <a class="tab" href="/yield-curve">Yield Curve</a>
       <a class="tab" href="/auctions">Auctions</a>
       <a class="tab" href="/fx">FX</a>
+      <a class="tab" href="/commodities">Commodities</a>
       <a class="tab" href="/calendar">Calendar</a>
       <a class="tab active" href="/graph" aria-current="page">Graph</a>
       <a class="tab" href="/tickets">Trade Tickets</a>
@@ -287,7 +288,8 @@
 
   <footer>
     From <code>/graph/series</code> and <code>/graph/correlation</code>, over the daily candles, the simulated GSE-CI
-    (<code>/indices/gse-ci</code>) and the Bank of Ghana fixes (<code>/fx/rates</code>). The chosen series and range are
+    (<code>/indices/gse-ci</code>), the Bank of Ghana fixes (<code>/fx/rates</code>) and the World Bank's monthly commodity
+    averages (<code>/commodities/prices</code>; one point a month). The chosen series and range are
     in the address, so a graph can be bookmarked or shared; 5Y and Max draw one point a week. Up to eight series.
   </footer>
 
@@ -306,7 +308,7 @@
   const RANGES = ["1M", "3M", "6M", "YTD", "1Y", "2Y", "5Y", "Max"];
   const DEFAULT_SERIES = ["GSE-CI", "MTNGH", "GCB", "SCB"];
   const INDEX_ID = "GSE-CI";
-  const KIND_LABEL = { equity: "Stock", index: "Index", yield: "Yield", price: "Price", fx: "FX" };
+  const KIND_LABEL = { equity: "Stock", index: "Index", yield: "Yield", price: "Price", fx: "FX", commodity: "Commodity" };
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   // Diverging scale for the matrix: blue (moves together) and red
   // (opposite) poles, a neutral grey at 0, never a hue in the middle.
@@ -349,6 +351,7 @@
   let corr = null;          // /graph/correlation response
   let labels = {};          // id -> label, from the last response or the picker
   let fxCurrencies = [];    // [{code, name}] from /fx/rates
+  let commodities = [];     // [{code, name, per}] from /commodities/prices
 
   function persist() {
     const q = new URLSearchParams();
@@ -374,7 +377,7 @@
   }
   function unitText(s) {
     if (s.kind === "equity") return "GH₵";
-    if (s.kind === "fx") return s.unit;
+    if (s.kind === "fx" || s.kind === "commodity") return s.unit;
     return "";
   }
   function pct(rebased) {
@@ -534,6 +537,13 @@
       const major = ["USD", "EUR", "GBP"].indexOf(c.code) >= 0;
       if ((!needle && major) || (needle && hay.indexOf(needle) >= 0)) {
         out.push({ id: "FX:" + c.code, label: c.code + "/GHS", name: c.name + ", cedis per " + c.code, badge: "FX" });
+      }
+    });
+    commodities.forEach(function (c) {
+      const hay = (c.code + c.name + "commodity").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const major = ["BRENT", "GOLD", "COCOA"].indexOf(c.code) >= 0;
+      if ((!needle && major) || (needle && hay.indexOf(needle) >= 0)) {
+        out.push({ id: "CMD:" + c.code, label: c.name, name: c.name + ", US$ per " + c.per + " (monthly average)", badge: "Commodity" });
       }
     });
     return out;
@@ -1021,6 +1031,9 @@
   getJson("/fx/rates").then(function (b) {
     fxCurrencies = b.currencies.map(function (c) { return { code: c.code, name: c.name }; });
   }).catch(function () { /* no rates yet */ });
+  getJson("/commodities/prices").then(function (b) {
+    commodities = b.commodities.map(function (c) { return { code: c.code, name: c.name, per: c.per }; });
+  }).catch(function () { /* no prices yet */ });
 
   load();
 })();

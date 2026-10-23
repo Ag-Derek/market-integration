@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Commodity Prices</title>
+<style>
+  :root {
+    --bg: #0E1613;
+    --panel: #16211B;
+    --panel-strong: #1C2921;
+    --ink: #EAE7DA;
+    --ink-soft: #AEB6A9;
+    --ink-faint: #6F766D;
+    --line: #26362F;
+    --teal: #3E9C82;
+    --teal-bg: rgba(62, 156, 130, 0.14);
+    --gold: #D9A44C;
+    --gold-bg: #2A2313;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .num {
+    font-family: ui-monospace, "SFMono-Regular", "Cascadia Mono", Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .page { max-width: 1360px; margin: 0 auto; padding: 28px 20px 60px; }
+
+  .topbar { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
+  .brand { font-size: 18px; font-weight: 700; color: var(--ink); letter-spacing: 0.01em; flex-basis: 100%; }
+  .tabs { display: flex; gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 3px; flex-wrap: wrap; }
+  .tab { font-size: 13px; font-weight: 600; color: var(--ink-soft); text-decoration: none; padding: 6px 14px; border-radius: 6px; }
+  .tab:hover { color: var(--ink); }
+  .tab.active { color: var(--bg); background: var(--teal); }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  .panel.flush { padding: 16px 0 6px; }
+  .panel.flush .panel-head { padding: 0 16px; }
+  .panel-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 10px; }
+  .panel-head h2 { font-size: 14px; margin: 0; }
+  .panel-head .sub { font-size: 12px; color: var(--ink-faint); }
+  .panel-head .right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .muted { color: var(--ink-faint); }
+
+  input[type="month"], button.plain {
+    font: inherit; font-size: 12.5px; color: var(--ink); background: var(--panel-strong); color-scheme: dark;
+    border: 1px solid var(--line); border-radius: 7px; padding: 4px 8px;
+  }
+  button.plain { cursor: pointer; color: var(--ink-soft); }
+  button.plain:hover { color: var(--ink); }
+
+  /* Tables */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--ink-faint); text-align: right; padding: 8px 12px; white-space: nowrap; background: var(--panel-strong);
+  }
+  th.l, td.l { text-align: left; }
+  td { padding: 6px 12px; text-align: right; white-space: nowrap; border-top: 1px solid var(--line); }
+  td a.name { color: var(--ink); font-weight: 600; text-decoration: none; }
+  td a.name:hover { color: var(--teal); text-decoration: underline; }
+  td .per { color: var(--ink-faint); }
+  tbody tr:hover td { background: var(--panel-strong); }
+  tr.group td {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--ink-soft); text-align: left; padding-top: 14px; background: none;
+  }
+  tbody tr.group:hover td { background: none; }
+  th.split, td.split { border-left: 1px solid var(--line); }
+
+  .error { color: var(--gold); background: var(--gold-bg); border: 1px solid var(--gold); border-radius: 10px; padding: 10px 14px; font-size: 13px; margin-bottom: 14px; }
+  .error[hidden] { display: none; }
+
+  footer { margin-top: 26px; font-size: 12px; color: var(--ink-faint); line-height: 1.6; }
+  footer code { font-family: ui-monospace, monospace; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+  footer a { color: var(--teal); }
+
+  @media (max-width: 640px) {
+    .page { padding: 20px 16px 48px; }
+    .panel-head .right { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <div class="topbar">
+    <span class="brand">Market Integration</span>
+    <nav class="tabs" aria-label="Markets">
+      <a class="tab" href="/ticker">Equities</a>
+      <a class="tab" href="/fixed-income">Fixed Income</a>
+      <a class="tab" href="/yield-curve">Yield Curve</a>
+      <a class="tab" href="/auctions">Auctions</a>
+      <a class="tab" href="/fx">FX</a>
+      <a class="tab active" href="/commodities" aria-current="page">Commodities</a>
+      <a class="tab" href="/calendar">Calendar</a>
+      <a class="tab" href="/graph">Graph</a>
+      <a class="tab" href="/tickets">Trade Tickets</a>
+      <a class="tab" href="/hedging">Hedging</a>
+    </nav>
+  </div>
+
+  <div class="error" id="error" hidden></div>
+
+  <section class="panel flush">
+    <div class="panel-head">
+      <h2>Reference prices</h2>
+      <span class="sub" id="sub"></span>
+      <div class="right">
+        <label class="sub" for="month">Month</label>
+        <input type="month" id="month">
+        <button type="button" class="plain" id="latest">Latest</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th class="l">Commodity</th><th class="l">Month</th>
+          <th>US$</th><th>Chg m/m</th><th>Chg y/y</th>
+          <th class="split">GH₵</th><th>GH₵ chg y/y</th>
+        </tr></thead>
+        <tbody id="body"><tr><td class="l muted" colspan="7">Loading&hellip;</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    Monthly averages from the <a id="sourceLink" href="https://www.worldbank.org/en/research/commodity-markets" rel="noopener" target="_blank">World Bank's
+    Pink Sheet</a>, via <code>/commodities/prices</code>, in nominal US dollars per the unit shown (cocoa, coffee, rubber,
+    cotton and sugar per kg, as the World Bank quotes them). It is updated in the first week of each month with the
+    month before. Cedi prices are the US$ average times the average of that month's Bank of Ghana USD mid fixes, so the
+    cedi change year on year includes the cedi's own move. These are international benchmarks, not prices realised in
+    Ghana. Each name opens its history on the Graph tab; <code>/commodities/{code}/history</code> has it as data.
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  const $ = function (id) { return document.getElementById(id); };
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  const params = new URLSearchParams(location.search);
+  let month = /^\d{4}-\d{2}$/.test(params.get("month") || "") ? params.get("month") : null;
+
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function monthText(key) {
+    if (!key) return "—";
+    const p = key.split("-");
+    return MONTHS[Number(p[1]) - 1] + " " + p[0];
+  }
+  function longDate(iso) {
+    const p = iso.split("-");
+    return Number(p[2]) + " " + MONTHS[Number(p[1]) - 1] + " " + p[0];
+  }
+  // Prices from 0.41 (sugar, $/kg) to 14,474 (copper, $/mt): two
+  // decimals, three below 1.
+  function price(v) {
+    if (v == null) return "—";
+    const dp = Math.abs(v) < 1 ? 3 : 2;
+    return Number(v).toLocaleString(undefined, { minimumFractionDigits: dp, maximumFractionDigits: dp });
+  }
+  function signedPct(v) {
+    if (v == null) return "—";
+    return (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(2) + "%";
+  }
+
+  function getJson(url) {
+    return fetch(url).then(function (r) {
+      return r.json().then(function (b) {
+        if (!r.ok) {
+          const d = b.detail;
+          throw new Error(typeof d === "string" ? d : (d && d.message) || r.statusText);
+        }
+        return b;
+      });
+    });
+  }
+
+  function syncUrl() {
+    history.replaceState(null, "", location.pathname + (month ? "?month=" + month : ""));
+  }
+
+  function load() {
+    return getJson("/commodities/prices" + (month ? "?month=" + month : "")).then(function (body) {
+      $("error").hidden = true;
+      const wb = body.status.sources.worldbank;
+      $("sub").textContent = "Monthly averages, as of " + monthText(body.as_of) +
+        (body.month ? " (in force in " + monthText(body.month) + ")" : "") +
+        (wb && wb.release ? " · World Bank release of " + longDate(wb.release) : "");
+      if (body.sources.worldbank) $("sourceLink").href = body.sources.worldbank.url;
+      if (!$("month").value) $("month").value = body.as_of;
+      render(body.commodities);
+    }).catch(function (e) {
+      $("error").textContent = "Commodity prices unavailable: " + e.message;
+      $("error").hidden = false;
+      $("body").textContent = "";
+    });
+  }
+
+  function render(rows) {
+    const body = $("body");
+    body.textContent = "";
+    let group = null;
+    rows.forEach(function (r) {
+      if (r.group !== group) {
+        group = r.group;
+        const g = el("tr", "group");
+        const td = el("td", null, group);
+        td.colSpan = 7;
+        g.appendChild(td);
+        body.appendChild(g);
+      }
+      const tr = el("tr");
+      const name = el("td", "l");
+      const a = el("a", "name", r.name);
+      a.href = "/graph?series=" + encodeURIComponent("CMD:" + r.code) + "&range=5Y";
+      a.title = r.series + " (" + r.unit + "), on the Graph tab";
+      name.appendChild(a);
+      name.appendChild(el("span", "per", " per " + r.per));
+      tr.appendChild(name);
+      tr.appendChild(el("td", "l muted", monthText(r.month)));
+      tr.appendChild(el("td", "num", price(r.usd)));
+      const mm = el("td", "num" + (r.change_percent == null ? " muted" : ""), signedPct(r.change_percent));
+      if (r.previous_month) mm.title = "On " + monthText(r.previous_month) + ", US$ " + price(r.previous_usd);
+      tr.appendChild(mm);
+      const yy = el("td", "num" + (r.yoy_percent == null ? " muted" : ""), signedPct(r.yoy_percent));
+      if (r.year_ago_month) yy.title = "On " + monthText(r.year_ago_month) + ", US$ " + price(r.year_ago_usd);
+      tr.appendChild(yy);
+      const ghs = el("td", "num split" + (r.ghs == null ? " muted" : ""), price(r.ghs));
+      ghs.title = r.ghs == null ? "No Bank of Ghana USD fixes held for " + monthText(r.month)
+        : "At GH₵ " + r.ghs_per_usd.toFixed(4) + " per US$, the mean of " + r.fx_fixes + " BoG fixes";
+      tr.appendChild(ghs);
+      tr.appendChild(el("td", "num" + (r.ghs_yoy_percent == null ? " muted" : ""), signedPct(r.ghs_yoy_percent)));
+      body.appendChild(tr);
+    });
+  }
+
+  $("month").addEventListener("change", function () {
+    month = this.value || null;
+    syncUrl();
+    load();
+  });
+  $("latest").addEventListener("click", function () {
+    month = null;
+    $("month").value = "";
+    syncUrl();
+    load();
+  });
+
+  if (month) $("month").value = month;
+  load();
+})();
+</script>
+</body>
+</html>
