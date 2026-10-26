@@ -33,6 +33,7 @@ def test_the_market_strip_is_served(client):
     ("/fixed-income", "fixed_income"),
     ("/yield-curve", "fixed_income"),
     ("/bond/GHGGOG069931", "fixed_income"),
+    ("/commodities", "commodity"),
     ("/commodity/GEJWM2", "commodity"),
 ])
 def test_pages_mount_the_market_strip_after_the_render_helpers(client, path, crawl):

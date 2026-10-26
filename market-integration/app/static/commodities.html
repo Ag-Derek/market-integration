@@ -19,6 +19,10 @@
     --gold-bg: #2A2313;
     --green: #34C57F;
     --red: #E5675A;
+    --status-live: #5AA9E6;
+    --status-live-halo: rgba(90, 169, 230, 0.18);
+    --status-delayed: var(--gold);
+    --status-closed: var(--ink-faint);
   }
 
   * { box-sizing: border-box; }
@@ -44,6 +48,17 @@
   .tab { font-size: 13px; font-weight: 600; color: var(--ink-soft); text-decoration: none; padding: 6px 14px; border-radius: 6px; }
   .tab:hover { color: var(--ink); }
   .tab.active { color: var(--bg); background: var(--teal); }
+
+  /* Sub-tabs: one view on screen at a time */
+  .subbar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+  .subtab {
+    font-size: 13px; font-weight: 600; color: var(--ink-faint); text-decoration: none;
+    padding: 9px 2px; border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .subtab:hover { color: var(--ink-soft); }
+  .subtab.active { color: var(--ink); border-bottom-color: var(--teal); }
+  .view { display: none; }
+  .view.active { display: block; }
 
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
   .panel.flush { padding: 16px 0 6px; }
@@ -97,6 +112,17 @@
   .pin:disabled { cursor: default; opacity: 0.5; }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
+  /* Crop buttons: one crop's contracts on screen at a time */
+  .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 0 16px; margin-bottom: 12px; }
+  .jump {
+    font: inherit; font-size: 12px; color: var(--ink-soft); background: var(--panel-strong); cursor: pointer;
+    border: 1px solid var(--line); border-radius: 7px; padding: 6px 11px;
+  }
+  .jump:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .jump:focus-visible { outline: 2px solid var(--teal); outline-offset: 1px; }
+  .jump.active { color: var(--bg); background: var(--teal); border-color: var(--teal); }
+  .jump .n { opacity: 0.7; margin-left: 5px; font-family: ui-monospace, monospace; font-size: 11px; }
+
   .error { color: var(--gold); background: var(--gold-bg); border: 1px solid var(--gold); border-radius: 10px; padding: 10px 14px; font-size: 13px; margin-bottom: 14px; }
   .error[hidden] { display: none; }
 
@@ -131,7 +157,14 @@
     </nav>
   </div>
 
-  <div class="error" id="error" hidden></div>
+  <div id="strip"></div>
+
+  <div class="subbar" role="tablist">
+    <a class="subtab" href="#gcx" data-view="gcx" role="tab">GCX Spot Market</a>
+    <a class="subtab" href="#world" data-view="world" role="tab">World Benchmarks</a>
+  </div>
+
+  <div class="view" id="view-gcx">
   <div class="error" id="gcxError" hidden></div>
 
   <section class="panel flush">
@@ -140,6 +173,7 @@
       <span class="sub">Ghana Commodity Exchange · GH₵ per metric tonne, per 50 kg bag beside it · simulated</span>
       <span class="sub right" id="pinNote">☆ pins a contract to the top</span>
     </div>
+    <div class="toolbar" role="tablist" aria-label="GCX crop" id="crops"></div>
     <div class="table-wrap">
       <table>
         <thead><tr>
@@ -153,9 +187,21 @@
     </div>
   </section>
 
+  <footer>
+    GCX spot contracts are simulated, modelled on the exchange's market report (<code>/gcx/contracts</code>, live over
+    <code>/ws/market</code>): each is one crop and grade, delivered to one GCX warehouse, and settles T+1. A 50 kg bag is a
+    twentieth of a tonne. "vs world" is the GCX price's premium or discount to the crop's World Bank benchmark in cedis
+    (maize: US no. 2 yellow f.o.b. Gulf; soya: soybeans; rice: Thai 5%); it mixes grade, transport and the cedi with the
+    price itself, so read it as indicative. Sesame and sorghum have no current benchmark.
+  </footer>
+  </div>
+
+  <div class="view" id="view-world">
+  <div class="error" id="error" hidden></div>
+
   <section class="panel flush">
     <div class="panel-head">
-      <h2>Reference prices</h2>
+      <h2>World benchmark prices</h2>
       <span class="sub" id="sub"></span>
       <div class="right">
         <label class="sub" for="month">Month</label>
@@ -163,6 +209,7 @@
         <button type="button" class="plain" id="latest">Latest</button>
       </div>
     </div>
+    <div class="toolbar" role="tablist" aria-label="Commodity group" id="groups"></div>
     <div class="table-wrap">
       <table>
         <thead><tr>
@@ -176,13 +223,6 @@
   </section>
 
   <footer>
-    GCX spot contracts are simulated, modelled on the exchange's market report (<code>/gcx/contracts</code>, live over
-    <code>/ws/market</code>): each is one crop and grade, delivered to one GCX warehouse, and settles T+1. A 50 kg bag is a
-    twentieth of a tonne. "vs world" is the GCX price's premium or discount to the crop's World Bank benchmark in cedis
-    (maize: US no. 2 yellow f.o.b. Gulf; soya: soybeans; rice: Thai 5%); it mixes grade, transport and the cedi with the
-    price itself, so read it as indicative. Sesame and sorghum have no current benchmark.
-  </footer>
-  <footer>
     Monthly averages from the <a id="sourceLink" href="https://www.worldbank.org/en/research/commodity-markets" rel="noopener" target="_blank">World Bank's
     Pink Sheet</a>, via <code>/commodities/prices</code>, in nominal US dollars per the unit shown (cocoa, coffee, rubber,
     cotton and sugar per kg, as the World Bank quotes them). It is updated in the first week of each month with the
@@ -190,9 +230,13 @@
     cedi change year on year includes the cedi's own move. These are international benchmarks, not prices realised in
     Ghana. Each name opens its history on the Graph tab; <code>/commodities/{code}/history</code> has it as data.
   </footer>
+  </div>
 
 </div>
 
+<script src="/static/render.js"></script>
+<script src="/static/strip.js"></script>
+<script>MarketStrip.mount(document.getElementById("strip"), { crawl: "commodity" });</script>
 <script>
 (function () {
   "use strict";
@@ -243,8 +287,30 @@
   }
 
   function syncUrl() {
-    history.replaceState(null, "", location.pathname + (month ? "?month=" + month : ""));
+    history.replaceState(null, "", location.pathname + (month ? "?month=" + month : "") + location.hash);
   }
+
+  // ------------------------------------------------------------ views
+
+  // GCX by default; a link with ?month= is about the world prices.
+  const VIEWS = ["gcx", "world"];
+  function currentView() {
+    const h = location.hash.replace("#", "");
+    return VIEWS.indexOf(h) !== -1 ? h : month ? "world" : "gcx";
+  }
+  function showView() {
+    const v = currentView();
+    VIEWS.forEach(function (name) {
+      $("view-" + name).classList.toggle("active", name === v);
+    });
+    document.querySelectorAll(".subtab").forEach(function (a) {
+      const on = a.dataset.view === v;
+      a.classList.toggle("active", on);
+      a.setAttribute("aria-selected", on ? "true" : "false");
+    });
+  }
+  window.addEventListener("hashchange", showView);
+  showView();
 
   function load() {
     return getJson("/commodities/prices" + (month ? "?month=" + month : "")).then(function (body) {
@@ -260,22 +326,56 @@
       $("error").textContent = "Commodity prices unavailable: " + e.message;
       $("error").hidden = false;
       $("body").textContent = "";
+      $("groups").textContent = "";
+    });
+  }
+
+  // One group (Energy, Metals, ...) on screen at a time, as the GCX crops
+  // are; the choice is remembered per browser.
+  let worldRows = [];
+  let group = null;
+  try { group = localStorage.getItem("world.group"); } catch (e) { /* storage blocked */ }
+
+  // The groups in /commodities/prices order, each with its count.
+  function groups(rows) {
+    const list = [];
+    rows.forEach(function (r) {
+      const last = list[list.length - 1];
+      if (last && last.name === r.group) last.n++;
+      else list.push({ name: r.group, n: 1 });
+    });
+    return list;
+  }
+
+  function buildGroupButtons(list) {
+    const host = $("groups");
+    host.textContent = "";
+    list.forEach(function (g) {
+      const on = g.name === group;
+      const b = el("button", "jump" + (on ? " active" : ""), g.name);
+      b.type = "button";
+      b.setAttribute("role", "tab");
+      b.setAttribute("aria-selected", on ? "true" : "false");
+      b.appendChild(el("span", "n", String(g.n)));
+      b.addEventListener("click", function () {
+        group = g.name;
+        try { localStorage.setItem("world.group", group); } catch (e) { /* storage blocked */ }
+        render(worldRows);
+        $("groups").querySelector(".jump.active").focus();   // the buttons were rebuilt
+      });
+      host.appendChild(b);
     });
   }
 
   function render(rows) {
+    worldRows = rows;
+    const list = groups(rows);
+    if (!list.some(function (g) { return g.name === group; })) group = list.length ? list[0].name : null;
+    buildGroupButtons(list);
     const body = $("body");
     body.textContent = "";
-    let group = null;
     rows.forEach(function (r) {
-      if (r.group !== group) {
-        group = r.group;
-        const g = el("tr", "group");
-        const td = el("td", null, group);
-        td.colSpan = 7;
-        g.appendChild(td);
-        body.appendChild(g);
-      }
+      if (r.group !== group) return;
       const tr = el("tr");
       const name = el("td", "l");
       const a = el("a", "name", r.name);
@@ -340,6 +440,43 @@
   let pins = [];       // the user's pinned contracts, in pin order (/gcx/watchlist/me)
   let maxPins = 12;
 
+  // One crop on screen at a time; the choice is remembered per browser.
+  let crop = null;
+  try { crop = localStorage.getItem("gcx.crop"); } catch (e) { /* storage blocked */ }
+
+  // The crops in /gcx/contracts order, each with its name and contract count.
+  function crops() {
+    const list = [];
+    order.forEach(function (s) {
+      const c = gcx[s];
+      const last = list[list.length - 1];
+      if (last && last.code === c.commodity) last.n++;
+      else list.push({ code: c.commodity, name: c.commodity_name, n: 1 });
+    });
+    return list;
+  }
+
+  function buildCropButtons(list) {
+    const host = $("crops");
+    host.textContent = "";
+    list.forEach(function (k) {
+      const on = k.code === crop;
+      const b = el("button", "jump" + (on ? " active" : ""), k.name);
+      b.type = "button";
+      b.setAttribute("role", "tab");
+      b.setAttribute("aria-selected", on ? "true" : "false");
+      b.dataset.crop = k.code;
+      b.appendChild(el("span", "n", String(k.n)));
+      b.addEventListener("click", function () {
+        crop = k.code;
+        try { localStorage.setItem("gcx.crop", crop); } catch (e) { /* storage blocked */ }
+        layoutGcx();
+        $("crops").querySelector(".jump.active").focus();   // the buttons were rebuilt
+      });
+      host.appendChild(b);
+    });
+  }
+
   function addGroup(body, label) {
     const g = el("tr", "group");
     const td = el("td", null, label);
@@ -348,8 +485,12 @@
     body.appendChild(g);
   }
 
-  // Pinned contracts first, in pin order; the rest by crop.
+  // Pinned contracts first, in pin order, whatever the crop; then the
+  // chosen crop's other contracts.
   function layoutGcx() {
+    const list = crops();
+    if (!list.some(function (k) { return k.code === crop; })) crop = list.length ? list[0].code : null;
+    buildCropButtons(list);
     const body = $("gcxBody");
     body.textContent = "";
     Object.keys(gcxRows).forEach(function (s) { delete gcxRows[s]; });
@@ -358,16 +499,17 @@
       addGroup(body, "Pinned");
       pinned.forEach(function (s) { addRow(body, gcx[s]); });
     }
-    let crop = null;
-    order.forEach(function (s) {
-      if (pinned.indexOf(s) >= 0) return;
-      const c = gcx[s];
-      if (c.commodity !== crop) {
-        crop = c.commodity;
-        addGroup(body, c.commodity_name);
-      }
-      addRow(body, c);
-    });
+    const rest = order.filter(function (s) { return gcx[s].commodity === crop && pinned.indexOf(s) < 0; });
+    const name = crop ? list.filter(function (k) { return k.code === crop; })[0].name : "";
+    if (pinned.length && crop) addGroup(body, name);
+    rest.forEach(function (s) { addRow(body, gcx[s]); });
+    if (crop && !rest.length) {
+      const tr = el("tr");
+      const td = el("td", "l muted", "All " + name.toLowerCase() + " contracts are pinned above.");
+      td.colSpan = 14;
+      tr.appendChild(td);
+      body.appendChild(tr);
+    }
     $("pinNote").textContent = pins.length ? pins.length + " of " + maxPins + " pinned" : "☆ pins a contract to the top";
   }
 
@@ -429,7 +571,10 @@
     $("gcxError").hidden = true;
     pins = pinned ? pins.filter(function (s) { return s !== symbol; }) : pins.concat([symbol]);
     layoutGcx();
-    gcxRows[symbol].pin.focus();   // the row moved; keep the keyboard on it
+    // The row moved; keep the keyboard on it. An unpinned contract of
+    // another crop leaves the screen, so focus falls back to its crop.
+    if (gcxRows[symbol]) gcxRows[symbol].pin.focus();
+    else $("crops").querySelector(".jump.active").focus();
     savePins(pins).then(function (b) { pins = b.symbols; }, function (e) {
       pins = before;
       layoutGcx();

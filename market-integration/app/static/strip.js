@@ -4,11 +4,15 @@
  * 91-, 182- and 364-day bill yields, the session and the Accra clock --
  * over a crawl that scrolls right to left. Shared by /ticker, the
  * fixed income pages (/fixed-income, /yield-curve, /bond/{symbol}) and
- * the GCX contract page (/commodity/{symbol}).
+ * the commodity pages (/commodities, /commodity/{symbol}).
  *
  *   MarketStrip.mount(el, { crawl: "equity" });        // GSE equities: gainers, losers, unchanged
  *   MarketStrip.mount(el, { crawl: "fixed_income" });  // bills and bonds: most active, then GoG bonds
  *   MarketStrip.mount(el, { crawl: "commodity" });     // GCX spot contracts, by crop
+ *
+ * The commodity strip's panel is its own: USD/GHS (GCX trades in cedis)
+ * and the World Bank monthly averages for Brent, gold and cocoa, Ghana's
+ * three big exports, each with its change on the month before.
  *
  * It opens its own /ws/market connection and needs nothing from the page
  * but render.js loaded first (Render.batch, .text, .flash). Where
@@ -35,6 +39,7 @@
   const MAX_FI_ITEMS = 40;
   const INDEX_REFRESH_MS = 60e3;      // /indices/gse-ci is rebuilt at most once a minute
   const FX_REFRESH_MS = 15 * 60e3;    // BoG fixes once a day; this just notices the new one
+  const WORLD_REFRESH_MS = 60 * 60e3; // World Bank averages once a month; likewise
   const RETRY_MS = 60e3;
   const REGROUP_MS = 15e3;            // how often a crawl that isn't moving regroups
   const BILLS = [["91-DAY BILL", "91D"], ["182-DAY BILL", "182D"], ["364-DAY BILL", "364D"]];
@@ -46,6 +51,8 @@
     ["white_maize", "White maize"], ["yellow_maize", "Yellow maize"], ["soya_bean", "Soya bean"],
     ["sesame", "Sesame"], ["sorghum", "Sorghum"], ["rice", "Rice"],
   ];
+  // World benchmarks on the commodity panel: /commodities/prices code, name.
+  const WORLD = [["BRENT", "Brent"], ["GOLD", "Gold"], ["COCOA", "Cocoa"]];
   const CRAWLS = ["equity", "fixed_income", "commodity"];
 
   const CSS = `
@@ -302,6 +309,26 @@
       })
       .then(function () { setTimeout(loadFx, FX_REFRESH_MS); },
             function () { setTimeout(loadFx, RETRY_MS); });
+  }
+
+  // The latest World Bank monthly average of each WORLD commodity, in US$
+  // per its unit, with the move on the month before.
+  function loadWorld() {
+    getJSON("/commodities/prices")
+      .then(function (body) {
+        const two = function (v) { return grouped(v, 2); };
+        body.commodities.forEach(function (r) {
+          if (!cells[r.code]) return;
+          linkCell(r.code, "/graph?series=" + encodeURIComponent("CMD:" + r.code) + "&range=5Y");
+          const m = r.previous_usd == null ? null : move(r.usd - r.previous_usd, r.change_percent, two, 2);
+          setCell(r.code, r.usd, "$" + two(r.usd), m);
+          const p = r.month.split("-");
+          cells[r.code].el.title = r.name + ": World Bank average for " + MONTHS[Number(p[1]) - 1] + " " + p[0] +
+            ", US$ per " + r.per + "; change on the month before. Opens its history on the Graph tab.";
+        });
+      })
+      .then(function () { setTimeout(loadWorld, WORLD_REFRESH_MS); },
+            function () { setTimeout(loadWorld, RETRY_MS); });
   }
 
   function paintBenchmark(q) {
@@ -568,9 +595,11 @@
     root.setAttribute("aria-label", "Market strip");
     el.panel = root.appendChild(make("div", "ms-panel"));
     el.quotes = el.panel.appendChild(make("div", "ms-quotes"));
-    addCell("gseci", "GSE-CI");
+    const commodity = opts.crawl === "commodity";
+    if (!commodity) addCell("gseci", "GSE-CI");
     addCell("usdghs", "USD/GHS");
-    BILLS.forEach(function (b) { addCell(b[1], b[1] + " bill"); });
+    if (commodity) WORLD.forEach(function (w) { addCell(w[0], w[1]); });
+    else BILLS.forEach(function (b) { addCell(b[1], b[1] + " bill"); });
     el.session = el.panel.appendChild(make("span", "ms-cell ms-session"));
     el.state = el.session.appendChild(make("span", "ms-state"));
     el.clock = el.session.appendChild(make("span", "ms-clock num"));
@@ -598,15 +627,17 @@
     setInterval(function () { if (!el.track.classList.contains("moving")) regroup(); }, REGROUP_MS);
     if (window.Currency) Currency.onChange(function () { Object.keys(items).forEach(function (s) { paintItem(quotes[s]); }); });
 
-    const classes = opts.crawl === "fixed_income" ? ["bill", "bond"] : ["bill"];
+    // Bills for the benchmark yields; the commodity panel has none.
+    const classes = opts.crawl === "fixed_income" ? ["bill", "bond"] : commodity ? [] : ["bill"];
     const ready = Promise.all(classes.map(function (c) {
       return getJSON("/instruments?asset_class=" + c).catch(function () { return []; });
     })).then(function (lists) {
       lists.forEach(function (list) { list.forEach(function (i) { instruments[i.symbol] = i; }); });
-      pickBenchmarks();
+      if (!commodity) pickBenchmarks();
     });
     connect(ready);
-    loadIndex();
+    if (commodity) loadWorld();
+    else loadIndex();
     loadFx();
   }
 
