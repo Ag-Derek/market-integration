@@ -17,7 +17,7 @@ Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP
 Basic profiles only (description, classification, website, headquarters,
 listing date; no officers or financials yet): **SCB**, **SOGEGH**, **GOIL**,
 **TOTAL**, **UNIL**, **FML**, **CLYD**, **CMLT**, **CPC**, **DASPHARMA**, **EGL**,
-**ETI**, **FAB**.
+**ETI**, **FAB**, **GGBL**.
 
 Every other listed equity has no file yet. Its API fields are all null,
 and the description page shows a one-line summary from the instrument
@@ -73,6 +73,17 @@ Notes on the basic profiles:
   re-registered as a PLC; it was first incorporated on 4 May 1994. Its
   ownership (Kedari Nominees 46.6%, AFIG Fund II 21.0%) is as at end-2025,
   after the IPO. The instrument master has no ISIN for it.
+- **GGBL** is described from its 2025 annual report (GSE PR 375/2025, year
+  to 30 June 2025), the latest full report on gse.com.gh. Its ownership
+  there (Diageo 80.4%) predates the sale of that stake to Castel's Boissons
+  Nouvelles Holding on 3 July 2025; no later shareholder list has been
+  filed. The GSE listed-company page is wrong on two counts: 100 million
+  issued shares (the register shows 307,594,827) and www.diageo.com as the
+  website. The company's own site, guinnessghanaplc.com, refuses automated
+  requests and could not be checked live. GGBL has changed its year end
+  to 31 December (PR 328/2026): its current financial period runs 18 months,
+  from 1 July 2025 to 31 December 2026, so any financials added later need
+  that period treated as a single fiscal year.
 - **SCB** and **UNIL** are described from their 2023 annual reports, the
   latest full reports on gse.com.gh.
 
