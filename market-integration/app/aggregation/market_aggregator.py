@@ -224,6 +224,11 @@ _REPO_COLUMNS = (
 )
 
 
+# repo_trades columns renamed or added since the table was first created.
+_RENAMED_REPO_COLUMNS = {"average_yield": "bond_yield", "average_price": "bond_price"}
+_ADDED_REPO_COLUMNS = {"bond_yield": "REAL", "bond_price": "REAL", "repo_rate": "REAL"}
+
+
 def _session_date(t: RepoTick) -> str:
     return t.timestamp.astimezone(timezone.utc).date().isoformat()
 
@@ -324,9 +329,24 @@ class MarketAggregator:
                 )
                 """
             )
+            self._migrate_repo_trades(conn)
             conn.commit()
         finally:
             conn.close()
+
+    @staticmethod
+    def _migrate_repo_trades(conn: sqlite3.Connection) -> None:
+        """Bring a repo_trades table from an older schema up to date: the
+        first draft named the bond columns average_yield/average_price and
+        had no repo_rate."""
+        existing = {row[1] for row in conn.execute("PRAGMA table_info(repo_trades)")}
+        for old, new in _RENAMED_REPO_COLUMNS.items():
+            if old in existing and new not in existing:
+                conn.execute(f"ALTER TABLE repo_trades RENAME COLUMN {old} TO {new}")
+                existing = (existing - {old}) | {new}
+        for column, decl in _ADDED_REPO_COLUMNS.items():
+            if column not in existing:
+                conn.execute(f"ALTER TABLE repo_trades ADD COLUMN {column} {decl}")
 
     @property
     def db_path(self) -> Path:
