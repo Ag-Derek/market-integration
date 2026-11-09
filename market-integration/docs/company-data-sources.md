@@ -17,7 +17,7 @@ Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP
 Basic profiles only (description, classification, website, headquarters,
 listing date; no officers or financials yet): **SCB**, **SOGEGH**, **GOIL**,
 **TOTAL**, **UNIL**, **FML**, **CLYD**, **CMLT**, **CPC**, **DASPHARMA**, **EGL**,
-**ETI**, **FAB**, **GGBL**.
+**ETI**, **FAB**, **GGBL**, **GLD**.
 
 Every other listed equity has no file yet. Its API fields are all null,
 and the description page shows a one-line summary from the instrument
@@ -84,6 +84,19 @@ Notes on the basic profiles:
   to 31 December (PR 328/2026): its current financial period runs 18 months,
   from 1 July 2025 to 31 December 2026, so any financials added later need
   that period treated as a single fiscal year.
+- **GLD** is an exchange-traded product, not an operating company. It is
+  described from the issuer's GSE releases (PR 257/2012, PR 313/2022,
+  PR 241/2025), its statements to 31 March and 30 September 2026, and
+  Absa's NewGold minimum disclosure document (December 2023), the only
+  source read that gives the ~1/100 oz per unit. The GSE listed-company page
+  is almost empty. Left out: `employees` (a special-purpose issuer with no
+  staff of its own), `headquarters_city` and `registrar` (no source read
+  names them), and `shares_outstanding`. The GSE figures (0.40 million on
+  the listed-company page, 3,400,000 units approved, 1,400,000 on the
+  Ghana register in 2022) cover only part of a programme that trades
+  mainly on the JSE, and no filing read gives the total units in issue, so
+  a market cap from any of them would be wrong. Its ISIN is ZAE000060067
+  (from PR 241/2025); the instrument master has none.
 - **SCB** and **UNIL** are described from their 2023 annual reports, the
   latest full reports on gse.com.gh.
 
