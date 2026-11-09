@@ -16,7 +16,7 @@ Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP
 
 Basic profiles only (description, classification, website, headquarters,
 listing date; no officers or financials yet): **SCB**, **SOGEGH**, **GOIL**,
-**TOTAL**, **UNIL**, **FML**, **CLYD**, **CMLT**.
+**TOTAL**, **UNIL**, **FML**, **CLYD**, **CMLT**, **CPC**.
 
 Every other listed equity has no file yet. Its API fields are all null,
 and the description page shows a one-line summary from the instrument
@@ -33,6 +33,14 @@ Notes on the basic profiles:
 - **CMLT** is described from its 2023 annual report (GSE PR 153/2024): the
   2024 report on gse.com.gh is a scanned image with no readable text. Its
   registrar (MBG Registrars) comes from the GSE release of that 2024 report.
+- **CPC** is described from its Q3 2026 interim statements (GSE PR 354/2026),
+  which carry current corporate information, and its 2018/2019 annual report
+  (GSE PR 501/2020) for the nature of business, incorporation date and
+  shareholders: no later full annual report is on gse.com.gh. Its ownership
+  (COCOBOD 57.73%, Government of Ghana 26.13%, SSNIT 10.14%) is as at
+  30 September 2019, before the 2022 conversion of US$87m of COCOBOD debt
+  into Class B shares, which are still unregistered. No website: its
+  goldentreeghana.com domain redirects to cpc.com.gh, which did not respond.
 - **SCB** and **UNIL** are described from their 2023 annual reports, the
   latest full reports on gse.com.gh.
 
