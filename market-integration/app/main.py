@@ -1,3 +1,11 @@
+# Verify HTTPS against the OS trust store (Windows certificate store,
+# macOS keychain) rather than OpenSSL's bundle, so outbound pulls (World
+# Bank, Bank of Ghana, GSS) work behind antivirus or proxies that inspect
+# TLS with their own root. Must run before anything opens a connection.
+import truststore
+
+truststore.inject_into_ssl()
+
 import asyncio
 import csv
 import io
