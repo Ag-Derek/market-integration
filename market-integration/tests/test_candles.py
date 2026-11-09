@@ -107,6 +107,27 @@ async def test_aggregator_skips_invalid_candles_when_flushing(tmp_path):
     assert rows == [(t0.isoformat(),)]
 
 
+async def test_candles_before_can_skip_windows_with_no_trades(tmp_path):
+    # Indicator warm-up counts trading periods: windows with quotes but no
+    # volume are skipped, so it reaches further back for a quiet stock.
+    aggregator = MarketAggregator(_no_feed(), db_path=tmp_path / "c.db", intervals=("5m",))
+    t0 = datetime(2026, 9, 18, 9, 30, tzinfo=timezone.utc)
+    volumes = [100, 0, 0, 50, 0, 25]
+    aggregator._pending = [
+        _candle("GCB", "5m", t0 + timedelta(minutes=5 * i), 10, 10, 10, 10, v, tick_count=1)
+        for i, v in enumerate(volumes)
+    ]
+    await aggregator._flush()
+    before = t0 + timedelta(minutes=5 * len(volumes))
+
+    every = await aggregator.get_candles_before("GCB", "5m", before, 3)
+    traded = await aggregator.get_candles_before("GCB", "5m", before, 3, traded_only=True)
+
+    assert [c.volume for c in every] == [50, 0, 25]
+    assert [c.volume for c in traded] == [100, 50, 25]
+    assert [c.window_start for c in traded] == sorted(c.window_start for c in traded)
+
+
 # ---------------------------------------------------------------- aggregator
 
 def test_live_candles_count_every_tick(make_tick, tmp_path):

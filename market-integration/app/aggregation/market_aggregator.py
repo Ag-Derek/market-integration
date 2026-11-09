@@ -488,13 +488,16 @@ class MarketAggregator:
         interval: str,
         before: datetime,
         limit: int,
+        traded_only: bool = False,
     ) -> list[Candle]:
         """Up to `limit` stored candles ending before the bucket containing
         `before`, oldest first: the warm-up an indicator (a 200-day
         average, say) needs ahead of a chart's first candle. Stored rows
-        only, as everything not yet flushed is newer than any chart's start."""
+        only, as everything not yet flushed is newer than any chart's start.
+        `traded_only` skips candles with no volume (quotes but no trades),
+        for indicators that count trading periods rather than clock time."""
         first = bucket_start(before, interval)
-        rows = await asyncio.to_thread(self._read_rows_before, symbol, interval, first, limit)
+        rows = await asyncio.to_thread(self._read_rows_before, symbol, interval, first, limit, traded_only)
         return [_from_row(symbol, interval, r) for r in reversed(rows)]
 
     def _read_rows(self, symbol: str, interval: str, first: Optional[datetime]) -> list[tuple]:
@@ -510,13 +513,16 @@ class MarketAggregator:
         finally:
             conn.close()
 
-    def _read_rows_before(self, symbol: str, interval: str, first: datetime, limit: int) -> list[tuple]:
+    def _read_rows_before(
+        self, symbol: str, interval: str, first: datetime, limit: int, traded_only: bool = False,
+    ) -> list[tuple]:
         conn = sqlite3.connect(self._db_path)
         try:
             return conn.execute(
                 f"SELECT {_READ_COLUMNS} FROM market_candles "
                 "WHERE symbol = ? AND interval = ? AND window_start < ? "
-                "ORDER BY window_start DESC LIMIT ?",
+                + ("AND volume > 0 " if traded_only else "")
+                + "ORDER BY window_start DESC LIMIT ?",
                 (symbol, interval, first.isoformat(), limit),
             ).fetchall()
         finally:

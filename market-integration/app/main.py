@@ -2021,7 +2021,10 @@ async def get_candles(
     `warmup` asks for up to that many candles before the range as well,
     in their own `warmup` list (oldest first, same shape): what a moving
     average or RSI needs to have a value from the chart's first candle.
-    Fewer come back where history runs out, none for Max.
+    Only candles with trades (volume > 0) count, as the chart's
+    indicators skip windows where nothing traded: for a thinly traded
+    stock the warm-up reaches further back. Fewer come back where history
+    runs out, none for Max.
 
     `currency` (an equity or commodity only) gives prices in that
     currency at the Bank of Ghana mid (`fx` says how): daily and weekly
@@ -2062,7 +2065,7 @@ async def get_candles(
     candles = await aggregator.get_candles(symbol, interval, start)
     earlier = []
     if warmup and start is not None:
-        earlier = await aggregator.get_candles_before(symbol, interval, start, warmup)
+        earlier = await aggregator.get_candles_before(symbol, interval, start, warmup, traded_only=True)
     to_currency, fx = _candle_converter(currency, interval, now.date())
 
     def as_json(c: Candle) -> dict:

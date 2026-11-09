@@ -1078,7 +1078,7 @@
   }
 
   // ------------------------------------------------------------ indicators
-  // Computed over the closes of warm-up + range candles on every draw
+  // Computed over the traded closes of warm-up + range candles on every draw
   // (/static/indicators.js), so they follow live ticks like the price
   // line. Overlays share the price scale; RSI and MACD get a pane each
   // under the volume strip. Choices are kept per browser.
@@ -1196,9 +1196,25 @@
 
   // key -> {line} or bollinger's {mid, upper, lower} or macd's
   // {macd, signal, hist}, each aligned with chart.candles.
+  // Only candles with trades count: a window of quotes and no trades just
+  // repeats the last price, and a 20-period average of that is a stale
+  // price, not 20 periods of trading. So indicators run over the traded
+  // closes, and each candle shows the value as of its latest trade (held
+  // flat through quiet stretches, null before the first trade).
   function computeIndicators() {
-    const closes = chart.warmup.concat(chart.candles).map(function (c) { return c.close; });
+    const all = chart.warmup.concat(chart.candles);
+    const closes = [], tradedAt = [];
+    all.forEach(function (c, i) { if (c.volume > 0) { closes.push(c.close); tradedAt.push(i); } });
     const skip = chart.warmup.length;
+    function spread(series) {
+      const full = new Array(all.length);
+      let j = -1;
+      for (let i = 0; i < all.length; i++) {
+        while (j + 1 < tradedAt.length && tradedAt[j + 1] <= i) j++;
+        full[i] = j < 0 ? null : series[j];
+      }
+      return full.slice(skip);
+    }
     const out = {};
     activeIndicators().forEach(function (def) {
       const p = indState[def.key].params;
@@ -1208,7 +1224,7 @@
       else if (def.kind === "bollinger") r = Indicators.bollinger(closes, p[0], p[1]);
       else if (def.kind === "rsi") r = { line: Indicators.rsi(closes, p[0]) };
       else r = Indicators.macd(closes, p[0], p[1], p[2]);
-      Object.keys(r).forEach(function (k) { r[k] = r[k].slice(skip); });
+      Object.keys(r).forEach(function (k) { r[k] = spread(r[k]); });
       out[def.key] = r;
     });
     return out;
