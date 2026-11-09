@@ -244,10 +244,21 @@ def test_description_has_performance_and_beta_from_the_stored_candles(client):
     assert perf["total_return_12m"]["dividends_recorded"] is True  # from the seed
     assert calc["beta"]["index"] == "GSE-CI (simulated)" and calc["beta"]["observations"] >= 30
     assert calc["market_cap"]["value"] > 0 and calc["pe_ratio"]["value"] > 0
-    # Nothing maintained for ETI, so valuation says why it's empty.
-    eti = client.get("/instruments/ETI/description").json()["calculated"]
-    assert eti["market_cap"]["reason"] == "no shares outstanding recorded"
-    assert eti["pe_ratio"]["reason"] == "no eps recorded"
+    # Nothing maintained for an unprofiled equity, so valuation says why it's empty.
+    bare = client.get(f"/instruments/{unprofiled_equity()}/description").json()["calculated"]
+    assert bare["market_cap"]["reason"] == "no shares outstanding recorded"
+    assert bare["pe_ratio"]["reason"] == "no eps recorded"
+
+
+def unprofiled_equity():
+    """An active, quoted equity with no file in data/companies/ (picked, not
+    hard-coded, so seeding another company doesn't break these tests)."""
+    from app import main
+    from app.instruments import INSTRUMENTS
+
+    return next(i.symbol for i in INSTRUMENTS.values()
+                if i.asset_class == "equity" and i.status == "active"
+                and i.symbol not in main.COMPANIES and main.processor.get_latest(i.symbol))
 
 
 def test_simulated_gse_ci_endpoint(client):
@@ -261,7 +272,7 @@ def test_simulated_gse_ci_endpoint(client):
 def test_quote_cards_get_calculated_market_cap_not_a_placeholder(client):
     from app import main
 
-    assert main.processor.get_latest("ETI").market_cap is None  # no shares recorded
+    assert main.processor.get_latest(unprofiled_equity()).market_cap is None  # no shares recorded
     shares = main.COMPANIES["MTNGH"].profile.shares_outstanding.value  # from the seed
 
     def priced():
