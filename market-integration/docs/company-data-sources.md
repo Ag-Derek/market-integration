@@ -16,7 +16,7 @@ Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP
 
 Basic profiles only (description, classification, website, headquarters,
 listing date; no officers or financials yet): **SCB**, **SOGEGH**, **GOIL**,
-**TOTAL**, **UNIL**, **FML**, **CLYD**, **CMLT**, **CPC**, **DASPHARMA**.
+**TOTAL**, **UNIL**, **FML**, **CLYD**, **CMLT**, **CPC**, **DASPHARMA**, **EGL**.
 
 Every other listed equity has no file yet. Its API fields are all null,
 and the description page shows a one-line summary from the instrument
@@ -48,6 +48,13 @@ Notes on the basic profiles:
   company's shares began trading on 15 January 2020. No website: dasplc.net,
   given in its 2025 EGM notice, does not resolve, and dasplc.com belongs to
   an unrelated business.
+- **EGL** is described from its 2023 annual report (GSE PR 214/2024), the
+  latest full report on gse.com.gh, with its registered office from the
+  2024 summary financial statements (GSE PR 144/2025). Its ownership
+  (Grace Strategic Ventures 44.12%) is as at end-2023. No listing date:
+  the GSE listed-companies page leaves it blank, the annual report does not
+  give one, and secondary sources disagree (1991, for the predecessor
+  Enterprise Insurance, versus November 2010).
 - **SCB** and **UNIL** are described from their 2023 annual reports, the
   latest full reports on gse.com.gh.
 
