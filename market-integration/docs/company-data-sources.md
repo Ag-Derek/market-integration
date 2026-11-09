@@ -16,7 +16,7 @@ Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP
 
 Basic profiles only (description, classification, website, headquarters,
 listing date; no officers or financials yet): **SCB**, **SOGEGH**, **GOIL**,
-**TOTAL**, **UNIL**, **FML**, **CLYD**, **CMLT**.
+**TOTAL**, **UNIL**, **FML**, **CLYD**, **CMLT**, **CPC**, **DASPHARMA**, **EGL**.
 
 Every other listed equity has no file yet. Its API fields are all null,
 and the description page shows a one-line summary from the instrument
@@ -33,6 +33,28 @@ Notes on the basic profiles:
 - **CMLT** is described from its 2023 annual report (GSE PR 153/2024): the
   2024 report on gse.com.gh is a scanned image with no readable text. Its
   registrar (MBG Registrars) comes from the GSE release of that 2024 report.
+- **CPC** is described from its Q3 2026 interim statements (GSE PR 354/2026),
+  which carry current corporate information, and its 2018/2019 annual report
+  (GSE PR 501/2020) for the nature of business, incorporation date and
+  shareholders: no later full annual report is on gse.com.gh. Its ownership
+  (COCOBOD 57.73%, Government of Ghana 26.13%, SSNIT 10.14%) is as at
+  30 September 2019, before the 2022 conversion of US$87m of COCOBOD debt
+  into Class B shares, which are still unregistered. No website: its
+  goldentreeghana.com domain redirects to cpc.com.gh, which did not respond.
+- **DASPHARMA** is described from its 2024 annual report (GSE PR 364/2025);
+  the audited 2025 accounts were delayed with SEC approval and are not on
+  gse.com.gh. The GSE listed-companies page leaves its listing date blank,
+  so it comes from the merger announcement (PR 006/2020): the merged
+  company's shares began trading on 15 January 2020. No website: dasplc.net,
+  given in its 2025 EGM notice, does not resolve, and dasplc.com belongs to
+  an unrelated business.
+- **EGL** is described from its 2023 annual report (GSE PR 214/2024), the
+  latest full report on gse.com.gh, with its registered office from the
+  2024 summary financial statements (GSE PR 144/2025). Its ownership
+  (Grace Strategic Ventures 44.12%) is as at end-2023. No listing date:
+  the GSE listed-companies page leaves it blank, the annual report does not
+  give one, and secondary sources disagree (1991, for the predecessor
+  Enterprise Insurance, versus November 2010).
 - **SCB** and **UNIL** are described from their 2023 annual reports, the
   latest full reports on gse.com.gh.
 
