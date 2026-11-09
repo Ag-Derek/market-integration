@@ -673,6 +673,7 @@
     interval: null,
     candles: [],             // [{ts, open, high, low, close, volume}], in the display currency
     warmup: [],              // candles before the range, for indicators only (never drawn)
+    indShort: {},            // indicator key -> {have, need} traded candles, when too few
     ind: {},                 // indicator key -> its series, aligned with candles (drawChart)
     fx: null,                // /candles' fx: how they were converted (null: cedis)
     lastCumVolume: null,     // cumulative session volume on the last tick
@@ -1078,7 +1079,7 @@
   }
 
   // ------------------------------------------------------------ indicators
-  // Computed over the closes of warm-up + range candles on every draw
+  // Computed over the traded closes of warm-up + range candles on every draw
   // (/static/indicators.js), so they follow live ticks like the price
   // line. Overlays share the price scale; RSI and MACD get a pane each
   // under the volume strip. Choices are kept per browser.
@@ -1196,10 +1197,26 @@
 
   // key -> {line} or bollinger's {mid, upper, lower} or macd's
   // {macd, signal, hist}, each aligned with chart.candles.
+  // Only candles with trades count: a window of quotes and no trades just
+  // repeats the last price, and a 20-period average of that is a stale
+  // price, not 20 periods of trading. So indicators run over the traded
+  // closes, and each candle shows the value as of its latest trade (held
+  // flat through quiet stretches, null before the first trade).
   function computeIndicators() {
-    const closes = chart.warmup.concat(chart.candles).map(function (c) { return c.close; });
+    const all = chart.warmup.concat(chart.candles);
+    const closes = [], tradedAt = [];
+    all.forEach(function (c, i) { if (c.volume > 0) { closes.push(c.close); tradedAt.push(i); } });
     const skip = chart.warmup.length;
-    const out = {};
+    function spread(series) {
+      const full = new Array(all.length);
+      let j = -1;
+      for (let i = 0; i < all.length; i++) {
+        while (j + 1 < tradedAt.length && tradedAt[j + 1] <= i) j++;
+        full[i] = j < 0 ? null : series[j];
+      }
+      return full.slice(skip);
+    }
+    const out = {}, short = {};
     activeIndicators().forEach(function (def) {
       const p = indState[def.key].params;
       let r;
@@ -1208,14 +1225,39 @@
       else if (def.kind === "bollinger") r = Indicators.bollinger(closes, p[0], p[1]);
       else if (def.kind === "rsi") r = { line: Indicators.rsi(closes, p[0]) };
       else r = Indicators.macd(closes, p[0], p[1], p[2]);
-      Object.keys(r).forEach(function (k) { r[k] = r[k].slice(skip); });
+      const need = tradesNeeded(def, p);
+      // Too few trades in the whole stored history (the warm-up reaches
+      // back 200 trades): draw nothing rather than a fragment, and say why.
+      if (closes.length < need) {
+        Object.keys(r).forEach(function (k) { r[k] = new Array(all.length - skip).fill(null); });
+        short[def.key] = { have: closes.length, need: need };
+      } else {
+        Object.keys(r).forEach(function (k) { r[k] = spread(r[k]); });
+      }
       out[def.key] = r;
     });
+    chart.indShort = short;
     return out;
+  }
+
+  // Traded candles an indicator needs for its first value: RSI n changes
+  // (n + 1 closes), MACD's signal a full EMA of the slow-EMA difference.
+  function tradesNeeded(def, p) {
+    if (def.kind === "rsi") return p[0] + 1;
+    if (def.kind === "macd") return Math.max(p[0], p[1]) + p[2] - 1;
+    return p[0];
+  }
+
+  // What the legend and tooltip show for an indicator without enough trades.
+  function indShortText(def) {
+    const s = chart.indShort[def.key];
+    return s ? "not enough trades (" + s.have + " of " + s.need + ")" : null;
   }
 
   // MACD is in price units but small; RSI is 0-100.
   function indValue(def, v) {
+    const short = indShortText(def);
+    if (short) return short;
     if (v == null) return "—";
     if (def.kind === "rsi") return v.toFixed(1);
     if (def.kind === "macd") return v.toFixed(Math.abs(v) >= 1 ? 2 : 3);
@@ -1306,7 +1348,7 @@
       });
       strokeSeries(ctx, r.macd, g.xAt, yAt, def.color, 1.4);
       strokeSeries(ctx, r.signal, g.xAt, yAt, def.signalColor, 1.2);
-      legend.push({ name: "Signal", value: indValue(def, r.signal[at]), color: def.signalColor });
+      if (!indShortText(def)) legend.push({ name: "Signal", value: indValue(def, r.signal[at]), color: def.signalColor });
     }
     drawLegend(ctx, left + 6, top + 9, legend);
   }
@@ -1562,7 +1604,9 @@
     activeIndicators().forEach(function (def) {
       const r = chart.ind[def.key];
       if (!r) return;
-      if (def.kind === "bollinger") {
+      if (indShortText(def)) {
+        rows.push([indName(def), indShortText(def)]);
+      } else if (def.kind === "bollinger") {
         rows.push([indName(def), indValue(def, r.lower[i]) + " – " + indValue(def, r.upper[i])]);
       } else if (def.kind === "macd") {
         rows.push([indName(def), indValue(def, r.macd[i]) + " / " + indValue(def, r.signal[i])]);

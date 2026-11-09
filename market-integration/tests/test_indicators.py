@@ -162,6 +162,8 @@ def test_candles_warmup_returns_history_ahead_of_the_range(client):
     assert plain["warmup"] == []
     warmup = body["warmup"]
     assert len(warmup) == 200
+    # Only windows that traded: indicators skip the ones that didn't.
+    assert all(c["volume"] > 0 for c in warmup)
     times = [c["time"] for c in warmup]
     assert times == sorted(times)
     # It ends right where the range begins, and the range itself is unchanged.
