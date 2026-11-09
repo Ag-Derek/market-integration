@@ -17,7 +17,7 @@ Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP
 Basic profiles only (description, classification, website, headquarters,
 listing date; no officers or financials yet): **SCB**, **SOGEGH**, **GOIL**,
 **TOTAL**, **UNIL**, **FML**, **CLYD**, **CMLT**, **CPC**, **DASPHARMA**, **EGL**,
-**ETI**, **FAB**, **GGBL**, **GLD**.
+**ETI**, **FAB**, **GGBL**, **GLD**, **HORDS**.
 
 Every other listed equity has no file yet. Its API fields are all null,
 and the description page shows a one-line summary from the instrument
@@ -97,6 +97,14 @@ Notes on the basic profiles:
   mainly on the JSE, and no filing read gives the total units in issue, so
   a market cap from any of them would be wrong. Its ISIN is ZAE000060067
   (from PR 241/2025); the instrument master has none.
+- **HORDS** trades on the Ghana Alternative Market (GAX), not the main
+  board. Its 2025 financial statements (GSE PR 140/2026) are a scanned
+  image with no text layer; they were read from the page images. The 2024
+  annual report (PR 473/2025) is mostly images too, so only its chairman's
+  address was used. Left out: `employees` (no year-end headcount in any
+  filing; the 2024 chairman's address gives only the 19 staff who restarted
+  production in December 2024), `website` and `registrar` (none given in
+  the filings or on the GSE page).
 - **SCB** and **UNIL** are described from their 2023 annual reports, the
   latest full reports on gse.com.gh.
 
