@@ -16,7 +16,7 @@ Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP
 
 Basic profiles only (description, classification, website, headquarters,
 listing date; no officers or financials yet): **SCB**, **SOGEGH**, **GOIL**,
-**TOTAL**, **UNIL**, **FML**, **CLYD**.
+**TOTAL**, **UNIL**, **FML**, **CLYD**, **CMLT**.
 
 Every other listed equity has no file yet. Its API fields are all null,
 and the description page shows a one-line summary from the instrument
@@ -30,6 +30,9 @@ Notes on the basic profiles:
 - **FML** is described from its 2022 annual report: the 2023 and 2024
   reports on gse.com.gh are scanned images with no readable text. Its
   ownership (Fan Milk International A/S, 62.11%) is as at end-2022.
+- **CMLT** is described from its 2023 annual report (GSE PR 153/2024): the
+  2024 report on gse.com.gh is a scanned image with no readable text. Its
+  registrar (MBG Registrars) comes from the GSE release of that 2024 report.
 - **SCB** and **UNIL** are described from their 2023 annual reports, the
   latest full reports on gse.com.gh.
 

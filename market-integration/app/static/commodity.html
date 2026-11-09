@@ -450,7 +450,11 @@
     const plotW = W - padL - padR, plotH = H - padT - padB;
     let min = Infinity, max = -Infinity;
     pts.forEach(function (c) { if (c.c < min) min = c.c; if (c.c > max) max = c.c; });
-    const pad = (max - min) * 0.08 || Math.abs(max) * 0.01 || 1;
+    // A span of float noise (an average of equal prices can land 1e-17 off)
+    // is flat: padded by 8% of it, the grid step would be too small to move
+    // the loop below past max, and the page would hang.
+    const span = max - min;
+    const pad = span > Math.abs(max) * 1e-9 ? span * 0.08 : Math.abs(max) * 0.01 || 1;
     min -= pad; max += pad;
     function xAt(i) { return padL + (i / (pts.length - 1)) * plotW; }
     function yAt(v) { return padT + (1 - (v - min) / (max - min)) * plotH; }

@@ -1372,7 +1372,11 @@
     if (chart.range === "1D" && base != null) { min = Math.min(min, base); max = Math.max(max, base); }
     // Drawn levels, retracements and trend lines near the data stay in view.
     if (drawings) { const f = drawings.fit(min, max); min = f[0]; max = f[1]; }
-    const pad = (max - min) * 0.08 || max * 0.01 || 1;
+    // A span of float noise (an average of equal prices can land 1e-17 off)
+    // is flat: padded by 8% of it, the grid step would be too small to move
+    // the loop below past max, and the page would hang.
+    const span = max - min;
+    const pad = span > Math.abs(max) * 1e-9 ? span * 0.08 : Math.abs(max) * 0.01 || 1;
     min -= pad; max += pad;
 
     function xAt(i) { return padL + (i / (pts.length - 1)) * plotW; }

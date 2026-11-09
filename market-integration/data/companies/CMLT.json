@@ -1,0 +1,15 @@
+{
+  "symbol": "CMLT",
+  "profile": {
+    "description_short": {"value": "Accra-based security printer and business forms manufacturer, producing cheques, labels and commercial stationery.", "source": "Written by us from the Camelot Ghana PLC 2023 Annual Report (GSE PR 153/2024: report of the directors, nature of business; chairman's statement)", "as_of": "2023-12-31"},
+    "description_full": {"value": "Camelot Ghana PLC prints security documents and makes business forms, and also offers design work and commercial stationery printing. Its main lines are cheques, label printing on flexographic presses (a recent investment that drove most of its revenue growth in 2023), and its traditional business forms and stationery work. It was incorporated in Ghana on 8 February 1977 and listed on the Ghana Stock Exchange on 17 September 1999. A Nigerian subsidiary, Camelot Security Solutions, had not operated for a long time, and the board agreed to wind it up. At the end of 2023 West African Data Services Bureau Ltd held 46.66% of the shares and Strategic Initiatives Ltd 19.03%. The company is based on Osu-La Road, Accra.", "source": "Written by us from the Camelot Ghana PLC 2023 Annual Report (GSE PR 153/2024: report of the directors, incorporation and nature of business; chairman's statement; note 15, investment in subsidiary; top 20 shareholders at 31 December 2023) and the GSE listed-company page for CMLT (date listed)", "as_of": "2026-11-09"},
+    "sector": {"value": "Printing & Publishing", "source": "Our classification, from the nature of business in the Camelot Ghana PLC 2023 Annual Report", "as_of": "2023-12-31"},
+    "industry": {"value": "Security and commercial printing", "source": "Our classification, from the nature of business in the Camelot Ghana PLC 2023 Annual Report (security printing, business forms, commercial stationery)", "as_of": "2023-12-31"},
+    "website": {"value": "https://www.camelotprint.com", "source": "GSE listed-company page for CMLT; site checked live", "as_of": "2026-11-09"},
+    "headquarters_city": {"value": "Accra", "source": "Camelot Ghana PLC 2023 Annual Report, directors, officials and registered office: Osu-La Road (opposite GCB Osu Branch), P. O. Box M191, Accra", "as_of": "2023-12-31"},
+    "headquarters_country": {"value": "Ghana", "source": "Camelot Ghana PLC 2023 Annual Report, report of the directors (incorporation)", "as_of": "2023-12-31"},
+    "shares_outstanding": {"value": 6829276, "source": "Camelot Ghana PLC 2023 Annual Report, corporate governance report (shareholding structure) and list of members; the GSE listed-company page shows 6.83 million", "as_of": "2023-12-31"},
+    "listing_date": {"value": "1999-09-17", "source": "GSE listed-company page for CMLT (date listed 17th September 1999)", "as_of": "2026-11-09"},
+    "registrar": {"value": "MBG Registrars", "source": "GSE PR 119/2025 (release of the 2024 annual report), distribution list: \"MBG Registrars, (Registrars for CMLT shares)\"", "as_of": "2025-04-15"}
+  }
+}
