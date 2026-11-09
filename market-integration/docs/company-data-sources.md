@@ -16,7 +16,8 @@ Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP
 
 Basic profiles only (description, classification, website, headquarters,
 listing date; no officers or financials yet): **SCB**, **SOGEGH**, **GOIL**,
-**TOTAL**, **UNIL**, **FML**, **CLYD**, **CMLT**, **CPC**, **DASPHARMA**, **EGL**.
+**TOTAL**, **UNIL**, **FML**, **CLYD**, **CMLT**, **CPC**, **DASPHARMA**, **EGL**,
+**ETI**.
 
 Every other listed equity has no file yet. Its API fields are all null,
 and the description page shows a one-line summary from the instrument
@@ -55,6 +56,17 @@ Notes on the basic profiles:
   the GSE listed-companies page leaves it blank, the annual report does not
   give one, and secondary sources disagree (1991, for the predecessor
   Enterprise Insurance, versus November 2010).
+- **ETI** is described from the Ecobank Group Annual Report 2025 and the
+  9M 2026 interim statements, both from ecobank.com; ETI's own filings are
+  not on gse.com.gh. Its ownership (Bosquet Investments 21.22%, Qatar
+  National Bank 20.10%) is as at end-2025, after Nedbank sold its stake to
+  Bosquet in December 2025. ETI reports in US dollars, but its GSE shares
+  trade in cedis. The share count is the annual report's 24,730,354,443
+  issued; the GSE page shows an older 24,067.75 million. No registrar:
+  neither report names one for the Ghana register. The country count
+  differs by source (32 with banking operations in the directors' report,
+  34 in the group overview, "presence in 38" in the interim notes); the
+  description uses 32.
 - **SCB** and **UNIL** are described from their 2023 annual reports, the
   latest full reports on gse.com.gh.
 
