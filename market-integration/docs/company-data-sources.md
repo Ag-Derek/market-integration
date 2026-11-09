@@ -17,7 +17,7 @@ Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP
 Basic profiles only (description, classification, website, headquarters,
 listing date; no officers or financials yet): **SCB**, **SOGEGH**, **GOIL**,
 **TOTAL**, **UNIL**, **FML**, **CLYD**, **CMLT**, **CPC**, **DASPHARMA**, **EGL**,
-**ETI**.
+**ETI**, **FAB**.
 
 Every other listed equity has no file yet. Its API fields are all null,
 and the description page shows a one-line summary from the instrument
@@ -67,6 +67,12 @@ Notes on the basic profiles:
   differs by source (32 with banking operations in the directors' report,
   34 in the group overview, "presence in 38" in the interim notes); the
   description uses 32.
+- **FAB** is described from its 2025 annual report and audited statements
+  and its December 2025 IPO prospectus, all from firstatlanticbank.com.gh.
+  The GSE page's "date incorporated" (7 November 2025) is the date it
+  re-registered as a PLC; it was first incorporated on 4 May 1994. Its
+  ownership (Kedari Nominees 46.6%, AFIG Fund II 21.0%) is as at end-2025,
+  after the IPO. The instrument master has no ISIN for it.
 - **SCB** and **UNIL** are described from their 2023 annual reports, the
   latest full reports on gse.com.gh.
 
