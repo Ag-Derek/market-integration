@@ -42,6 +42,16 @@ TENORS: tuple[tuple[str, int, int], ...] = (
 )
 
 
+def tenor_date(spot_date: date, tenor: str) -> date:
+    """The value date of a tenor label ("1W" ... "1Y"): the spot date
+    moved by the tenor's months and days. ValueError for a label not in
+    TENORS."""
+    for label, months, extra_days in TENORS:
+        if label == tenor:
+            return add_months(spot_date, months) + timedelta(days=extra_days)
+    raise ValueError(f"Unknown tenor '{tenor}'. Expected one of: {', '.join(t[0] for t in TENORS)}")
+
+
 def cross_matrix(ghs_per_unit: Sequence[float]) -> list[list[float]]:
     """m[i][j]: units of currency j one unit of currency i buys, from
     each currency's cedis per unit (1 for the cedi itself)."""
@@ -84,8 +94,8 @@ class ForwardPoint:
 def forward_curve(spot: float, spot_date: date, ghs_curve: Sequence[tuple[int, float]],
                   foreign_rate: float, foreign_basis: int) -> list[ForwardPoint]:
     out = []
-    for label, months, extra_days in TENORS:
-        value_date = add_months(spot_date, months) + timedelta(days=extra_days)
+    for label, _, _ in TENORS:
+        value_date = tenor_date(spot_date, label)
         days = (value_date - spot_date).days
         ghs_rate = interpolate(ghs_curve, days)
         outright = synthetic_forward(spot, days, ghs_rate, foreign_rate, foreign_basis)

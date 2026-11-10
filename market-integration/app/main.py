@@ -94,7 +94,8 @@ from app.derivatives.fx_option import (
     values_across as option_values_across,
     window_for as vol_window_for,
 )
-from app.fx.forwards import GHS_BASIS, TENORS as FORWARD_TENORS, cross_matrix, forward_curve, interpolate
+from app.derivatives.fx_swap import SwapError, price as swap_price
+from app.fx.forwards import GHS_BASIS, TENORS as FORWARD_TENORS, cross_matrix, forward_curve, interpolate, tenor_date
 from app.fx.overnight import (
     BENCHMARKS as OVERNIGHT_BENCHMARKS,
     RETRY_SECONDS as OVERNIGHT_RETRY_SECONDS,
@@ -1795,11 +1796,156 @@ async def calc_fx_option(req: FxOptionRequest):
     }
 
 
+class FxSwapRequest(BaseModel):
+    """POST /calc/fx-swap. Only the terms are needed; every market input
+    left out is filled from the data the service holds (and the reply says
+    where each came from). Tenors count from the spot date."""
+    model_config = ConfigDict(extra="forbid")
+
+    currency: str = "USD"
+    # buy_sell: buy the currency on the near date, sell it back on the far date; sell_buy: the reverse.
+    direction: Literal["buy_sell", "sell_buy"] = "buy_sell"
+    notional: float = Field(100_000, gt=0)         # in the foreign currency, the same on both legs
+    near_tenor: Optional[str] = None               # SPOT (default) or 1W ... 1Y; ignored if near_date is given
+    near_date: Optional[date] = None
+    far_tenor: Optional[str] = None                # 1W ... 1Y, default 3M; ignored if far_date is given
+    far_date: Optional[date] = None
+    valuation_date: Optional[date] = None          # default today
+    # Overrides, % a year where a rate:
+    spot: Optional[float] = Field(None, gt=0)
+    ghs_rate: Optional[float] = Field(None, ge=-5, le=200)       # flat, for both legs
+    foreign_rate: Optional[float] = Field(None, ge=-5, le=200)
+
+
+@app.post("/calc/fx-swap")
+async def calc_fx_swap(req: FxSwapRequest):
+    """An FX swap against the cedi: the near and far rates, the cedi
+    amount on each leg, the swap points, the annualised premium and the
+    net cedi cash difference. Each leg is the synthetic forward to its
+    value date (app/fx/forwards.py), so the far rate is the /fx/forwards
+    outright for the same day: dates count from the BoG fix's date, as
+    /fx/forwards does. Market inputs not given are filled as for
+    /calc/fx-option and reported with their source and date. USD, EUR and
+    GBP only: the currencies with an overnight benchmark. 400 for terms
+    that can't be priced or an input the service can't fill. See
+    app/derivatives/fx_swap.py."""
+    code = req.currency.strip().upper()
+    if code == FX_BASE or code not in CURRENCIES:
+        raise HTTPException(status_code=400, detail=f"Unknown currency '{code}'. Expected one of: {', '.join(OVERNIGHT_BENCHMARKS)}")
+    bench = OVERNIGHT_BENCHMARKS.get(code)
+    if bench is None:
+        raise HTTPException(status_code=400, detail=f"FX swaps are priced for {', '.join(OVERNIGHT_BENCHMARKS)} only: "
+                                                    f"{code} has no overnight interest rate benchmark held")
+    today = req.valuation_date or calendar.local_date(datetime.now(timezone.utc))
+    name, symbol, _ = CURRENCIES[code]
+    inputs = []
+
+    # Spot: the BoG mid in force on the valuation date. Its date is the
+    # spot date both legs count from, as on /fx/forwards.
+    fix = fx_rates.on(code, today) if fx_rates.has(code) else None
+    if req.spot is not None:
+        spot = req.spot
+        inputs.append(_input("spot", f"Spot {code}/GHS", spot, "GH₵ per unit", "you", None, "Entered"))
+    elif fix is None:
+        raise HTTPException(status_code=400, detail=f"No Bank of Ghana rate for {code} yet; enter the spot rate")
+    else:
+        spot = fix.mid
+        inputs.append(_input("spot", f"Spot {code}/GHS", spot, "GH₵ per unit", "market", fix.date,
+                             "Bank of Ghana interbank mid"))
+    spot_date = fix.date if fix is not None else today
+
+    def resolve(tenor: Optional[str], given: Optional[date], default: str) -> tuple[date, Optional[str]]:
+        if given is not None:
+            return given, None
+        label = (tenor or default).strip().upper()
+        if label == "SPOT":
+            return spot_date, label
+        try:
+            return tenor_date(spot_date, label), label
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    near_date, near_tenor = resolve(req.near_tenor, req.near_date, "SPOT")
+    far_date, far_tenor = resolve(req.far_tenor, req.far_date, "3M")
+
+    # Cedi rate: the T-bill curve, read at each leg's days (or one rate entered for both).
+    if req.ghs_rate is not None:
+        ghs_curve, bills = [(0, req.ghs_rate)], []
+    else:
+        bills = _bill_curve(today)
+        if not bills:
+            raise HTTPException(status_code=400, detail="No T-bill auction yields held; enter the cedi interest rate")
+        ghs_curve = [(r.tenor_days, r.interest_rate) for r in bills]
+
+    # Foreign rate: the overnight benchmark, held flat.
+    if req.foreign_rate is not None:
+        foreign_rate = req.foreign_rate
+        foreign_input = _input("foreign_rate", f"{code} interest rate", foreign_rate, f"% a year, ACT/{bench.basis}",
+                               "you", None, "Entered")
+    else:
+        overnight = overnight_rates.on(code, today)
+        if overnight is None:
+            raise HTTPException(status_code=400, detail=f"No {bench.name} rate held; enter the {code} interest rate")
+        foreign_rate = overnight.rate
+        foreign_input = _input("foreign_rate", f"{code} interest rate", foreign_rate, f"% a year, ACT/{bench.basis}",
+                               "market", overnight.date,
+                               f"{bench.name} ({bench.publisher}), overnight, held flat to the far date")
+
+    try:
+        swap = swap_price(req.direction, req.notional, spot, spot_date, near_date, far_date,
+                          ghs_curve, foreign_rate, bench.basis)
+    except SwapError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # The cedi rate at each leg that uses one: the far leg always, the near leg if it starts forward.
+    if req.ghs_rate is not None:
+        inputs.append(_input("ghs_rate", "Cedi interest rate", req.ghs_rate, "% a year, ACT/364", "you", None,
+                             "Entered, for both legs"))
+    else:
+        yields = ", ".join(f"{r.tenor_days}d {r.interest_rate:.2f}%" for r in bills)
+        as_of = max(r.issue_date for r in bills)
+        inputs.append(_input("ghs_rate", "Cedi interest rate, far leg", swap.far.ghs_rate, "% a year, ACT/364",
+                             "market", as_of, f"T-bill auction yields ({yields}) read at {swap.far.days} days"))
+        if swap.near.ghs_rate is not None:
+            inputs.append(_input("ghs_rate_near", "Cedi interest rate, near leg", swap.near.ghs_rate,
+                                 "% a year, ACT/364", "market", as_of,
+                                 f"T-bill auction yields ({yields}) read at {swap.near.days} days"))
+    inputs.append(foreign_input)
+
+    def leg_out(leg, tenor: Optional[str]) -> dict:
+        return {"value_date": leg.value_date.isoformat(), "tenor": tenor, "days": leg.days, "ghs_rate": leg.ghs_rate,
+                "rate": leg.rate, "foreign_amount": leg.foreign_amount, "ghs_amount": leg.ghs_amount}
+
+    return {
+        "pair": f"{code}{FX_BASE}",
+        "currency": {"code": code, "name": name, "symbol": symbol},
+        "direction": swap.direction,
+        "notional": swap.notional,
+        "valuation_date": today.isoformat(),
+        "spot_date": spot_date.isoformat(),
+        "spot": spot,
+        "forward_start": swap.near.days > 0,
+        "near": leg_out(swap.near, near_tenor),
+        "far": leg_out(swap.far, far_tenor),
+        "days": swap.far.days - swap.near.days,
+        "points": swap.points,
+        "premium_pa": swap.premium_pa,
+        # The two cedi amounts added up: the interest difference between
+        # the currencies over the swap's life, not a profit.
+        "net_ghs": swap.net_ghs,
+        "inputs": inputs,
+        "method": "covered interest parity",
+        "rate": "mid",
+        "note": "Indicative mid from covered interest parity, not a dealer quote. Bank spreads aren't included.",
+    }
+
+
 @app.get("/hedging", response_class=HTMLResponse)
 async def hedging_page():
     """The Hedging tab: a foreign-currency payment or receipt, and what
-    doing nothing, a forward and an option would each cost, by rate.
-    Prices through POST /calc/fx-option."""
+    doing nothing, a forward and an option would each cost, by rate; and
+    an FX swap to roll or move one. Prices through POST /calc/fx-option
+    and POST /calc/fx-swap."""
     return (STATIC_DIR / "hedging.html").read_text(encoding="utf-8")
 
 
