@@ -176,8 +176,35 @@
 
   footer { margin-top: 26px; font-size: 12px; color: var(--ink-faint); line-height: 1.6; max-width: 1000px; }
 
+  .lede a, .detail-note a { color: var(--teal); }
+
+  /* Sub-tabs: one calculator on screen at a time (as on the Commodities page) */
+  .subbar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+  .subtab {
+    font-size: 13px; font-weight: 600; color: var(--ink-faint); text-decoration: none;
+    padding: 9px 2px; border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .subtab:hover { color: var(--ink-soft); }
+  .subtab.active { color: var(--ink); border-bottom-color: var(--teal); }
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* FX swap */
+  #swResults > * + * { margin-top: 16px; }
+  .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .stat .k { font-size: 11.5px; color: var(--ink-faint); }
+  .stat .v { font-size: 22px; font-weight: 700; margin: 2px 0 4px; letter-spacing: -0.01em; }
+  .stat p { font-size: 12.5px; color: var(--ink-soft); line-height: 1.55; margin: 0; }
+  .legs td.l { white-space: normal; }
+  .legs td .what { display: block; margin-left: 0; }
+  .legs tfoot td { font-weight: 700; border-top: 2px solid var(--line); }
+
   @media (max-width: 1100px) {
     .choices { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 760px) {
+    .stats { grid-template-columns: 1fr; }
   }
   @media (max-width: 960px) {
     .layout { grid-template-columns: 1fr; }
@@ -210,11 +237,19 @@
     </nav>
   </div>
 
+  <div class="subbar" role="tablist">
+    <a class="subtab" href="#payment" data-view="payment" role="tab">Plan a payment</a>
+    <a class="subtab" href="#swap" data-view="swap" role="tab">FX swap</a>
+  </div>
+
+  <div class="view" id="view-payment">
   <h1>Plan a foreign-currency payment</h1>
   <p class="lede">
     Have a payment to make, or money coming in, in another currency? Compare your three choices: wait and use
     whatever the exchange rate is on the day, lock in a rate today, or pay a fee for protection that still lets you
     benefit if the rate moves your way. Figures are estimates from the latest market data, not quotes from a bank.
+    Already hold the currency but need it later, or need it now and will have it back?
+    <a href="#swap">Price an FX swap</a>.
   </p>
 
   <div class="error" id="error" hidden></div>
@@ -353,13 +388,136 @@
       </details>
     </div>
   </div>
+  </div>
+
+  <div class="view" id="view-swap">
+    <h1>Roll or move a payment: an FX swap</h1>
+    <p class="lede">
+      Exchange the same amount of foreign currency twice, in opposite directions: once now (or on a nearer date) and back
+      again later, with both rates fixed today. Use it when you hold the currency now but need it later, or need it now
+      and will have it back later. The later rate is the same locked-in rate as on the <a href="/fx">FX page</a>.
+    </p>
+
+    <div class="error" id="swError" hidden></div>
+
+    <div class="layout">
+      <form class="panel" id="swForm" autocomplete="off" onsubmit="return false">
+        <h2>Your swap</h2>
+
+        <div class="field">
+          <span class="label">I want to</span>
+          <div class="seg big" role="group" aria-label="Direction" id="swDirection">
+            <button type="button" data-dir="buy_sell">Buy now, sell later</button>
+            <button type="button" data-dir="sell_buy">Sell now, buy later</button>
+          </div>
+        </div>
+
+        <div class="row2 field">
+          <div>
+            <label for="swNotional">Amount</label>
+            <input type="number" id="swNotional" min="0" step="any" value="100000" inputmode="decimal">
+          </div>
+          <div>
+            <label for="swCurrency">Currency</label>
+            <select id="swCurrency">
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+              <option value="GBP">GBP</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="label">First exchange</span>
+          <div class="seg" role="group" aria-label="First exchange, from spot" id="swNear"></div>
+          <div class="row2" style="margin-top: 8px;">
+            <input type="date" id="swNearDate" aria-label="First exchange date">
+            <span class="hint" id="swNearDays"></span>
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="label">Second exchange</span>
+          <div class="seg" role="group" aria-label="Second exchange, from spot" id="swFar"></div>
+          <div class="row2" style="margin-top: 8px;">
+            <input type="date" id="swFarDate" aria-label="Second exchange date">
+            <span class="hint" id="swFarDays"></span>
+          </div>
+          <div class="hint">Both periods count from the spot date (the Bank of Ghana fix's date).</div>
+        </div>
+
+        <details class="specialist" id="swMarketInputs">
+          <summary>Market inputs (for specialists)</summary>
+          <div id="swAssumptions"></div>
+        </details>
+      </form>
+
+      <div id="swResults">
+        <section class="panel">
+          <div class="situation" id="swSituation">Loading&hellip;</div>
+        </section>
+
+        <section class="panel">
+          <h2>Cash flows</h2>
+          <div class="table-wrap">
+            <table class="legs">
+              <thead><tr>
+                <th class="l">Exchange</th>
+                <th>Rate (GH₵ per unit)</th>
+                <th id="swForeignHead">USD</th>
+                <th>Cedis</th>
+              </tr></thead>
+              <tbody id="swLegs"></tbody>
+              <tfoot><tr>
+                <td class="l">Net cedi cash difference</td>
+                <td></td>
+                <td class="num">0</td>
+                <td class="num" id="swNet">—</td>
+              </tr></tfoot>
+            </table>
+          </div>
+          <p class="footnote">+ you receive, − you pay. Indicative mid from covered interest parity, not a dealer quote;
+            a bank's rates will differ by its spread.</p>
+        </section>
+
+        <div class="stats">
+          <div class="stat">
+            <div class="k">Swap points</div>
+            <div class="v num" id="swPoints">—</div>
+            <p id="swPointsP"></p>
+          </div>
+          <div class="stat">
+            <div class="k">Annualised premium</div>
+            <div class="v num" id="swPremium">—</div>
+            <p id="swPremiumP"></p>
+          </div>
+          <div class="stat">
+            <div class="k">Net cedi cash difference</div>
+            <div class="v num" id="swNetV">—</div>
+            <p id="swNetP"></p>
+          </div>
+        </div>
+
+        <details class="panel" id="swSpecialist">
+          <summary>For specialists: how the swap is priced</summary>
+          <p class="detail-note" id="swModelNote"></p>
+          <h4>Inputs used</h4>
+          <table class="detail-table">
+            <thead><tr><th>Input</th><th>Value</th><th>Source</th><th>Where it comes from</th></tr></thead>
+            <tbody id="swInputsBody"></tbody>
+          </table>
+        </details>
+      </div>
+    </div>
+  </div>
 
   <footer>
     Exchange rates are the Bank of Ghana's interbank mid, so a bank's own rate will differ by its spread. The locked-in rate
     is the forward implied by cedi T-bill yields and the foreign overnight rate (as on the FX page). The protection fee is
     estimated with the standard currency-option model (Garman-Kohlhagen, via QuantLib), using how much the rate has
     actually moved recently. Ghana has no traded options market, so treat it as a guide to what's fair, not a price you
-    can deal at. Bank fees and spreads aren't included.
+    can deal at. Bank fees and spreads aren't included. The FX swap's two rates are the same forwards, so the swap is
+    an indicative mid from covered interest parity, not a dealer quote.
   </footer>
 
 </div>
@@ -557,12 +715,12 @@
     timer = setTimeout(calculate, 250);
   }
 
-  function calculate() {
-    const mine = ++seq;
-    fetch("/calc/fx-option", {
+  // POST a calculator request; the reply, or an Error with the service's message.
+  function postJson(url, body) {
+    return fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(request()),
+      body: JSON.stringify(body),
     }).then(function (r) {
       return r.json().then(function (b) {
         if (!r.ok) {
@@ -573,7 +731,12 @@
         }
         return b;
       });
-    }).then(function (b) {
+    });
+  }
+
+  function calculate() {
+    const mine = ++seq;
+    postJson("/calc/fx-option", request()).then(function (b) {
       if (mine !== seq) return;
       last = b;
       $("error").hidden = true;
@@ -906,6 +1069,226 @@
   }
   function volText(v) { return v == null ? "—" : fixed(v, 1) + "%"; }
 
+  // ------------------------------------------------------------ FX swap
+  // Through POST /calc/fx-swap: each leg is the synthetic forward to its
+  // date, counted from spot, so the second rate matches the FX page.
+
+  const SW_NEAR = [["SPOT", "At spot"], ["1W", "1 week from spot"], ["1M", "1 month from spot"],
+                   ["3M", "3 months from spot"], ["6M", "6 months from spot"]];
+  const SW_FAR = [["1W", "1 week from spot"], ["1M", "1 month from spot"], ["3M", "3 months from spot"],
+                  ["6M", "6 months from spot"], ["1Y", "1 year from spot"]];
+  const SW_ASSUME = [
+    { key: "spot", label: "Spot rate (GH₵ per unit)", step: "0.0001" },
+    { key: "ghs_rate", label: "Cedi interest rate (% a year)", step: "0.01" },
+    { key: "foreign_rate", label: "Foreign interest rate (% a year)", step: "0.01" },
+  ];
+  const sw = { dir: "buy_sell", currency: "USD", near: "SPOT", nearDate: null, far: "3M", farDate: null };
+  let swTimer = null;
+  let swSeq = 0;
+
+  function signed(v, dp) { return (v < 0 ? "−" : "+") + fixed(Math.abs(v), dp); }
+
+  function swTenors(segId, list, key, dateKey, dateId, fallback) {
+    list.forEach(function (t) {
+      const b = el("button", null, t[0] === "SPOT" ? "Spot" : t[0]);
+      b.type = "button";
+      b.title = t[1];
+      b.dataset.tenor = t[0];
+      b.addEventListener("click", function () {
+        sw[key] = t[0];
+        sw[dateKey] = null;
+        $(dateId).value = "";
+        swSync();
+        swSchedule();
+      });
+      $(segId).appendChild(b);
+    });
+    $(dateId).addEventListener("change", function () {
+      sw[dateKey] = this.value || null;
+      sw[key] = sw[dateKey] ? null : fallback;
+      swSync();
+      swSchedule();
+    });
+  }
+
+  function swBuild() {
+    $("swDirection").querySelectorAll("button").forEach(function (b) {
+      b.addEventListener("click", function () { sw.dir = b.dataset.dir; swSync(); swSchedule(); });
+    });
+    swTenors("swNear", SW_NEAR, "near", "nearDate", "swNearDate", "SPOT");
+    swTenors("swFar", SW_FAR, "far", "farDate", "swFarDate", "3M");
+    $("swCurrency").addEventListener("change", function () {
+      sw.currency = this.value;
+      SW_ASSUME.forEach(function (a) { $("sw-in-" + a.key).value = ""; });
+      swSync();
+      swSchedule();
+    });
+    $("swNotional").addEventListener("input", swSchedule);
+
+    SW_ASSUME.forEach(function (a) {
+      const f = el("div", "field assume");
+      const head = el("div", "head");
+      const label = el("label", null, a.label);
+      label.htmlFor = "sw-in-" + a.key;
+      label.id = "sw-label-" + a.key;
+      head.appendChild(label);
+      const badge = el("span", "badge");
+      badge.id = "sw-badge-" + a.key;
+      head.appendChild(badge);
+      const reset = el("button", "reset", "Use default");
+      reset.type = "button";
+      reset.hidden = true;
+      reset.id = "sw-reset-" + a.key;
+      reset.addEventListener("click", function () { $("sw-in-" + a.key).value = ""; swSchedule(); });
+      head.appendChild(reset);
+      f.appendChild(head);
+      const input = el("input");
+      input.type = "number";
+      input.step = a.step;
+      input.inputMode = "decimal";
+      input.id = "sw-in-" + a.key;
+      input.addEventListener("input", swSchedule);
+      f.appendChild(input);
+      const hint = el("div", "hint");
+      hint.id = "sw-hint-" + a.key;
+      f.appendChild(hint);
+      $("swAssumptions").appendChild(f);
+    });
+    swSync();
+  }
+
+  function swSync() {
+    $("swDirection").querySelectorAll("button").forEach(function (b) { b.classList.toggle("active", b.dataset.dir === sw.dir); });
+    $("swNear").querySelectorAll("button").forEach(function (b) { b.classList.toggle("active", b.dataset.tenor === sw.near); });
+    $("swFar").querySelectorAll("button").forEach(function (b) { b.classList.toggle("active", b.dataset.tenor === sw.far); });
+    const c = sw.currency;
+    $("swDirection").querySelector('[data-dir="buy_sell"]').textContent = "Buy " + c + " now, sell later";
+    $("swDirection").querySelector('[data-dir="sell_buy"]').textContent = "Sell " + c + " now, buy later";
+    $("sw-label-foreign_rate").textContent = c + " interest rate (% a year)";
+    $("swForeignHead").textContent = c;
+  }
+
+  function swRequest() {
+    const body = { currency: sw.currency, direction: sw.dir };
+    const n = num("swNotional");
+    if (n) body.notional = n;
+    if (sw.nearDate) body.near_date = sw.nearDate; else body.near_tenor = sw.near || "SPOT";
+    if (sw.farDate) body.far_date = sw.farDate; else body.far_tenor = sw.far || "3M";
+    SW_ASSUME.forEach(function (a) {
+      const v = num("sw-in-" + a.key);
+      if (v != null && !isNaN(v)) body[a.key] = v;
+    });
+    return body;
+  }
+
+  function swSchedule() {
+    clearTimeout(swTimer);
+    $("swResults").classList.add("stale");
+    swTimer = setTimeout(swCalculate, 250);
+  }
+
+  function swCalculate() {
+    const mine = ++swSeq;
+    postJson("/calc/fx-swap", swRequest()).then(function (b) {
+      if (mine !== swSeq) return;
+      $("swError").hidden = true;
+      $("swResults").classList.remove("stale");
+      swRender(b);
+    }).catch(function (e) {
+      if (mine !== swSeq) return;
+      $("swError").textContent = e.message;
+      $("swError").hidden = false;
+      if (/enter/i.test(e.message)) $("swMarketInputs").open = true;
+    });
+  }
+
+  function legWhen(leg) {
+    return longDate(leg.value_date) + " · " + (leg.days ? leg.days + " days from spot" : "spot");
+  }
+
+  function swRender(b) {
+    const c = b.currency.code, buy = b.direction === "buy_sell";
+    const near = b.near, far = b.far, n = b.notional;
+    const amount = fixed(n, 0) + " " + c;
+    const find = function (key) { return b.inputs.find(function (i) { return i.key === key; }); };
+    const ghs = find("ghs_rate").value, foreign = find("foreign_rate");
+
+    const sit = $("swSituation");
+    sit.textContent = "";
+    sit.appendChild(document.createTextNode("You " + (buy ? "buy " : "sell ")));
+    sit.appendChild(el("b", null, amount));
+    sit.appendChild(document.createTextNode(" on " + longDate(near.value_date) + (b.forward_start ? "" : " (spot)") +
+      " at GH₵" + rate(near.rate) + ", and " + (buy ? "sell it back" : "buy it back") + " on "));
+    sit.appendChild(el("b", null, longDate(far.value_date)));
+    sit.appendChild(document.createTextNode(", " + b.days + " days later, at GH₵" + rate(far.rate) +
+      ". Both rates are fixed today, so the cedi moving in between doesn't change either amount."));
+
+    const body = $("swLegs");
+    body.textContent = "";
+    [["First exchange", near], ["Second exchange", far]].forEach(function (r) {
+      const tr = el("tr");
+      const first = el("td", "l");
+      first.appendChild(el("span", null, r[0]));
+      first.appendChild(el("span", "what", legWhen(r[1])));
+      tr.appendChild(first);
+      tr.appendChild(el("td", "num", rate(r[1].rate)));
+      tr.appendChild(el("td", "num", signed(r[1].foreign_amount, 2)));
+      tr.appendChild(el("td", "num", signedCedis(r[1].ghs_amount)));
+      body.appendChild(tr);
+    });
+    $("swNet").textContent = signedCedis(b.net_ghs);
+    $("swNetV").textContent = signedCedis(b.net_ghs);
+
+    const up = b.points >= 0;
+    $("swPoints").textContent = signed(b.points, 0) + " pips";
+    $("swPointsP").textContent = "The second rate minus the first: GH₵" + rate(Math.abs(far.rate - near.rate)) +
+      " per " + c + (up ? " more" : " less") + " (a pip is GH₵0.0001).";
+    $("swPremium").textContent = signed(b.premium_pa, 2) + "%";
+    $("swPremiumP").textContent = "That gap as a % a year over the swap's " + b.days + " days: roughly the cedi rate (" +
+      fixed(ghs, 2) + "%) less the " + c + " rate (" + fixed(foreign.value, 2) + "%).";
+    $("swNetP").textContent = "This isn't a profit or a loss. The second rate is " + (up ? "higher" : "lower") +
+      " because cedi interest rates are " + (up ? "higher" : "lower") + " than " + c + " rates. " +
+      (buy ? "Between the two dates you hold " + c + " instead of cedis, giving up the cedi interest; this difference " +
+             "makes up for it."
+           : "Between the two dates you hold cedis instead of " + c + ", earning the cedi interest; this difference " +
+             "is what that's worth.");
+
+    $("swNearDays").textContent = legWhen(near);
+    $("swFarDays").textContent = legWhen(far);
+
+    $("swModelNote").textContent = "Each exchange is the synthetic forward to its date, by covered interest parity: " +
+      "spot × (1 + cedi rate × days / 364) / (1 + " + c + " rate × days / " + foreign.unit.split("/").pop() + "), with " +
+      "spot the rate on " + longDate(b.spot_date) + " and days counted from then. " +
+      (b.forward_start ? "The first exchange starts after spot, so both come off the forward curve, each with the cedi " +
+                         "rate read at its own days. "
+                       : "The first exchange is at spot, so its rate is the spot rate. ") +
+      "The same method and inputs as the forwards on the FX page. " + b.note;
+
+    b.inputs.forEach(function (i) {
+      const input = $("sw-in-" + i.key);
+      if (!input) return;
+      const you = i.source === "you";
+      if (!you) input.placeholder = fixed(i.value, i.key === "spot" ? 4 : 2);
+      const badge = $("sw-badge-" + i.key);
+      badge.className = "badge " + i.source;
+      badge.textContent = SOURCE[i.source];
+      $("sw-reset-" + i.key).hidden = !you;
+      $("sw-hint-" + i.key).textContent = you ? "Your figure is used." : i.note + (i.as_of ? ", " + longDate(i.as_of) : "");
+    });
+    const tbody = $("swInputsBody");
+    tbody.textContent = "";
+    b.inputs.forEach(function (i) {
+      const tr = el("tr");
+      tr.appendChild(el("td", null, i.label));
+      tr.appendChild(el("td", "r num", fixed(i.value, i.key === "spot" ? 4 : 2) + (i.key === "spot" ? "" : "%")));
+      const s = el("td");
+      s.appendChild(el("span", "badge " + i.source, SOURCE[i.source]));
+      tr.appendChild(s);
+      tr.appendChild(el("td", null, i.note + (i.as_of ? ", " + longDate(i.as_of) : "")));
+      tbody.appendChild(tr);
+    });
+  }
+
   // ------------------------------------------------------------ start
 
   function loadCurrencies() {
@@ -923,8 +1306,34 @@
     }).catch(function () {});
   }
 
+  // ------------------------------------------------------------ sub-tabs
+  // One calculator at a time, chosen by the link's hash (#payment, #swap).
+
+  const VIEWS = ["payment", "swap"];
+  function currentView() {
+    const h = location.hash.replace("#", "");
+    return VIEWS.indexOf(h) !== -1 ? h : "payment";
+  }
+  function showView() {
+    const v = currentView();
+    VIEWS.forEach(function (name) {
+      $("view-" + name).classList.toggle("active", name === v);
+    });
+    document.querySelectorAll(".subtab").forEach(function (a) {
+      const on = a.dataset.view === v;
+      a.classList.toggle("active", on);
+      a.setAttribute("aria-selected", on ? "true" : "false");
+    });
+    // A chart drawn while its tab was hidden had no width to fit.
+    if (v === "payment" && last) drawChart(last);
+  }
+  window.addEventListener("hashchange", showView);
+  showView();
+
   buildForm();
   loadCurrencies().then(calculate);
+  swBuild();
+  swCalculate();
 })();
 </script>
 </body>
