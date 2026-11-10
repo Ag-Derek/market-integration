@@ -52,3 +52,18 @@ def test_live_pages_load_the_render_helpers_first(client, path):
     assert tag in page
     # Before the page's own inline script, which uses window.Render.
     assert page.index(tag) < page.index("<script>")
+
+
+def test_the_hedging_pages_links_resolve(client):
+    # Every link on the Hedging page goes somewhere: the tabs and the FX
+    # page answer, and a hash link (#swap) opens a sub-tab's view.
+    import re
+
+    page = client.get("/hedging").text
+    hrefs = set(re.findall(r'href="([^"]+)"', page))
+    assert "#swap" in hrefs and "/fx" in hrefs
+    for href in hrefs:
+        if href.startswith("#"):
+            assert f'id="view-{href[1:]}"' in page, href
+        elif href.startswith("/"):
+            assert client.get(href).status_code == 200, href
