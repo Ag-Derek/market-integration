@@ -2,12 +2,65 @@
   "symbol": "GOIL",
   "profile": {
     "description_short": {"value": "Ghanaian marketer of petroleum and other energy products, with bulk import, bitumen and payments subsidiaries; about a third owned by the state.", "source": "Written by us from the GOIL PLC 2025 Annual Report and Consolidated Financial Statements (GSE PR 181/2026, report of the directors)", "as_of": "2025-12-31"},
-    "description_full": {"value": "GOIL PLC markets petroleum and other energy products and services in Ghana. It wholly owns four subsidiaries: Goenergy Limited, a bulk importer, storer, distributor and trader of petroleum products; GOIL Upstream Limited, which works in oil and gas operations and offers consultancy across West Africa; Gobitumen Limited, which produces and sells bitumen products; and Go Financial Services Limited, licensed for electronic payments and money transfers. It also holds 60% of African Bitumen Terminal Limited, a bitumen joint venture with Societe Multinationale De Bitumes of Cote d'Ivoire. The Government of Ghana owns 34.23% of the company and private investors the rest. GOIL has been listed on the Ghana Stock Exchange since 16 November 2007, and its head office is in Adabraka, Accra.", "source": "Written by us from the GOIL PLC 2025 Annual Report (GSE PR 181/2026: company information; report of the directors, nature of business, ownership and subsidiaries) and the GSE listed-company page for GOIL (date listed)", "as_of": "2026-10-21"},
+    "description_full": {"value": "GOIL PLC markets petroleum and other energy products and services in Ghana. It wholly owns four subsidiaries: Goenergy Limited, a bulk importer, storer, distributor and trader of petroleum products; GOIL Upstream Limited, which works in oil and gas operations and offers consultancy across West Africa; Gobitumen Limited, which produces and sells bitumen products; and Go Financial Services Limited, licensed for electronic payments and money transfers. It also holds 60% of African Bitumen Terminal Limited, a bitumen venture with Societe Multinationale De Bitumes of Cote d'Ivoire that it accounts for as a joint venture rather than a subsidiary. The Government of Ghana owns 34.23% of the company and private investors the rest. GOIL has been listed on the Ghana Stock Exchange since 16 November 2007, and its head office is in Adabraka, Accra. Its business runs on thin margins: in 2025 net revenue of GHS 17.2 billion produced a profit after tax of GHS 91 million, and it has paid a small final dividend every year.", "source": "Written by us from the GOIL PLC 2025 Annual Report (GSE PR 181/2026: company information; report of the directors, nature of business, ownership and subsidiaries; consolidated statement of comprehensive income; note 33, twenty largest shareholders), the unaudited statements to 30 September 2026 (GSE PR 411/2026, note 7: African Bitumen Terminal accounted for as a joint venture) and the GSE listed-company page for GOIL (date listed)", "as_of": "2026-11-16"},
     "sector": {"value": "Energy", "source": "Our classification, from the nature of business in the GOIL PLC 2025 Annual Report", "as_of": "2025-12-31"},
     "industry": {"value": "Petroleum products marketing", "source": "Our classification, from the nature of business in the GOIL PLC 2025 Annual Report", "as_of": "2025-12-31"},
     "website": {"value": "https://www.goil.com.gh/", "source": "GSE listed-company page for GOIL (checked live)", "as_of": "2026-10-21"},
     "headquarters_city": {"value": "Accra", "source": "GOIL PLC 2025 Annual Report, company information: registered office, House Number D659/4, Kojo Thompson Road, Adabraka, Accra", "as_of": "2025-12-31"},
     "headquarters_country": {"value": "Ghana", "source": "GOIL PLC 2025 Annual Report, company information", "as_of": "2025-12-31"},
-    "listing_date": {"value": "2007-11-16", "source": "GSE listed-company page for GOIL (date listed November 16, 2007)", "as_of": "2026-10-21"}
-  }
+    "shares_outstanding": {"value": 391863128, "source": "GOIL PLC unaudited statements to 30 September 2026 (GSE PR 411/2026), note 5: 391,863,128 shares in issue; the 2025 Annual Report (GSE PR 181/2026, note 28) gives 391,863 thousand, and the GSE listed-company page 391.86 million", "as_of": "2026-09-30"},
+    "listing_date": {"value": "2007-11-16", "source": "GSE listed-company page for GOIL (date listed November 16, 2007)", "as_of": "2026-10-21"},
+    "registrar": {"value": "NTHC Registrars", "source": "GSE PR 239/2026 (GOIL closure of register and payment of 2025 final dividend), distribution list: \"NTHC Registrars, (Registrars for GOIL shares)\"; also in PR 196/2025. The 2024 notice (PR 138/2024) named MBG Registrars", "as_of": "2026-05-21"}
+  },
+  "officers": [
+    {"name": "Nana Philip Archer", "role": "Chairman", "display_order": 1, "source": "GOIL PLC unaudited statements to 30 September 2026 (GSE PR 411/2026), signed as Board Chairman on 19 October 2026; 2025 Annual Report (GSE PR 181/2026), company information", "as_of": "2026-10-19"},
+    {"name": "Edward Abambire Bawa", "role": "Group Chief Executive Officer and Managing Director", "display_order": 2, "source": "GOIL PLC unaudited statements to 30 September 2026 (GSE PR 411/2026), signed as Managing Director/CEO on 19 October 2026; Group CEO/MD in the 2025 Annual Report (GSE PR 181/2026), company information", "as_of": "2026-10-19"}
+  ],
+  "financials": [
+    {
+      "fiscal_year": 2025, "currency": "GHS",
+      "revenue": {"value": 17226259000, "source": "GOIL PLC 2025 Annual Report (GSE PR 181/2026), consolidated statement of comprehensive income: group net revenue (gross revenue GHS 18,549,204k less customs duties and levies)", "as_of": "2025-12-31"},
+      "net_income": {"value": 90672000, "source": "GOIL PLC 2025 Annual Report (GSE PR 181/2026), group net profit after tax attributable to equity holders", "as_of": "2025-12-31"},
+      "eps": {"value": 0.231, "source": "GOIL PLC 2025 Annual Report (GSE PR 181/2026), group earnings per share (GHS 0.231)", "as_of": "2025-12-31"},
+      "book_value": {"value": 991541000, "source": "GOIL PLC 2025 Annual Report (GSE PR 181/2026), consolidated statement of changes in equity: group balance at 31 December 2025", "as_of": "2025-12-31"},
+      "dividend_per_share": {"value": 0.06, "source": "GOIL PLC 2025 Annual Report (GSE PR 181/2026), note 21 and report of the directors: final dividend of GHS 0.060 per share proposed for 2025; GSE PR 239/2026, for approval at the 57th AGM on 11 June 2026 (GSE PR 223/2026). The 30 September 2026 statements (GSE PR 411/2026) show GHS 23,224k of dividends paid in 2026", "as_of": "2026-06-11"},
+      "dividend_payment_dates": {"value": ["2026-08-10"], "source": "GSE PR 239/2026, closure of register and payment of final dividend: \"if approved will be paid on Monday, 10 August 2026\"", "as_of": "2026-05-21"}
+    },
+    {
+      "fiscal_year": 2024, "currency": "GHS",
+      "revenue": {"value": 19348106000, "source": "GOIL PLC 2024 Annual Report (GSE PR 135/2025), consolidated statement of comprehensive income: group net revenue; the same in the 2025 comparatives", "as_of": "2024-12-31"},
+      "net_income": {"value": 84698000, "source": "GOIL PLC 2024 Annual Report (GSE PR 135/2025), group net profit after tax attributable to equity holders", "as_of": "2024-12-31"},
+      "eps": {"value": 0.216, "source": "GOIL PLC 2024 Annual Report (GSE PR 135/2025), group earnings per share (GHS 0.216)", "as_of": "2024-12-31"},
+      "book_value": {"value": 894082000, "source": "GOIL PLC 2024 Annual Report (GSE PR 135/2025), consolidated statement of changes in equity: group balance at 31 December 2024", "as_of": "2024-12-31"},
+      "dividend_per_share": {"value": 0.056, "source": "GSE PR 196/2025, closure of register and payment of 2024 final dividend (GHS 0.056 per share), for approval at the 56th AGM on 19 June 2025; paid in 2025 per the 2025 Annual Report (GSE PR 181/2026, note 21)", "as_of": "2025-06-19"},
+      "dividend_payment_dates": {"value": ["2025-09-12"], "source": "GSE PR 196/2025: the dividend of GHS 0.056 per share will be paid on Friday, 12 September 2025", "as_of": "2025-05-20"}
+    },
+    {
+      "fiscal_year": 2023, "currency": "GHS",
+      "revenue": {"value": 20606778000, "source": "GOIL PLC consolidated financial statements for 2023 (GSE PR 096/2024): group net revenue; the same in the 2024 comparatives", "as_of": "2023-12-31"},
+      "net_income": {"value": 54706000, "source": "GOIL PLC consolidated financial statements for 2023 (GSE PR 096/2024): group net profit after tax attributable to equity holders", "as_of": "2023-12-31"},
+      "eps": {"value": 0.14, "source": "GOIL PLC consolidated financial statements for 2023 (GSE PR 096/2024): group earnings per share (GHS 0.140)", "as_of": "2023-12-31"},
+      "book_value": {"value": 826789000, "source": "GOIL PLC consolidated financial statements for 2023 (GSE PR 096/2024): group equity at 31 December 2023", "as_of": "2023-12-31"},
+      "dividend_per_share": {"value": 0.056, "source": "GSE PR 138/2024, closure of register and payment of final dividend: GHS 0.056 per share for 2023, for approval at the AGM on 6 June 2024; paid in 2024 per the 2024 Annual Report (GSE PR 135/2025, note 21)", "as_of": "2024-06-06"},
+      "dividend_payment_dates": {"value": ["2024-07-15"], "source": "GSE PR 138/2024: the final dividend will be paid on Monday, 15 July 2024", "as_of": "2024-05-06"}
+    },
+    {
+      "fiscal_year": 2022, "currency": "GHS",
+      "revenue": {"value": 20744046000, "source": "GOIL PLC consolidated financial statements for 2022 (GSE PR 137/2023): group net revenue; the same in the 2023 comparatives", "as_of": "2022-12-31"},
+      "net_income": {"value": 123894000, "source": "GOIL PLC consolidated financial statements for 2022 (GSE PR 137/2023): group net profit after tax attributable to equity holders", "as_of": "2022-12-31"},
+      "eps": {"value": 0.316, "source": "GOIL PLC consolidated financial statements for 2022 (GSE PR 137/2023): group earnings per share (GHS 0.316)", "as_of": "2022-12-31"},
+      "book_value": {"value": 788824000, "source": "GOIL PLC consolidated financial statements for 2022 (GSE PR 137/2023): group equity at 31 December 2022", "as_of": "2022-12-31"},
+      "dividend_per_share": {"value": 0.056, "source": "Resolutions adopted at the 54th AGM of GOIL PLC on 7 June 2023 (GSE PR 255/2023): dividend of GHS 0.056 per share, GHS 21,944,335 in total, for 2022", "as_of": "2023-06-07"},
+      "dividend_payment_dates": {"value": ["2023-08-07"], "source": "GSE PR 180/2023, closure of register and payment of 2022 final dividend: paid on Monday, 7 August 2023", "as_of": "2023-05-23"}
+    },
+    {
+      "fiscal_year": 2021, "currency": "GHS",
+      "revenue": {"value": 7536824000, "source": "GOIL PLC consolidated financial statements for 2021 (GSE PR 116/2022): group net revenue; the same in the 2022 comparatives", "as_of": "2021-12-31"},
+      "net_income": {"value": 98740000, "source": "GOIL PLC consolidated financial statements for 2021 (GSE PR 116/2022): group net profit after tax attributable to equity holders", "as_of": "2021-12-31"},
+      "eps": {"value": 0.252, "source": "GOIL PLC consolidated financial statements for 2021 (GSE PR 116/2022): group earnings per share (GHS 0.252)", "as_of": "2021-12-31"},
+      "book_value": {"value": 684409000, "source": "GOIL PLC consolidated financial statements for 2021 (GSE PR 116/2022): group total equity at 31 December 2021", "as_of": "2021-12-31"},
+      "dividend_per_share": {"value": 0.047, "source": "GSE PR 178/2022, closure of register and payment of 2021 final dividend: GHS 0.047 per share, for approval at the AGM on 15 June 2022; paid in 2022 per the 2022 statements (GSE PR 137/2023, note 21)", "as_of": "2022-06-15"},
+      "dividend_payment_dates": {"value": ["2022-08-16"], "source": "GSE PR 178/2022: the final dividend will be paid on Tuesday, 16 August 2022", "as_of": "2022-05-23"}
+    }
+  ]
 }

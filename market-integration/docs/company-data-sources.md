@@ -12,11 +12,10 @@ that company's description goes blank.
 
 ## Coverage
 
-Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**.
+Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**, **SCB**, **SOGEGH**, **GOIL**, **TOTAL**.
 
 Basic profiles only (description, classification, website, headquarters,
-listing date; no officers or financials yet): **SCB**, **SOGEGH**, **GOIL**,
-**TOTAL**, **UNIL**, **FML**, **CLYD**, **CMLT**, **CPC**, **DASPHARMA**, **EGL**,
+listing date; no officers or financials yet): **UNIL**, **FML**, **CLYD**, **CMLT**, **CPC**, **DASPHARMA**, **EGL**,
 **ETI**, **FAB**, **GGBL**, **GLD**, **HORDS**.
 
 Every other listed equity has no file yet. Its API fields are all null,
@@ -105,8 +104,68 @@ Notes on the basic profiles:
   filing; the 2024 chairman's address gives only the 19 staff who restarted
   production in December 2024), `website` and `registrar` (none given in
   the filings or on the GSE page).
-- **SCB** and **UNIL** are described from their 2023 annual reports, the
-  latest full reports on gse.com.gh.
+- **UNIL** is described from its 2023 annual report, the latest full
+  report on gse.com.gh.
+- **SCB**'s financials come from its summary financial statements for
+  2022, 2024 and 2025 (GSE PR 114/2023, PR 094/2025, PR 075/2026). On
+  gse.com.gh each PR is a one-page cover note; the statements are a
+  separate attachment with no text layer, read from rendered page images.
+  The 2023 annual report (PR 095/2024) is an OCR'd scan, used for the
+  share count, registrar and corporate information. The FY2024 summary
+  restated 2023 (operating income GHS 1,719.9m to 1,643.6m, profit
+  869.3m to 819.7m, EPS 6.45 to 6.08) and the 1 January 2023 equity
+  (GHS 1,329.2m to 1,288.9m, used as the FY2022 book value); the restated
+  figures are used. FY2021 is bank-only, because the wealth management
+  subsidiary was set up in 2022. Shares outstanding (134,758,498) count
+  ordinary shares only. The GSE listed-company page shows 134,763,467 and
+  still names Mansa Nettey as Managing Director, but the 2026 filings name
+  Xorse Godzi. Dividends are ordinary only; the preference shares get
+  separate half-yearly payments.
+- **SOGEGH** reports bank-only figures: its one subsidiary, SSB
+  Investments, has been dormant since 2003. Financials come from the
+  2023–2025 annual reports (GSE PR 074/2024, PR 070/2025, PR 061/2026)
+  and the 2022 audited statements (PR 138/2023), which give 2021 as the
+  comparative. Some of these filings are listed on gse.com.gh as "Societe
+  General", without the final "e", and a search under the full name misses
+  them. The 2023 report's "restated" comparatives only reclassify property
+  and intangible assets; total equity and profit are unchanged. `employees`
+  is the 2025 average (536), the only staff figure the report gives. The
+  shareholding (Societe Generale group 60.22%) is pending sale: on
+  1 October 2026 the group agreed to sell 55.22% to Attijariwafa Bank and
+  5% to SSNIT, subject to regulatory approval (PR 395/2026). The 2026
+  dividend payment (GHS 173.7m) is slightly more than GHS 0.24 × 709.1m
+  shares (GHS 170.2m); the dividend per share follows the AGM resolution.
+- **GOIL**'s financials come from its consolidated statements for
+  2021–2025 (GSE PR 116/2022, PR 137/2023, PR 096/2024, PR 135/2025,
+  PR 181/2026); none restates a prior year. Revenue is **net revenue**,
+  meaning gross revenue less customs duties and levies (GHS 1.3bn in
+  2025), the line the cost of sales is set against. Net revenue nearly
+  tripled from 2021 to 2022 with fuel prices and the cedi's fall. Net
+  income is the group profit after tax; GOIL has no non-controlling
+  interest, because its 60% of African Bitumen Terminal is accounted for
+  as a joint venture. The FY2025 dividend (GHS 0.06) was proposed for
+  the 57th AGM on 11 June 2026; no resolutions notice is on gse.com.gh,
+  but the 30 September 2026 statements show GHS 23.2m paid in 2026. The
+  registrar changed from MBG Registrars (2024 notice) to NTHC Registrars
+  (2025 and 2026 notices).
+- **TOTAL**'s financials come from its 2022–2025 annual reports (GSE
+  PR 193/2023, PR 160/2024, PR 104/2025 with the chairman's statement in
+  PR 235/2025, and PR 113/2026). Revenue excludes the taxes and levies
+  collected for the government. The 2025 report switched to this basis
+  (2024: GHS 6,137m instead of 7,021m), and its five-year highlights give
+  2021–2023 on the same basis. TOTAL owns 55% of Ghanstock, whose minority
+  interest is in deficit, so net income and book value are the owners'
+  share: profit attributable to owners, and total equity less the
+  non-controlling interest (e.g. 2025: 552.6m + 17.3m = 569.9m). EPS is
+  as reported, but the basis is inconsistent: through 2024 the reports
+  divide owners' profit by 111.87m shares, while the 2025 report uses
+  total profit including the minority (2025: 2.8522; 2024 restated
+  2.6070 to 2.6094). 2024 keeps the owners'-basis 2.6070. Dividends are
+  interim plus final, each with its own GSE closure-of-register notice.
+  Every recorded year therefore has two payment dates, and the total-return
+  calculation splits the year's dividend equally between them, so it is
+  flagged as estimated. PR 398/2023 (2023 interim) is printed "2 November
+  2022", a typo for 2023.
 
 ## Conventions
 
@@ -161,3 +220,11 @@ Left out (served as null) because they couldn't be found or confirmed:
 | EGH | FY2025 `revenue`, `net_income`, `book_value` | The FY2025 audited summary (released 31 March 2026) could not be downloaded from gse.com.gh or ecobank.com. News reports give only rounded figures (profit GHS 1.82bn, equity GHS 7.2bn) and disagree on revenue (GHS 4.91bn vs 5.21bn). |
 | EGH | `shares_outstanding` | The GSE listed-company page shows 293.23 million, which is out of date: the 2024 EPS (527 GHp on GHS 1,699.9m) and the FY2021 dividend (GHS 199.98m at GHS 0.62) both imply about 322.55 million. No filing that was read gives the exact count. |
 | EGH | `listing_date`; `employees` | The GSE page gives only "July, 2006". The summary financial statements give no headcount. |
+| SCB | `employees` | Neither the 2023 annual report nor the summary financial statements give a headcount. |
+| SCB | FY2022 `dividend_payment_dates` | No dividend for FY2022. |
+| SOGEGH | FY2024 `dividend_payment_dates` | The 45th AGM resolutions (PR 246/2025) approve the GHS 0.34 dividend but give no payment date, and no 2025 closure-of-register notice is on gse.com.gh. It was paid in 2025 (2025 Annual Report, note 31). |
+| SOGEGH | FY2022–FY2023 `dividend_payment_dates` | No dividend for those years. |
+| GOIL | `employees` | The annual reports give no headcount. |
+| GOIL | `officers` (finance) | Neither the annual report nor the interim statements name a CFO or finance director. |
+| TOTAL | FY2021 `dividend_payment_dates` | The 2021 closure-of-register notices on gse.com.gh (PR 225, 226 and 417 of 2021) are scanned images with no text, and no 2022 notice for the 2021 final dividend was found. |
+| TOTAL | `officers` (finance) | The 2025 annual report names no CFO; Mercy Samson, the investor relations director, is listed instead. |
