@@ -12,10 +12,10 @@ that company's description goes blank.
 
 ## Coverage
 
-Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**.
+Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**, **SCB**.
 
 Basic profiles only (description, classification, website, headquarters,
-listing date; no officers or financials yet): **SCB**, **SOGEGH**, **GOIL**,
+listing date; no officers or financials yet): **SOGEGH**, **GOIL**,
 **TOTAL**, **UNIL**, **FML**, **CLYD**, **CMLT**, **CPC**, **DASPHARMA**, **EGL**,
 **ETI**, **FAB**, **GGBL**, **GLD**, **HORDS**.
 
@@ -105,8 +105,23 @@ Notes on the basic profiles:
   filing; the 2024 chairman's address gives only the 19 staff who restarted
   production in December 2024), `website` and `registrar` (none given in
   the filings or on the GSE page).
-- **SCB** and **UNIL** are described from their 2023 annual reports, the
-  latest full reports on gse.com.gh.
+- **UNIL** is described from its 2023 annual report, the latest full
+  report on gse.com.gh.
+- **SCB**'s financials come from its summary financial statements for
+  2022, 2024 and 2025 (GSE PR 114/2023, PR 094/2025, PR 075/2026). On
+  gse.com.gh each PR is a one-page cover note; the statements are a
+  separate attachment with no text layer, read from rendered page images.
+  The 2023 annual report (PR 095/2024) is an OCR'd scan, used for the
+  share count, registrar and corporate information. The FY2024 summary
+  restated 2023 (operating income GHS 1,719.9m to 1,643.6m, profit
+  869.3m to 819.7m, EPS 6.45 to 6.08) and the 1 January 2023 equity
+  (GHS 1,329.2m to 1,288.9m, used as the FY2022 book value); the restated
+  figures are used. FY2021 is bank-only, because the wealth management
+  subsidiary was set up in 2022. Shares outstanding (134,758,498) count
+  ordinary shares only. The GSE listed-company page shows 134,763,467 and
+  still names Mansa Nettey as Managing Director, but the 2026 filings name
+  Xorse Godzi. Dividends are ordinary only; the preference shares get
+  separate half-yearly payments.
 
 ## Conventions
 
@@ -161,3 +176,5 @@ Left out (served as null) because they couldn't be found or confirmed:
 | EGH | FY2025 `revenue`, `net_income`, `book_value` | The FY2025 audited summary (released 31 March 2026) could not be downloaded from gse.com.gh or ecobank.com. News reports give only rounded figures (profit GHS 1.82bn, equity GHS 7.2bn) and disagree on revenue (GHS 4.91bn vs 5.21bn). |
 | EGH | `shares_outstanding` | The GSE listed-company page shows 293.23 million, which is out of date: the 2024 EPS (527 GHp on GHS 1,699.9m) and the FY2021 dividend (GHS 199.98m at GHS 0.62) both imply about 322.55 million. No filing that was read gives the exact count. |
 | EGH | `listing_date`; `employees` | The GSE page gives only "July, 2006". The summary financial statements give no headcount. |
+| SCB | `employees` | Neither the 2023 annual report nor the summary financial statements give a headcount. |
+| SCB | FY2022 `dividend_payment_dates` | No dividend for FY2022. |
