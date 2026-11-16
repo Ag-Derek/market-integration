@@ -12,11 +12,10 @@ that company's description goes blank.
 
 ## Coverage
 
-Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**, **SCB**, **SOGEGH**.
+Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**, **SCB**, **SOGEGH**, **GOIL**.
 
 Basic profiles only (description, classification, website, headquarters,
-listing date; no officers or financials yet): **GOIL**,
-**TOTAL**, **UNIL**, **FML**, **CLYD**, **CMLT**, **CPC**, **DASPHARMA**, **EGL**,
+listing date; no officers or financials yet): **TOTAL**, **UNIL**, **FML**, **CLYD**, **CMLT**, **CPC**, **DASPHARMA**, **EGL**,
 **ETI**, **FAB**, **GGBL**, **GLD**, **HORDS**.
 
 Every other listed equity has no file yet. Its API fields are all null,
@@ -136,6 +135,19 @@ Notes on the basic profiles:
   5% to SSNIT, subject to regulatory approval (PR 395/2026). The 2026
   dividend payment (GHS 173.7m) is slightly more than GHS 0.24 × 709.1m
   shares (GHS 170.2m); the dividend per share follows the AGM resolution.
+- **GOIL**'s financials come from its consolidated statements for
+  2021–2025 (GSE PR 116/2022, PR 137/2023, PR 096/2024, PR 135/2025,
+  PR 181/2026); none restates a prior year. Revenue is **net revenue**,
+  meaning gross revenue less customs duties and levies (GHS 1.3bn in
+  2025), the line the cost of sales is set against. Net revenue nearly
+  tripled from 2021 to 2022 with fuel prices and the cedi's fall. Net
+  income is the group profit after tax; GOIL has no non-controlling
+  interest, because its 60% of African Bitumen Terminal is accounted for
+  as a joint venture. The FY2025 dividend (GHS 0.06) was proposed for
+  the 57th AGM on 11 June 2026; no resolutions notice is on gse.com.gh,
+  but the 30 September 2026 statements show GHS 23.2m paid in 2026. The
+  registrar changed from MBG Registrars (2024 notice) to NTHC Registrars
+  (2025 and 2026 notices).
 
 ## Conventions
 
@@ -194,3 +206,5 @@ Left out (served as null) because they couldn't be found or confirmed:
 | SCB | FY2022 `dividend_payment_dates` | No dividend for FY2022. |
 | SOGEGH | FY2024 `dividend_payment_dates` | The 45th AGM resolutions (PR 246/2025) approve the GHS 0.34 dividend but give no payment date, and no 2025 closure-of-register notice is on gse.com.gh. It was paid in 2025 (2025 Annual Report, note 31). |
 | SOGEGH | FY2022–FY2023 `dividend_payment_dates` | No dividend for those years. |
+| GOIL | `employees` | The annual reports give no headcount. |
+| GOIL | `officers` (finance) | Neither the annual report nor the interim statements name a CFO or finance director. |
