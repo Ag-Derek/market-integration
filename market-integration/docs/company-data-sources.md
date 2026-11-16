@@ -12,10 +12,10 @@ that company's description goes blank.
 
 ## Coverage
 
-Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**, **SCB**, **SOGEGH**, **GOIL**.
+Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**, **SCB**, **SOGEGH**, **GOIL**, **TOTAL**.
 
 Basic profiles only (description, classification, website, headquarters,
-listing date; no officers or financials yet): **TOTAL**, **UNIL**, **FML**, **CLYD**, **CMLT**, **CPC**, **DASPHARMA**, **EGL**,
+listing date; no officers or financials yet): **UNIL**, **FML**, **CLYD**, **CMLT**, **CPC**, **DASPHARMA**, **EGL**,
 **ETI**, **FAB**, **GGBL**, **GLD**, **HORDS**.
 
 Every other listed equity has no file yet. Its API fields are all null,
@@ -148,6 +148,24 @@ Notes on the basic profiles:
   but the 30 September 2026 statements show GHS 23.2m paid in 2026. The
   registrar changed from MBG Registrars (2024 notice) to NTHC Registrars
   (2025 and 2026 notices).
+- **TOTAL**'s financials come from its 2022–2025 annual reports (GSE
+  PR 193/2023, PR 160/2024, PR 104/2025 with the chairman's statement in
+  PR 235/2025, and PR 113/2026). Revenue excludes the taxes and levies
+  collected for the government. The 2025 report switched to this basis
+  (2024: GHS 6,137m instead of 7,021m), and its five-year highlights give
+  2021–2023 on the same basis. TOTAL owns 55% of Ghanstock, whose minority
+  interest is in deficit, so net income and book value are the owners'
+  share: profit attributable to owners, and total equity less the
+  non-controlling interest (e.g. 2025: 552.6m + 17.3m = 569.9m). EPS is
+  as reported, but the basis is inconsistent: through 2024 the reports
+  divide owners' profit by 111.87m shares, while the 2025 report uses
+  total profit including the minority (2025: 2.8522; 2024 restated
+  2.6070 to 2.6094). 2024 keeps the owners'-basis 2.6070. Dividends are
+  interim plus final, each with its own GSE closure-of-register notice.
+  Every recorded year therefore has two payment dates, and the total-return
+  calculation splits the year's dividend equally between them, so it is
+  flagged as estimated. PR 398/2023 (2023 interim) is printed "2 November
+  2022", a typo for 2023.
 
 ## Conventions
 
@@ -208,3 +226,5 @@ Left out (served as null) because they couldn't be found or confirmed:
 | SOGEGH | FY2022–FY2023 `dividend_payment_dates` | No dividend for those years. |
 | GOIL | `employees` | The annual reports give no headcount. |
 | GOIL | `officers` (finance) | Neither the annual report nor the interim statements name a CFO or finance director. |
+| TOTAL | FY2021 `dividend_payment_dates` | The 2021 closure-of-register notices on gse.com.gh (PR 225, 226 and 417 of 2021) are scanned images with no text, and no 2022 notice for the 2021 final dividend was found. |
+| TOTAL | `officers` (finance) | The 2025 annual report names no CFO; Mercy Samson, the investor relations director, is listed instead. |
