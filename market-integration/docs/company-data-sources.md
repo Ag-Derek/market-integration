@@ -12,10 +12,10 @@ that company's description goes blank.
 
 ## Coverage
 
-Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**, **SCB**.
+Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**, **SCB**, **SOGEGH**.
 
 Basic profiles only (description, classification, website, headquarters,
-listing date; no officers or financials yet): **SOGEGH**, **GOIL**,
+listing date; no officers or financials yet): **GOIL**,
 **TOTAL**, **UNIL**, **FML**, **CLYD**, **CMLT**, **CPC**, **DASPHARMA**, **EGL**,
 **ETI**, **FAB**, **GGBL**, **GLD**, **HORDS**.
 
@@ -122,6 +122,20 @@ Notes on the basic profiles:
   still names Mansa Nettey as Managing Director, but the 2026 filings name
   Xorse Godzi. Dividends are ordinary only; the preference shares get
   separate half-yearly payments.
+- **SOGEGH** reports bank-only figures: its one subsidiary, SSB
+  Investments, has been dormant since 2003. Financials come from the
+  2023–2025 annual reports (GSE PR 074/2024, PR 070/2025, PR 061/2026)
+  and the 2022 audited statements (PR 138/2023), which give 2021 as the
+  comparative. Some of these filings are listed on gse.com.gh as "Societe
+  General", without the final "e", and a search under the full name misses
+  them. The 2023 report's "restated" comparatives only reclassify property
+  and intangible assets; total equity and profit are unchanged. `employees`
+  is the 2025 average (536), the only staff figure the report gives. The
+  shareholding (Societe Generale group 60.22%) is pending sale: on
+  1 October 2026 the group agreed to sell 55.22% to Attijariwafa Bank and
+  5% to SSNIT, subject to regulatory approval (PR 395/2026). The 2026
+  dividend payment (GHS 173.7m) is slightly more than GHS 0.24 × 709.1m
+  shares (GHS 170.2m); the dividend per share follows the AGM resolution.
 
 ## Conventions
 
@@ -178,3 +192,5 @@ Left out (served as null) because they couldn't be found or confirmed:
 | EGH | `listing_date`; `employees` | The GSE page gives only "July, 2006". The summary financial statements give no headcount. |
 | SCB | `employees` | Neither the 2023 annual report nor the summary financial statements give a headcount. |
 | SCB | FY2022 `dividend_payment_dates` | No dividend for FY2022. |
+| SOGEGH | FY2024 `dividend_payment_dates` | The 45th AGM resolutions (PR 246/2025) approve the GHS 0.34 dividend but give no payment date, and no 2025 closure-of-register notice is on gse.com.gh. It was paid in 2025 (2025 Annual Report, note 31). |
+| SOGEGH | FY2022–FY2023 `dividend_payment_dates` | No dividend for those years. |

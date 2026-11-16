@@ -1,14 +1,65 @@
 {
   "symbol": "SOGEGH",
   "profile": {
-    "description_short": {"value": "Ghanaian universal bank majority-owned by France's Societe Generale group.", "source": "Written by us from the Societe Generale Ghana PLC 2024 Annual Report (GSE PR 070/2025, report of the directors: nature of business, holding company)", "as_of": "2024-12-31"},
-    "description_full": {"value": "Societe Generale Ghana PLC is licensed by the Bank of Ghana as a universal bank. It is a subsidiary of the French Societe Generale group, which owns 60.22% of its shares through its wholly owned SG Financial Services Holding. A wholly owned subsidiary, SSB Investments Limited, manages the bank's equity investments. The company was incorporated in February 1975 and has been listed on the Ghana Stock Exchange since 13 October 1995. Its head office is on Ring Road Central in Accra.", "source": "Written by us from the Societe Generale Ghana PLC 2024 Annual Report (GSE PR 070/2025: corporate information; report of the directors, nature of business, holding company and investments) and the GSE listed-company page for SOGEGH (incorporation and listing dates)", "as_of": "2026-10-21"},
+    "description_short": {"value": "Ghanaian universal bank majority-owned by France's Societe Generale group, which agreed in October 2026 to sell its stake to Morocco's Attijariwafa Bank.", "source": "Written by us from the Societe Generale Ghana PLC 2025 Annual Report (GSE PR 061/2026, corporate information and report of the directors) and GSE PR 395/2026 (Societe Generale group press release of 1 October 2026 on the sale to Attijariwafa Bank)", "as_of": "2026-10-01"},
+    "description_full": {"value": "Societe Generale Ghana PLC is licensed by the Bank of Ghana as a universal bank, serving retail and corporate customers through about 40 branches and outlets. It offers retail, corporate and investment banking, along with leasing and consumer credit. The French Societe Generale group owns 60.22% of its shares through its wholly owned SG Financial Services Holding. On 1 October 2026 the group signed an agreement to sell that whole stake: Attijariwafa Bank, a pan-African banking group, would buy 55.22% and Ghana's Social Security and National Insurance Trust (SSNIT) a further 5%, subject to regulatory approval. Its only subsidiary, SSB Investments Limited, once managed the bank's equity investments but has been inactive since they were sold off after 2003. The company was incorporated in February 1975 and has been listed on the Ghana Stock Exchange since 13 October 1995. Its head office is on Ring Road Central in Accra. After losses on the 2022 domestic debt exchange it paid no dividends for 2022 or 2023. Profit after tax peaked at GHS 551 million in 2024 and fell to GHS 397 million in 2025 as the cedi strengthened.", "source": "Written by us from the Societe Generale Ghana PLC 2024 Annual Report (GSE PR 070/2025: corporate information; report of the directors, nature of business, holding company and investments), the 2025 Annual Report (GSE PR 061/2026: corporate information, statement of profit or loss), the 2023 Annual Report (GSE PR 074/2024, report of the directors: no dividend), GSE PR 395/2026 (sale agreement with Attijariwafa Bank; 40 branches and outlets), the unaudited statements to 30 September 2026 (GSE PR 409/2026, reporting entity note) and the GSE listed-company page for SOGEGH (incorporation and listing dates)", "as_of": "2026-11-16"},
     "sector": {"value": "Banking", "source": "Our classification, from the nature of business in the Societe Generale Ghana PLC 2024 Annual Report", "as_of": "2024-12-31"},
     "industry": {"value": "Commercial banking", "source": "Our classification, from the nature of business in the Societe Generale Ghana PLC 2024 Annual Report (universal bank)", "as_of": "2024-12-31"},
     "website": {"value": "https://societegenerale.com.gh/", "source": "GSE listed-company page for SOGEGH (checked live)", "as_of": "2026-10-21"},
-    "headquarters_city": {"value": "Accra", "source": "Societe Generale Ghana PLC 2024 Annual Report, corporate information: registered office, 2nd Crescent, Royalt Castle Road, Ring Road Central, Accra", "as_of": "2024-12-31"},
-    "headquarters_country": {"value": "Ghana", "source": "Societe Generale Ghana PLC 2024 Annual Report, corporate information", "as_of": "2024-12-31"},
+    "headquarters_city": {"value": "Accra", "source": "Societe Generale Ghana PLC 2025 Annual Report (GSE PR 061/2026), corporate information: registered office, 2nd Crescent, Royalt Castle Road, Ring Road Central, Accra", "as_of": "2025-12-31"},
+    "headquarters_country": {"value": "Ghana", "source": "Societe Generale Ghana PLC 2025 Annual Report (GSE PR 061/2026), corporate information (country of incorporation)", "as_of": "2025-12-31"},
+    "employees": {"value": 536, "source": "Societe Generale Ghana PLC 2025 Annual Report (GSE PR 061/2026), note 13: average number of persons employed by the Bank during 2025 (2024: 530); no year-end headcount is given", "as_of": "2025-12-31"},
+    "shares_outstanding": {"value": 709141367, "source": "Societe Generale Ghana PLC 2025 Annual Report (GSE PR 061/2026), note 16: weighted average number of outstanding ordinary shares, 709,141,367 (unchanged from 2024); consistent with the GHS 241,108,064 paid for the 2024 dividend of GHS 0.34 a share", "as_of": "2025-12-31"},
     "listing_date": {"value": "1995-10-13", "source": "GSE listed-company page for SOGEGH (date listed October 13th, 1995)", "as_of": "2026-10-21"},
-    "registrar": {"value": "NTHC Limited", "source": "Societe Generale Ghana PLC 2024 Annual Report, corporate information", "as_of": "2024-12-31"}
-  }
+    "registrar": {"value": "NTHC Limited", "source": "Societe Generale Ghana PLC 2025 Annual Report (GSE PR 061/2026), corporate information", "as_of": "2025-12-31"}
+  },
+  "officers": [
+    {"name": "Margaret Boateng Sekyere", "role": "Chairman", "display_order": 1, "source": "Societe Generale Ghana PLC unaudited statements to 30 September 2026 (GSE PR 409/2026), signed as Board Chair; Board Chair since 15 September 2020 per the 2025 Annual Report (GSE PR 061/2026, corporate information)", "as_of": "2026-09-30"},
+    {"name": "Hakim Ouzzani", "role": "Managing Director", "display_order": 2, "source": "Societe Generale Ghana PLC unaudited statements to 30 September 2026 (GSE PR 409/2026), signed as Managing Director; appointed 23 January 2017 per the 2025 Annual Report (GSE PR 061/2026, corporate information)", "as_of": "2026-09-30"},
+    {"name": "Alice Hammond", "role": "Chief Finance Officer", "display_order": 3, "source": "Societe Generale Ghana PLC 2025 Annual Report (GSE PR 061/2026): management profiles and report of the directors (appointed Chief Finance Officer in 2025)", "as_of": "2025-12-31"}
+  ],
+  "financials": [
+    {
+      "fiscal_year": 2025, "currency": "GHS",
+      "revenue": {"value": 1356036221, "source": "Societe Generale Ghana PLC 2025 Annual Report (GSE PR 061/2026), statement of profit or loss: operating income", "as_of": "2025-12-31"},
+      "net_income": {"value": 397001300, "source": "Societe Generale Ghana PLC 2025 Annual Report (GSE PR 061/2026), statement of profit or loss: profit after tax", "as_of": "2025-12-31"},
+      "eps": {"value": 0.56, "source": "Societe Generale Ghana PLC 2025 Annual Report (GSE PR 061/2026), basic and diluted EPS (GHS 0.560)", "as_of": "2025-12-31"},
+      "book_value": {"value": 2601775159, "source": "Societe Generale Ghana PLC 2025 Annual Report (GSE PR 061/2026), statement of financial position: total shareholders' fund", "as_of": "2025-12-31"},
+      "dividend_per_share": {"value": 0.24, "source": "Resolutions adopted at the 46th AGM of Societe Generale Ghana PLC on 10 June 2026 (GSE PR 261/2026): final dividend of GHS 0.24 per share for 2025; GSE PR 268/2026. No interim dividend", "as_of": "2026-06-10"},
+      "dividend_payment_dates": {"value": ["2026-09-07"], "source": "GSE PR 268/2026, closure of register and payment of 2025 final dividend: paid on Monday 7 September 2026", "as_of": "2026-06-15"}
+    },
+    {
+      "fiscal_year": 2024, "currency": "GHS",
+      "revenue": {"value": 1455550944, "source": "Societe Generale Ghana PLC 2024 Annual Report (GSE PR 070/2025), statement of profit or loss: operating income; the same in the 2025 comparatives", "as_of": "2024-12-31"},
+      "net_income": {"value": 551299247, "source": "Societe Generale Ghana PLC 2024 Annual Report (GSE PR 070/2025), statement of profit or loss: profit after tax", "as_of": "2024-12-31"},
+      "eps": {"value": 0.777, "source": "Societe Generale Ghana PLC 2024 Annual Report (GSE PR 070/2025), basic and diluted EPS (GHS 0.777)", "as_of": "2024-12-31"},
+      "book_value": {"value": 2445881923, "source": "Societe Generale Ghana PLC 2024 Annual Report (GSE PR 070/2025), statement of financial position: total shareholders' fund (includes a revaluation reserve of GHS 505.3m after a 2024 property revaluation)", "as_of": "2024-12-31"},
+      "dividend_per_share": {"value": 0.34, "source": "Resolutions adopted at the 45th AGM of Societe Generale Ghana PLC on 11 June 2025 (GSE PR 246/2025): final dividend of GHS 0.34 per share for 2024; GHS 241,108,064 paid in 2025 (2025 Annual Report, note 31). No interim dividend", "as_of": "2025-06-11"}
+    },
+    {
+      "fiscal_year": 2023, "currency": "GHS",
+      "revenue": {"value": 1237829343, "source": "Societe Generale Ghana PLC 2023 Annual Report (GSE PR 074/2024), statement of profit or loss: operating income; the same in the 2024 comparatives", "as_of": "2023-12-31"},
+      "net_income": {"value": 424802981, "source": "Societe Generale Ghana PLC 2023 Annual Report (GSE PR 074/2024), statement of profit or loss: profit after tax", "as_of": "2023-12-31"},
+      "eps": {"value": 0.599, "source": "Societe Generale Ghana PLC 2023 Annual Report (GSE PR 074/2024), basic and diluted EPS (GHS 0.599)", "as_of": "2023-12-31"},
+      "book_value": {"value": 1513002880, "source": "Societe Generale Ghana PLC 2023 Annual Report (GSE PR 074/2024), statement of financial position: total shareholders' fund", "as_of": "2023-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: the Societe Generale Ghana PLC 2023 Annual Report (GSE PR 074/2024, report of the directors) states that no dividends will be declared, and the 2024 Annual Report (note 31) shows none paid in 2024", "as_of": "2024-02-26"}
+    },
+    {
+      "fiscal_year": 2022, "currency": "GHS",
+      "revenue": {"value": 801581983, "source": "Societe Generale Ghana PLC 2022 audited financial statements (GSE PR 138/2023), statement of profit or loss: operating income", "as_of": "2022-12-31"},
+      "net_income": {"value": 108839926, "source": "Societe Generale Ghana PLC 2022 audited financial statements (GSE PR 138/2023), statement of profit or loss: profit after tax (after GHS 284.7m of impairments)", "as_of": "2022-12-31"},
+      "eps": {"value": 0.153, "source": "Societe Generale Ghana PLC 2022 audited financial statements (GSE PR 138/2023), basic and diluted EPS (GHS 0.153)", "as_of": "2022-12-31"},
+      "book_value": {"value": 1088637825, "source": "Societe Generale Ghana PLC 2022 audited financial statements (GSE PR 138/2023), statement of financial position: total shareholders' fund (unchanged in the 2023 restated comparatives)", "as_of": "2022-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: the Societe Generale Ghana PLC 2023 Annual Report (GSE PR 074/2024, note 31 and statement of changes in equity) shows no dividend paid in 2023, and the 2024 Annual Report none in 2024", "as_of": "2023-12-31"}
+    },
+    {
+      "fiscal_year": 2021, "currency": "GHS",
+      "revenue": {"value": 636294053, "source": "Societe Generale Ghana PLC 2022 audited financial statements (GSE PR 138/2023), 2021 comparative operating income", "as_of": "2021-12-31"},
+      "net_income": {"value": 184329633, "source": "Societe Generale Ghana PLC 2022 audited financial statements (GSE PR 138/2023), 2021 comparative profit after tax; the same in the 2021 Annual Report (GSE PR 052/2022)", "as_of": "2021-12-31"},
+      "eps": {"value": 0.26, "source": "Societe Generale Ghana PLC 2022 audited financial statements (GSE PR 138/2023), 2021 basic and diluted EPS (GHS 0.260)", "as_of": "2021-12-31"},
+      "book_value": {"value": 1028565337, "source": "Societe Generale Ghana PLC 2022 audited financial statements (GSE PR 138/2023), total shareholders' fund at 31 December 2021", "as_of": "2021-12-31"},
+      "dividend_per_share": {"value": 0.0682, "source": "GSE PR 309/2022, closure of register and payment of 2021 final dividend (GHS 0.0682 per share), declared at the AGM of 29 September 2022 (GSE PR 293/2022, notice of AGM); GHS 48,386,529 paid in 2022 (2023 Annual Report, note 31)", "as_of": "2022-09-29"},
+      "dividend_payment_dates": {"value": ["2022-12-05"], "source": "GSE PR 309/2022: the final dividend if approved will be paid on Monday 5 December 2022; the 2023 Annual Report (note 31) confirms it was paid in 2022", "as_of": "2022-09-26"}
+    }
+  ]
 }
