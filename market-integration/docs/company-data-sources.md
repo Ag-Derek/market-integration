@@ -12,7 +12,7 @@ that company's description goes blank.
 
 ## Coverage
 
-Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**, **SCB**, **SOGEGH**, **GOIL**, **TOTAL**, **RBGH**.
+Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**, **SCB**, **SOGEGH**, **GOIL**, **TOTAL**, **RBGH**, **SIC**.
 
 Basic profiles only (description, classification, website, headquarters,
 listing date; no officers or financials yet): **UNIL**, **FML**, **CLYD**, **CMLT**, **CPC**, **DASPHARMA**, **EGL**,
@@ -189,6 +189,24 @@ Notes on the basic profiles:
   0.0. The registrar is Universal Merchant Bank per the 2025 annual report;
   the GSE notices' distribution lists still say MBG Registrars, and the
   GSE page still gives the old North Ridge head office.
+- **SIC**'s audited statements for 2022, 2024 and 2025 (GSE PR 289/2023,
+  PR 353/2025, PR 247/2026) are 95–100-page scans with no text layer.
+  They were read from rendered page images (financial highlights,
+  statements of financial position and profit or loss, auditor's report,
+  corporate information). The 2023 annual report (PR 399/2024) has text.
+  Revenue is IFRS 17 **insurance revenue**, available from 2022, which
+  the 2023 report restated. 2021 is under IFRS 4 (gross premium
+  GHS 276.4m), with no comparable figure, so 2021 `revenue` is left
+  blank. Its profit (GHS 60.3m) and EPS are also on the IFRS 4 basis, and
+  its book value is the IFRS 17 restated opening equity at 1 January 2022.
+  Net income and book value are the owners' share; the non-controlling
+  interest is in SIC Financial Services. SIC's EPS divides total group
+  profit, including the non-controlling interest, by 195,645,000 shares.
+  The auditor (Baker Tilly) qualified the 2024 and 2025 opinions. In
+  2025 the basis was legal liabilities at SIC Financial Services that may
+  be understated: GHS 21m provided against a judgment confirmed at about
+  GHS 95.7m, and no provision for a Bank of Africa judgment of about
+  GHS 68m including interest. The reported figures are used as audited.
 - **SCB-PREF** dividends are recorded by the calendar year of the
   half-year periods they cover ("March 2024", "September 2024"), as the
   bank's notices name them. That differs from how the AGM press reports
@@ -229,6 +247,9 @@ Notes on the basic profiles:
 - **Dividend per share** is the total declared for the fiscal year
   (interim + final). `0.0` means no dividend was declared for that year, and
   its source is the statement that shows none.
+- **Revenue for insurers** (SIC) is IFRS 17 insurance revenue. Years
+  reported only under IFRS 4 (gross premium) have no revenue figure,
+  because the two are not comparable.
 - **Revenue for pre-production companies** (e.g. ALLGH) is `0.0`, with the
   filing's statement that the group has no revenue as its source. Interest
   and fair value gains are not counted as revenue.
@@ -273,6 +294,8 @@ Left out (served as null) because they couldn't be found or confirmed:
 | GOIL | `officers` (finance) | Neither the annual report nor the interim statements name a CFO or finance director. |
 | TOTAL | FY2021 `dividend_payment_dates` | The 2021 closure-of-register notices on gse.com.gh (PR 225, 226 and 417 of 2021) are scanned images with no text, and no 2022 notice for the 2021 final dividend was found. |
 | RBGH | FY2021–FY2024 `dividend_payment_dates` | No dividend paid for those years. |
+| SIC | FY2021 `revenue`; `employees` | 2021 was reported under IFRS 4 (gross premium), with no IFRS 17 insurance-revenue figure. No headcount was found in the filings read. |
+| SIC | FY2022 `dividend_payment_dates` | No dividend for FY2022. |
 | SCB-PREF | FY2025–FY2026 dividends; FY2022 `dividend_payment_dates`; `listing_date` | The March 2025, March 2026 and September 2022 preference dividend notices are not on gse.com.gh. The GSE page gives only the issuer's listing date. |
 | AADS | `shares_outstanding`; dividends | No current count of GhDSs in issue (the GSE page's 0.98m predates 2023). Dividends are declared in USD per ordinary share, with no published cedi amount per GhDS. |
 | TOTAL | `officers` (finance) | The 2025 annual report names no CFO; Mercy Samson, the investor relations director, is listed instead. |

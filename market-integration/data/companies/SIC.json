@@ -1,0 +1,65 @@
+{
+  "symbol": "SIC",
+  "profile": {
+    "description_short": {"value": "Ghanaian non-life insurer, 40% owned by the Government of Ghana, with an investment advisory and asset management subsidiary.", "source": "Written by us from the SIC Insurance PLC consolidated and separate financial statements for 2025 (GSE PR 247/2026, report of the directors: principal activities) and the 2023 Annual Report (GSE PR 399/2024, shareholder information)", "as_of": "2025-12-31"},
+    "description_full": {"value": "SIC Insurance PLC underwrites non-life (general) insurance in Ghana. Its subsidiary, SIC Financial Services Limited, provides investment advisory, asset and fund management, financial consultancy and brokerage services. The Government of Ghana owns 40% of the company and the Social Security and National Insurance Trust (SSNIT) 11.82%, and the government appoints most of the board. It has been listed on the Ghana Stock Exchange since 25 January 2008, and its head office is Nyemitei House on Ring Road East, Osu, Accra. Insurance revenue reached GHS 598 million in 2025. The board and management changed in 2025, when Bernard Ahiafor became chairman and James Agyenim-Boateng managing director. The auditor qualified its opinion on the 2025 accounts because SIC Financial Services may have understated its liabilities from lawsuits: it had provided GHS 21 million for a court judgment that its lawyers put at about GHS 95.7 million, and nothing for a 2024 judgment in favour of Bank of Africa of about GHS 68 million including interest.", "source": "Written by us from the SIC Insurance PLC consolidated and separate financial statements for 2025 (GSE PR 247/2026: corporate information; report of the directors, principal activities; financial highlights; independent auditor's report, basis for qualified opinion), the 2023 Annual Report (GSE PR 399/2024: corporate governance, board composition; shareholder information, twenty largest shareholders) and the GSE listed-company page for SIC (date listed, registered office)", "as_of": "2026-11-18"},
+    "sector": {"value": "Insurance", "source": "Our classification, matching the instrument master; from the principal activities in the SIC Insurance PLC 2025 financial statements", "as_of": "2025-12-31"},
+    "industry": {"value": "Non-life insurance", "source": "Our classification, from the principal activities in the SIC Insurance PLC 2025 financial statements (non-life insurance business)", "as_of": "2025-12-31"},
+    "website": {"value": "https://sic-gh.com/", "source": "GSE listed-company page for SIC gives www.sic-gh.com; https://sic-gh.com/ checked live (the www host did not respond)", "as_of": "2026-11-18"},
+    "headquarters_city": {"value": "Accra", "source": "GSE listed-company page for SIC: registered office, Nyemitei House, No. 15 Ring Road East, Osu, Accra; the same in GSE PR 371/2026", "as_of": "2026-08-20"},
+    "headquarters_country": {"value": "Ghana", "source": "SIC Insurance PLC 2025 financial statements (GSE PR 247/2026), corporate information", "as_of": "2025-12-31"},
+    "shares_outstanding": {"value": 195645000, "source": "SIC Insurance PLC 2025 financial statements (GSE PR 247/2026), financial highlights: number of shares issued and fully paid, 195,645,000; GSE listed-company page: 195.65 million", "as_of": "2025-12-31"},
+    "listing_date": {"value": "2008-01-25", "source": "GSE listed-company page for SIC (date listed 25th/01/2008)", "as_of": "2026-11-18"},
+    "registrar": {"value": "NTHC Limited", "source": "SIC Insurance PLC 2025 financial statements (GSE PR 247/2026), corporate information (registrar NTHC Ltd); GSE dividend notices list NTHC Registrars", "as_of": "2025-12-31"}
+  },
+  "officers": [
+    {"name": "Bernard Ahiafor", "role": "Chairman", "display_order": 1, "source": "SIC Insurance PLC 2025 financial statements (GSE PR 247/2026), corporate information (Hon. Bernard Ahiafor, MP, Chairman, succeeding Dr. Audu Rauf on 30 June 2025) and signature of the statement of financial position; GSE listed-company page for SIC", "as_of": "2026-05-28"},
+    {"name": "James Agyenim-Boateng", "role": "Managing Director", "display_order": 2, "source": "SIC Insurance PLC 2025 financial statements (GSE PR 247/2026), corporate information and signature of the statement of financial position; appointed acting Managing Director in early 2025 (GSE PR 049/2025)", "as_of": "2026-05-26"},
+    {"name": "Cynthia Rockson", "role": "Company Secretary", "display_order": 3, "source": "Resolutions passed at the 19th AGM of SIC Insurance PLC on 20 August 2026 (GSE PR 371/2026), signed as Company Secretary", "as_of": "2026-08-20"}
+  ],
+  "financials": [
+    {
+      "fiscal_year": 2025, "currency": "GHS",
+      "revenue": {"value": 598188744, "source": "SIC Insurance PLC consolidated and separate financial statements for 2025 (GSE PR 247/2026), financial highlights: group insurance revenue (IFRS 17)", "as_of": "2025-12-31"},
+      "net_income": {"value": 84399449, "source": "SIC Insurance PLC 2025 financial statements (GSE PR 247/2026), statement of profit or loss: group profit attributable to equity holders of the parent (profit after tax GHS 84,053,064, after a GHS 346,385 loss attributable to the non-controlling interest)", "as_of": "2025-12-31"},
+      "eps": {"value": 0.4296, "source": "SIC Insurance PLC 2025 financial statements (GSE PR 247/2026), group earnings per share GHS 0.4296 (group profit after tax divided by 195,645,000 shares)", "as_of": "2025-12-31"},
+      "book_value": {"value": 772498539, "source": "SIC Insurance PLC 2025 financial statements (GSE PR 247/2026), statement of financial position: group shareholders' funds GHS 786,280,583 less non-controlling interest GHS 13,782,044", "as_of": "2025-12-31"},
+      "dividend_per_share": {"value": 0.1022, "source": "Resolutions passed at the 19th AGM of SIC Insurance PLC on 20 August 2026 (GSE PR 371/2026): final dividend of GHS 0.1022 per share, GHS 20,000,000 in total, for 2025; GSE PR 368/2026", "as_of": "2026-08-20"},
+      "dividend_payment_dates": {"value": ["2026-10-12"], "source": "GSE PR 368/2026, closure of register and payment of 2025 final dividend: to be paid on Monday, 12 October 2026", "as_of": "2026-08-18"}
+    },
+    {
+      "fiscal_year": 2024, "currency": "GHS",
+      "revenue": {"value": 559483192, "source": "SIC Insurance PLC consolidated and separate financial statements for 2024 (GSE PR 353/2025), financial highlights: group insurance revenue; the same in the 2025 comparatives", "as_of": "2024-12-31"},
+      "net_income": {"value": 53744406, "source": "SIC Insurance PLC 2025 financial statements (GSE PR 247/2026), 2024 comparative: group profit attributable to equity holders of the parent (profit after tax GHS 53,413,669)", "as_of": "2024-12-31"},
+      "eps": {"value": 0.273, "source": "SIC Insurance PLC 2024 financial statements (GSE PR 353/2025) and 2025 comparatives: group earnings per share GHS 0.2730", "as_of": "2024-12-31"},
+      "book_value": {"value": 656268452, "source": "SIC Insurance PLC 2025 financial statements (GSE PR 247/2026), 2024 comparative: group shareholders' funds GHS 670,378,999 less non-controlling interest GHS 14,110,547", "as_of": "2024-12-31"},
+      "dividend_per_share": {"value": 0.0511, "source": "GSE PR 439/2025, closure of register and payment of 2024 final dividend: GHS 0.0511 per share recommended to the 18th AGM; approved, as the 2025 financial statements (GSE PR 247/2026, report of the directors) show an approved dividend of GHS 9,997,482 in 2025", "as_of": "2025-12-31"},
+      "dividend_payment_dates": {"value": ["2026-01-19"], "source": "GSE PR 439/2025: the final dividend of GHS 0.0511 per share, if approved, will be paid on Monday, 19 January 2026", "as_of": "2025-11-24"}
+    },
+    {
+      "fiscal_year": 2023, "currency": "GHS",
+      "revenue": {"value": 373190838, "source": "SIC Insurance PLC 2023 Annual Report (GSE PR 399/2024), group insurance revenue under IFRS 17 (first year of adoption); the same in the 2024 comparatives", "as_of": "2023-12-31"},
+      "net_income": {"value": 13487190, "source": "SIC Insurance PLC 2023 Annual Report (GSE PR 399/2024), group profit attributable to equity holders of the parent (profit for the year GHS 12,812,982)", "as_of": "2023-12-31"},
+      "eps": {"value": 0.0655, "source": "SIC Insurance PLC 2023 Annual Report (GSE PR 399/2024), group basic EPS GHS 0.0655", "as_of": "2023-12-31"},
+      "book_value": {"value": 464042170, "source": "SIC Insurance PLC 2023 Annual Report (GSE PR 399/2024), group shareholders' funds GHS 478,483,007 less non-controlling interest GHS 14,440,837", "as_of": "2023-12-31"},
+      "dividend_per_share": {"value": 0.0511, "source": "SIC Insurance PLC 2023 Annual Report (GSE PR 399/2024), report of the directors: dividend of GHS 0.0511 per share proposed for 2023; GSE PR 411/2024 announces its payment", "as_of": "2024-12-10"},
+      "dividend_payment_dates": {"value": ["2025-01-30"], "source": "GSE PR 411/2024, closure of register and payment of 2023 final dividend: paid on Thursday, 30 January 2025", "as_of": "2024-12-10"}
+    },
+    {
+      "fiscal_year": 2022, "currency": "GHS",
+      "revenue": {"value": 355534169, "source": "SIC Insurance PLC 2023 Annual Report (GSE PR 399/2024), 2022 group insurance revenue restated under IFRS 17 (the original 2022 statements, GSE PR 289/2023, reported gross premium of GHS 378,320,178 under IFRS 4)", "as_of": "2022-12-31"},
+      "net_income": {"value": 22649554, "source": "SIC Insurance PLC 2023 Annual Report (GSE PR 399/2024), 2022 group profit attributable to equity holders of the parent, restated under IFRS 17 (profit for the year GHS 23,064,589; originally GHS 18,059,382)", "as_of": "2022-12-31"},
+      "eps": {"value": 0.1179, "source": "SIC Insurance PLC 2023 Annual Report (GSE PR 399/2024), 2022 group basic EPS restated (GHS 0.1179; originally 0.0923)", "as_of": "2022-12-31"},
+      "book_value": {"value": 383322516, "source": "SIC Insurance PLC 2023 Annual Report (GSE PR 399/2024), restated group shareholders' funds at 31 December 2022, GHS 398,437,561, less non-controlling interest GHS 15,115,045", "as_of": "2022-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: SIC Insurance PLC 2022 financial statements (GSE PR 289/2023, report of the directors: no dividend proposed for 2022) and 2023 Annual Report (GSE PR 399/2024: 2022 nil)", "as_of": "2023-07-27"}
+    },
+    {
+      "fiscal_year": 2021, "currency": "GHS",
+      "net_income": {"value": 60334730, "source": "SIC Insurance PLC 2022 financial statements (GSE PR 289/2023), 2021 comparative group profit after tax under IFRS 4 (not restated for IFRS 17, and not split between owners and the small non-controlling interest in the filings read)", "as_of": "2021-12-31"},
+      "eps": {"value": 0.3084, "source": "SIC Insurance PLC 2022 financial statements (GSE PR 289/2023), 2021 group basic and diluted EPS GHS 0.3084 (IFRS 4)", "as_of": "2021-12-31"},
+      "book_value": {"value": 354025686, "source": "SIC Insurance PLC 2023 Annual Report (GSE PR 399/2024), restated group equity at 1 January 2022 (total equity GHS 368,725,696 less non-controlling interest GHS 14,700,010), the IFRS 17 opening balance; the IFRS 4 shareholders' funds at 31 December 2021 were GHS 362,967,039 (GSE PR 289/2023)", "as_of": "2021-12-31"},
+      "dividend_per_share": {"value": 0.046, "source": "GSE PR 372/2022, closure of register and payment of 2021 final dividend: GHS 0.0460 per share, for approval at the AGM of 16 November 2022; GHS 8,999,670 paid (SIC Insurance PLC 2023 Annual Report, report of the directors, 2022 approved dividend)", "as_of": "2022-11-16"},
+      "dividend_payment_dates": {"value": ["2023-01-13"], "source": "GSE PR 372/2022: the final dividend if approved will be paid on Friday, 13 January 2023", "as_of": "2022-11-10"}
+    }
+  ]
+}
