@@ -18,6 +18,15 @@ Basic profiles only (description, classification, website, headquarters,
 listing date; no officers or financials yet): **UNIL**, **FML**, **CLYD**, **CMLT**, **CPC**, **DASPHARMA**, **EGL**,
 **ETI**, **FAB**, **GGBL**, **GLD**, **HORDS**.
 
+Second securities of an issuer profiled above: **SCB-PREF** (SCB's
+preference shares) and **AADS** (AGA's Ghanaian depositary shares). Their
+files describe the security, not the company: the issuer's description,
+sector, website and officers are repeated, but they carry no revenue,
+earnings or book value. Using the issuer's ordinary-share figures would
+make P/E, P/B and market cap wrong for a security priced differently.
+The page's link to the issuer (`related_symbols`) leads to the company's
+results.
+
 Every other listed equity has no file yet. Its API fields are all null,
 and the description page shows a one-line summary from the instrument
 master (name, board, sector) instead.
@@ -166,6 +175,28 @@ Notes on the basic profiles:
   calculation splits the year's dividend equally between them, so it is
   flagged as estimated. PR 398/2023 (2023 interim) is printed "2 November
   2022", a typo for 2023.
+- **SCB-PREF** dividends are recorded by the calendar year of the
+  half-year periods they cover ("March 2024", "September 2024"), as the
+  bank's notices name them. That differs from how the AGM press reports
+  group them (e.g. GHS 2.77m of "preference dividends" for FY2024). The
+  rate floats (16.2% in March 2022, 33.9% and 31.2% in 2024). Only years
+  with a complete primary source are recorded: 2022 (GHS 0.09, as printed
+  in the 2023 annual report's note 17), 2023 (none, after the debt
+  exchange) and 2024 (GHS 0.0879 + 0.0810). 2025 and 2026 are left out:
+  the September dividends (GHS 0.0512, PR 347/2025; GHS 0.0249,
+  PR 381/2026) are on gse.com.gh, but the March 2025 and March 2026
+  notices are not. The dividend yield on the page therefore uses 2024,
+  which overstates the current yield as rates have fallen. The listing
+  date is left blank, because the GSE page gives the issuer's 1990 date.
+- **AADS**: 100 GhDSs represent one AngloGold Ashanti plc ordinary share,
+  with NTHC Limited as depositary. The GSE trades them under the code AAD.
+  The listing date is the plc's GhDS listing (26 September 2023), which
+  replaced the predecessor's GhDSs listed since 27 April 2004. The GSE
+  listed-company page is years out of date (chairman R. P. Edey, 0.98
+  million "issued shares"), and no filing read gives the number of GhDSs
+  in issue, so `shares_outstanding` (and market cap) is left blank. No
+  dividends are recorded: AngloGold declares them in US dollars per
+  ordinary share, and no filing gives the cedi amount paid per GhDS.
 
 ## Conventions
 
@@ -227,4 +258,6 @@ Left out (served as null) because they couldn't be found or confirmed:
 | GOIL | `employees` | The annual reports give no headcount. |
 | GOIL | `officers` (finance) | Neither the annual report nor the interim statements name a CFO or finance director. |
 | TOTAL | FY2021 `dividend_payment_dates` | The 2021 closure-of-register notices on gse.com.gh (PR 225, 226 and 417 of 2021) are scanned images with no text, and no 2022 notice for the 2021 final dividend was found. |
+| SCB-PREF | FY2025–FY2026 dividends; FY2022 `dividend_payment_dates`; `listing_date` | The March 2025, March 2026 and September 2022 preference dividend notices are not on gse.com.gh. The GSE page gives only the issuer's listing date. |
+| AADS | `shares_outstanding`; dividends | No current count of GhDSs in issue (the GSE page's 0.98m predates 2023). Dividends are declared in USD per ordinary share, with no published cedi amount per GhDS. |
 | TOTAL | `officers` (finance) | The 2025 annual report names no CFO; Mercy Samson, the investor relations director, is listed instead. |
