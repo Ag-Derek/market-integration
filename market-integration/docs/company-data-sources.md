@@ -12,7 +12,7 @@ that company's description goes blank.
 
 ## Coverage
 
-Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**, **SCB**, **SOGEGH**, **GOIL**, **TOTAL**.
+Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**, **SCB**, **SOGEGH**, **GOIL**, **TOTAL**, **RBGH**.
 
 Basic profiles only (description, classification, website, headquarters,
 listing date; no officers or financials yet): **UNIL**, **FML**, **CLYD**, **CMLT**, **CPC**, **DASPHARMA**, **EGL**,
@@ -175,6 +175,20 @@ Notes on the basic profiles:
   calculation splits the year's dividend equally between them, so it is
   flagged as estimated. PR 398/2023 (2023 interim) is printed "2 November
   2022", a typo for 2023.
+- **RBGH**'s financials come from the summary statements for 2021, 2024
+  and 2025 (GSE PR 054/2022, PR 066/2025, PR 056/2026) and the 2023 annual
+  report (PR 272/2024), which gives 2022 as the comparative; the 2022
+  audited statements (PR 104/2023) are a scanned image. The GSE page and
+  file for the FY2025 summary (PR 056/2026) are mislabelled "2021" and
+  "2022"; the same file is on republicghana.com, along with the 2025
+  annual report, which was used for EPS, headcount and shareholders. Net
+  income and book value are the owners' share, because subsidiaries have
+  minority holders (2025: GHS 11.0m of profit, 30.7m of equity). The 2021
+  dividend (GHS 0.025, PR 072/2022) was declined by the Bank of Ghana and
+  withdrawn (PR 267/2022), and it was never paid, so FY2021 is recorded as
+  0.0. The registrar is Universal Merchant Bank per the 2025 annual report;
+  the GSE notices' distribution lists still say MBG Registrars, and the
+  GSE page still gives the old North Ridge head office.
 - **SCB-PREF** dividends are recorded by the calendar year of the
   half-year periods they cover ("March 2024", "September 2024"), as the
   bank's notices name them. That differs from how the AGM press reports
@@ -258,6 +272,7 @@ Left out (served as null) because they couldn't be found or confirmed:
 | GOIL | `employees` | The annual reports give no headcount. |
 | GOIL | `officers` (finance) | Neither the annual report nor the interim statements name a CFO or finance director. |
 | TOTAL | FY2021 `dividend_payment_dates` | The 2021 closure-of-register notices on gse.com.gh (PR 225, 226 and 417 of 2021) are scanned images with no text, and no 2022 notice for the 2021 final dividend was found. |
+| RBGH | FY2021–FY2024 `dividend_payment_dates` | No dividend paid for those years. |
 | SCB-PREF | FY2025–FY2026 dividends; FY2022 `dividend_payment_dates`; `listing_date` | The March 2025, March 2026 and September 2022 preference dividend notices are not on gse.com.gh. The GSE page gives only the issuer's listing date. |
 | AADS | `shares_outstanding`; dividends | No current count of GhDSs in issue (the GSE page's 0.98m predates 2023). Dividends are declared in USD per ordinary share, with no published cedi amount per GhDS. |
 | TOTAL | `officers` (finance) | The 2025 annual report names no CFO; Mercy Samson, the investor relations director, is listed instead. |
