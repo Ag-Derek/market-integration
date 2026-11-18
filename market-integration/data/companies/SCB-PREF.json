@@ -1,0 +1,34 @@
+{
+  "symbol": "SCB-PREF",
+  "profile": {
+    "description_short": {"value": "Non-cumulative, non-voting, irredeemable preference shares of Standard Chartered Bank Ghana PLC, paying a floating-rate dividend each half year.", "source": "Written by us from the Standard Chartered Bank Ghana PLC 2023 Annual Report (GSE PR 095/2024, note 31(i)(b), non-redeemable preference shares) and the bank's preference share dividend notices on gse.com.gh", "as_of": "2026-09-11"},
+    "description_full": {"value": "These are the preference shares of Standard Chartered Bank Ghana PLC (symbol SCB), which trade on the Ghana Stock Exchange alongside its ordinary shares. They are irredeemable and carry no votes. Dividends are non-cumulative and at the bank's discretion: a dividend that is not paid is lost rather than carried forward, and the holders take no part in any further dividends declared on the ordinary shares. Dividends are announced for each half year, for the periods to March and to September, at a rate that has moved with Ghanaian interest rates, from about 16% in 2022 to 31-34% in 2024. Payments were suspended in early 2022 under a Bank of Ghana directive and resumed later that year. None were paid in 2023, after the government's domestic debt exchange, and the March and September 2024 dividends were paid together in September 2024. The bank's business, board and financial results are those of SCB.", "source": "Written by us from the Standard Chartered Bank Ghana PLC 2023 Annual Report (GSE PR 095/2024: note 31(i)(b), non-redeemable preference shares; note 17 and statement of changes in equity, no dividends paid in 2023) and the preference share dividend notices GSE PR 048/2022 (March 2022 dividend suspended), PR 180/2022 (March 2022, 16.2155%), PR 275/2024 (March 2024, 33.9168%), PR 276/2024 (September 2024, 31.2481%), PR 347/2025 and PR 381/2026", "as_of": "2026-09-11"},
+    "sector": {"value": "Banking", "source": "Our classification, from the issuer's nature of business in the Standard Chartered Bank Ghana PLC 2023 Annual Report", "as_of": "2023-12-31"},
+    "industry": {"value": "Commercial banking", "source": "Our classification, from the issuer's nature of business in the Standard Chartered Bank Ghana PLC 2023 Annual Report (universal banking)", "as_of": "2023-12-31"},
+    "website": {"value": "https://www.sc.com/gh/", "source": "The issuer's website; the GSE listed-company page for SCB PREF gives www.standardchartered.com/gh, which redirects here (checked)", "as_of": "2026-10-21"},
+    "headquarters_city": {"value": "Accra", "source": "GSE listed-company page for SCB PREF: registered office, 87 Independence Avenue, Accra", "as_of": "2026-11-18"},
+    "headquarters_country": {"value": "Ghana", "source": "GSE listed-company page for SCB PREF", "as_of": "2026-11-18"},
+    "shares_outstanding": {"value": 17489066, "source": "Standard Chartered Bank Ghana PLC 2023 Annual Report (GSE PR 095/2024), note 36(a), distribution of preference shareholders (total 17,489,066; note 31(i), 17,489 thousand preference shares issued). The GSE listed-company page shows 17,488,466", "as_of": "2023-12-31"},
+    "registrar": {"value": "GCB Registrars", "source": "GSE PR 381/2026 (September 2026 preference share dividend), issued by GCB Registrars for the bank; the distribution list names GCB as registrar for SCB preference shares", "as_of": "2026-09-11"}
+  },
+  "officers": [
+    {"name": "Ebenezer Twum Asante", "role": "Chairman", "display_order": 1, "source": "Issuer's board: resolutions passed at the 56th AGM of Standard Chartered Bank Ghana PLC on 6 August 2026 (GSE PR 350/2026), directors listed on the letterhead", "as_of": "2026-08-06"},
+    {"name": "Augustine Xorse Godzi", "role": "Managing Director", "display_order": 2, "source": "Issuer's board: Standard Chartered Bank Ghana PLC unaudited summary financial statements to 30 September 2026 (GSE PR 437/2026), signed by Xorse Godzi as Managing Director on 29 October 2026", "as_of": "2026-10-29"},
+    {"name": "Albert Larweh Asante", "role": "Executive Director and Chief Financial Officer", "display_order": 3, "source": "Issuer's board: Standard Chartered Bank Ghana PLC unaudited summary financial statements to 30 September 2026 (GSE PR 437/2026), signed as Executive Director; Chief Financial Officer per the 2023 Annual Report (GSE PR 095/2024)", "as_of": "2026-10-29"}
+  ],
+  "financials": [
+    {
+      "fiscal_year": 2024, "currency": "GHS",
+      "dividend_per_share": {"value": 0.1689, "source": "Preference dividends for the half years to March 2024 (GHS 0.0879, rate 33.9168%; GSE PR 275/2024) and September 2024 (GHS 0.0810, rate 31.2481%; GSE PR 276/2024). Only preference dividends are recorded here; the issuer's results are on SCB", "as_of": "2024-08-29"},
+      "dividend_payment_dates": {"value": ["2024-09-30"], "source": "GSE PR 275/2024 and PR 276/2024: both the March 2024 and September 2024 preference dividends paid on Monday, 30 September 2024", "as_of": "2024-08-29"}
+    },
+    {
+      "fiscal_year": 2023, "currency": "GHS",
+      "dividend_per_share": {"value": 0.0, "source": "No preference dividend for 2023: the Standard Chartered Bank Ghana PLC 2023 Annual Report (GSE PR 095/2024, note 17 and statement of changes in equity) shows no dividends paid in 2023, and the dividends are non-cumulative (note 31(i)(b))", "as_of": "2023-12-31"}
+    },
+    {
+      "fiscal_year": 2022, "currency": "GHS",
+      "dividend_per_share": {"value": 0.09, "source": "Standard Chartered Bank Ghana PLC 2023 Annual Report (GSE PR 095/2024), note 17: preference dividend per share paid in 2022, GHS 0.09 (GHS 1,529k on 17,489,066 shares, about GHS 0.0874). It comprises the March 2022 dividend of GHS 0.0420 (GSE PR 180/2022, paid 1 July 2022, after suspension under PR 048/2022) and the September 2022 dividend, whose notice is not on gse.com.gh", "as_of": "2023-12-31"}
+    }
+  ]
+}
