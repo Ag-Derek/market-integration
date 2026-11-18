@@ -12,7 +12,7 @@ that company's description goes blank.
 
 ## Coverage
 
-Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**, **SCB**, **SOGEGH**, **GOIL**, **TOTAL**, **RBGH**, **SIC**, **KASA**.
+Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**, **SCB**, **SOGEGH**, **GOIL**, **TOTAL**, **RBGH**, **SIC**, **KASA**, **MAC**.
 
 Basic profiles only (description, classification, website, headquarters,
 listing date; no officers or financials yet): **UNIL**, **FML**, **CLYD**, **CMLT**, **CPC**, **DASPHARMA**, **EGL**,
@@ -222,6 +222,29 @@ Notes on the basic profiles:
   `employees` is permanent staff (826); casual and contract workers bring
   the 2025 total to 2,391. No dividends were paid in 2021–2025, and the
   note programme bars them for 2024–2026 unless waived.
+- **MAC** is an investment company, so its financials come from its
+  annual reports for 2022, 2024 and 2025 (GSE PR 343/2023, PR 340/2025,
+  PR 386/2026). 2023 and 2021 come from the comparatives in the next year's
+  report. All figures are company-only. The text layers are badly laid
+  out, with columns out of order, so each figure was checked against the
+  statement of changes in equity or the chairman's review. Revenue is
+  "total revenue": dividend and rental income only. Fair value changes on
+  investments go through other comprehensive income and are not counted.
+  The net losses (GHS 29.0m in 2025) come mainly from finance costs, which
+  include exchange losses. No filing gives EPS or a headcount, so both are
+  left blank. EPS works out at about GHS -2.92 for 2025 from the loss and
+  9,948,574 shares, but it is not recorded because the company does not
+  report it. The 2023 book value (GHS 97,376,482) follows the statement of
+  changes in equity; the balance sheet's 2023 column shows 97,386,481. The
+  2025 report's corporate information says Christine Dowuona-Hammond
+  resigned as Chairperson on 1 September 2025, and its governance report
+  names Eugene Addison as Chairperson. Its top-20 shareholder table does
+  not line up (Oak Partners Limited is listed first, but the share counts
+  and percentages do not match 9.95m shares), so no ownership is given.
+  The share count is the report's 9,948,574; GSE PR 209/2016 gave
+  9,948,576. The last dividends were for 2014 (GHS 0.05) and 2015
+  (GHS 0.06), before the years recorded. The website answers over http
+  only.
 - **SCB-PREF** dividends are recorded by the calendar year of the
   half-year periods they cover ("March 2024", "September 2024"), as the
   bank's notices name them. That differs from how the AGM press reports
@@ -312,6 +335,7 @@ Left out (served as null) because they couldn't be found or confirmed:
 | SIC | FY2021 `revenue`; `employees` | 2021 was reported under IFRS 4 (gross premium), with no IFRS 17 insurance-revenue figure. No headcount was found in the filings read. |
 | SIC | FY2022 `dividend_payment_dates` | No dividend for FY2022. |
 | KASA | FY2021–FY2025 `dividend_payment_dates` | No dividend paid in those years. |
+| MAC | `employees`; FY2021–FY2025 `eps`, `dividend_payment_dates` | The filings give no headcount and no EPS. No dividend was paid in those years. |
 | SCB-PREF | FY2025–FY2026 dividends; FY2022 `dividend_payment_dates`; `listing_date` | The March 2025, March 2026 and September 2022 preference dividend notices are not on gse.com.gh. The GSE page gives only the issuer's listing date. |
 | AADS | `shares_outstanding`; dividends | No current count of GhDSs in issue (the GSE page's 0.98m predates 2023). Dividends are declared in USD per ordinary share, with no published cedi amount per GhDS. |
 | TOTAL | `officers` (finance) | The 2025 annual report names no CFO; Mercy Samson, the investor relations director, is listed instead. |

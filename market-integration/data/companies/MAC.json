@@ -1,0 +1,62 @@
+{
+  "symbol": "MAC",
+  "profile": {
+    "description_short": {"value": "Ghanaian investment company holding listed and unlisted equities and investment property, listed on the Ghana Stock Exchange since April 2014.", "source": "Written by us from the Mega African Capital Limited 2025 Annual Report (GSE PR 386/2026: nature of business; statement of financial position) and the GSE listed-companies page (date listed 23/04/2014)", "as_of": "2026-08-26"},
+    "description_full": {"value": "Mega African Capital Limited is a Ghanaian investment company. It is authorised to develop, buy, sell and let real estate and to invest in equities, fixed income and other financial services; most of its assets are equity investments and investment property. It listed on the Ghana Stock Exchange on 23 April 2014 after a restricted share offer. It added shares through a rights issue and private placement in 2015 and a debt-to-equity conversion in favour of Databank EPACK Investment Fund in 2016, bringing its issued shares to about 9.95 million. It paid final dividends of GHS 0.05 a share for 2014 and GHS 0.06 for 2015, but none for 2021 to 2025. Its dividend and rental income is small (GHS 2.0 million in 2025), and it made a net loss every year from 2021 to 2025 (GHS 29.0 million in 2025), mainly from finance costs, which include exchange losses. Gains in the value of its investments, recorded in other comprehensive income, more than offset those losses from 2021 to 2024 but not in 2025. Its balance sheet also carries tenured client deposits of GHS 173.2 million at the end of 2025, of which GHS 141.8 million is accrued interest, against shareholders' funds of GHS 87.5 million. Its Managing Director, Kwesi Amonoo-Neizer, holds 533,939 shares. Its office is at Kanda Estates, Accra.", "source": "Written by us from the Mega African Capital Limited 2025 Annual Report (GSE PR 386/2026: nature of business, directors' interests, dividend, chairman's review of operations, statements of comprehensive income and financial position, notes 3 and 13), the 2024 and 2022 annual reports (GSE PR 340/2025 and PR 343/2023: chairman's reviews, comprehensive income), GSE PR 086/2014 (results of the MAC restricted offer), PR 379/2015 (additional listing after the rights issue and private placement), PR 209/2016 (240,000 shares for the Databank EPACK debt-to-equity conversion; 9,948,576 shares on the Official List), PR 078/2015 and PR 168/2016 (2014 and 2015 final dividends) and the GSE listed-companies page (date listed)", "as_of": "2026-11-18"},
+    "sector": {"value": "Financial Services", "source": "Our classification, matching the instrument master; from the nature of business in the Mega African Capital Limited 2025 Annual Report (GSE PR 386/2026)", "as_of": "2025-12-31"},
+    "industry": {"value": "Investment holding (equities and real estate)", "source": "Our classification, from the Mega African Capital Limited 2025 Annual Report (GSE PR 386/2026), note 1.0: development, purchase, sale and rental of real estate, investment in equities, fixed income investments and other financial services", "as_of": "2025-12-31"},
+    "website": {"value": "http://megafricancapital.com/", "source": "Company website, checked live (served over http only; https did not connect); the domain is the one in the info@megafricancapital.com address in the 2025 Annual Report (GSE PR 386/2026)", "as_of": "2026-11-18"},
+    "headquarters_city": {"value": "Accra", "source": "Mega African Capital Limited 2025 Annual Report (GSE PR 386/2026), corporate information: registered office, The Alberts, 2nd Floor, No. 23 Sunyani Avenue, Kanda Estates, Accra", "as_of": "2026-08-26"},
+    "headquarters_country": {"value": "Ghana", "source": "Mega African Capital Limited 2025 Annual Report (GSE PR 386/2026), note 1.0: a public limited liability company incorporated and domiciled in Ghana (registration number PL000282017)", "as_of": "2026-08-26"},
+    "shares_outstanding": {"value": 9948574, "source": "Mega African Capital Limited 2025 Annual Report (GSE PR 386/2026), note 12: 9,948,574 ordinary shares issued; GSE PR 209/2016 gave 9,948,576 on the Official List", "as_of": "2025-12-31"},
+    "listing_date": {"value": "2014-04-23", "source": "GSE listed-companies page (MAC, date listed 23/04/2014); the restricted offer results were announced on 16 April 2014 (GSE PR 086/2014)", "as_of": "2026-11-18"},
+    "registrar": {"value": "Central Securities Depository (GH) LTD", "source": "Mega African Capital Limited 2025 Annual Report (GSE PR 386/2026), corporate information: registrar, Central Securities Depository Company Limited, Cedi House, Accra; GSE PR 386/2026 names CSD Registrars as registrars for MAC shares", "as_of": "2026-08-26"}
+  },
+  "officers": [
+    {"name": "Eugene Addison", "role": "Chairman", "display_order": 1, "source": "Mega African Capital Limited 2025 Annual Report (GSE PR 386/2026), corporate governance report: Board Chairperson, an independent non-executive director, after Christine Dowuona-Hammond resigned as Chairperson on 1 September 2025 (corporate information)", "as_of": "2026-08-26"},
+    {"name": "Kwesi Amonoo-Neizer", "role": "Managing Director", "display_order": 2, "source": "Mega African Capital Limited 2025 Annual Report (GSE PR 386/2026), corporate information", "as_of": "2026-08-26"},
+    {"name": "Edward Ntim-Addae", "role": "Executive Director", "display_order": 3, "source": "Mega African Capital Limited 2025 Annual Report (GSE PR 386/2026), corporate information (Executive Director) and directors' biographical information (profession: financial controller)", "as_of": "2026-08-26"}
+  ],
+  "financials": [
+    {
+      "fiscal_year": 2025,
+      "currency": "GHS",
+      "revenue": {"value": 1952896, "source": "Mega African Capital Limited 2025 Annual Report (GSE PR 386/2026), comprehensive income statement: total revenue (investment and operating income: dividends and rent; note 3a)", "as_of": "2025-12-31"},
+      "net_income": {"value": -29003506, "source": "Mega African Capital Limited 2025 Annual Report (GSE PR 386/2026), comprehensive income statement and statement of changes in equity: loss for the year", "as_of": "2025-12-31"},
+      "book_value": {"value": 87478887, "source": "Mega African Capital Limited 2025 Annual Report (GSE PR 386/2026), statement of financial position and statement of changes in equity: shareholders' funds at 31 December 2025", "as_of": "2025-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: Mega African Capital Limited 2025 Annual Report (GSE PR 386/2026), report of the directors: no dividend recommended for 2025 (2024: nil)", "as_of": "2026-08-26"}
+    },
+    {
+      "fiscal_year": 2024,
+      "currency": "GHS",
+      "revenue": {"value": 320080, "source": "Mega African Capital Limited 2024 Annual Report (GSE PR 340/2025), comprehensive income statement: total revenue; the same in the 2025 comparatives", "as_of": "2024-12-31"},
+      "net_income": {"value": -33736855, "source": "Mega African Capital Limited 2024 Annual Report (GSE PR 340/2025), statement of changes in equity: loss for the year after a GHS 1,851 deferred tax charge; the same in the 2025 comparatives", "as_of": "2024-12-31"},
+      "book_value": {"value": 112878123, "source": "Mega African Capital Limited 2025 Annual Report (GSE PR 386/2026), statement of changes in equity: total equity at the beginning of 2025; the same in the 2024 Annual Report (GSE PR 340/2025)", "as_of": "2024-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: Mega African Capital Limited 2024 Annual Report (GSE PR 340/2025), report of the directors: no dividend recommended for 2024 (2023: nil)", "as_of": "2024-12-31"}
+    },
+    {
+      "fiscal_year": 2023,
+      "currency": "GHS",
+      "revenue": {"value": 461689, "source": "Mega African Capital Limited 2024 Annual Report (GSE PR 340/2025), comprehensive income statement: 2023 comparative total revenue", "as_of": "2023-12-31"},
+      "net_income": {"value": -30781839, "source": "Mega African Capital Limited 2024 Annual Report (GSE PR 340/2025), comprehensive income statement and statement of changes in equity: 2023 loss for the year", "as_of": "2023-12-31"},
+      "book_value": {"value": 97376482, "source": "Mega African Capital Limited 2024 Annual Report (GSE PR 340/2025), statement of changes in equity: total equity at 31 December 2023 (the statement of financial position's 2023 column shows 97,386,481)", "as_of": "2023-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: Mega African Capital Limited 2024 Annual Report (GSE PR 340/2025), report of the directors (2023: nil)", "as_of": "2024-12-31"}
+    },
+    {
+      "fiscal_year": 2022,
+      "currency": "GHS",
+      "revenue": {"value": 564730, "source": "Mega African Capital Limited 2022 Annual Report (GSE PR 343/2023), comprehensive income statement: total revenue (investment and operating income)", "as_of": "2022-12-31"},
+      "net_income": {"value": -26712241, "source": "Mega African Capital Limited 2022 Annual Report (GSE PR 343/2023), comprehensive income statement and statement of changes in equity: loss for the year after tax", "as_of": "2022-12-31"},
+      "book_value": {"value": 79569612, "source": "Mega African Capital Limited 2022 Annual Report (GSE PR 343/2023), statement of financial position and statement of changes in equity: shareholders' funds at 31 December 2022; the 2024 Annual Report (GSE PR 340/2025) opens 2023 at the same figure", "as_of": "2022-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: Mega African Capital Limited 2022 Annual Report (GSE PR 343/2023), report of the directors: no dividend paid in respect of 2022", "as_of": "2022-12-31"}
+    },
+    {
+      "fiscal_year": 2021,
+      "currency": "GHS",
+      "revenue": {"value": 247324, "source": "Mega African Capital Limited 2022 Annual Report (GSE PR 343/2023), comprehensive income statement: 2021 comparative total revenue (the chairman's report gives GHS 247,124)", "as_of": "2021-12-31"},
+      "net_income": {"value": -6856653, "source": "Mega African Capital Limited 2022 Annual Report (GSE PR 343/2023), comprehensive income statement and statement of changes in equity: 2021 loss for the year after a GHS 14,593 tax credit", "as_of": "2021-12-31"},
+      "book_value": {"value": 74204985, "source": "Mega African Capital Limited 2022 Annual Report (GSE PR 343/2023), statement of financial position: shareholders' funds at 31 December 2021, and statement of changes in equity: total equity at the beginning of 2022", "as_of": "2021-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: Mega African Capital Limited 2022 Annual Report (GSE PR 343/2023), report of the directors: no dividend declared or paid out of retained earnings in 2021 or 2022", "as_of": "2022-12-31"}
+    }
+  ]
+}
