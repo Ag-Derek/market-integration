@@ -1,0 +1,64 @@
+{
+  "symbol": "RBGH",
+  "profile": {
+    "description_short": {"value": "Ghanaian universal bank with a mortgage heritage, two-thirds owned by Trinidad and Tobago's Republic Financial Holdings, with brokerage, asset management and pension subsidiaries.", "source": "Written by us from the Republic Bank (Ghana) PLC 2025 Annual Report (report of the directors: principal activities, holding company, subsidiaries)", "as_of": "2025-12-31"},
+    "description_full": {"value": "Republic Bank (Ghana) PLC is a universal bank that also provides residential and commercial mortgages, investment banking, custody and pension services. It began as Home Finance Company Limited and was incorporated on 7 May 1990. Republic Financial Holdings Limited of Trinidad and Tobago owns 66.54% of its shares, and Ghana's Social Security and National Insurance Trust (SSNIT) a further 25.87%. Its subsidiaries include Republic Investments (Ghana) for fund and asset management, Republic Securities for brokerage, Republic Trust for pension administration and HFC Realty for mortgages. At the end of 2025 it had 39 branches in 11 of Ghana's 16 regions, and its head office is Republic Court on Independence Avenue, Accra. It has been listed on the Ghana Stock Exchange since 5 October 1994. The Bank of Ghana declined its proposed 2021 dividend, and it made a loss in 2022 after the domestic debt exchange. It returned to profit in 2023 and paid a dividend again for 2025.", "source": "Written by us from the Republic Bank (Ghana) PLC 2025 Annual Report (corporate information; report of the directors: principal activities, holding company, subsidiaries; corporate overview: 39 branches in 11 regions; note 53, major shareholders), the summary financial statements for 2025 (GSE PR 056/2026) and 2023 (in the 2023 Annual Report, GSE PR 272/2024: loss for 2022), GSE PR 267/2022 (Bank of Ghana declined the 2021 dividend), GSE PR 162/2026 (2025 dividend) and the GSE listed-company page for RBGH (incorporation and listing dates)", "as_of": "2026-11-18"},
+    "sector": {"value": "Banking", "source": "Our classification, matching the instrument master; from the principal activities in the Republic Bank (Ghana) PLC 2025 Annual Report", "as_of": "2025-12-31"},
+    "industry": {"value": "Commercial banking", "source": "Our classification, from the principal activities in the Republic Bank (Ghana) PLC 2025 Annual Report (universal banking, mortgages)", "as_of": "2025-12-31"},
+    "website": {"value": "https://www.republicghana.com/", "source": "GSE listed-company page for RBGH (www.republicghana.com; checked live)", "as_of": "2026-11-18"},
+    "headquarters_city": {"value": "Accra", "source": "Republic Bank (Ghana) PLC 2025 Annual Report, corporate information: registered office, Republic Court, Liberation Square, Independence Avenue, Accra (the GSE listed-company page still gives the former office in North Ridge)", "as_of": "2025-12-31"},
+    "headquarters_country": {"value": "Ghana", "source": "Republic Bank (Ghana) PLC 2025 Annual Report, corporate information", "as_of": "2025-12-31"},
+    "employees": {"value": 1164, "source": "Republic Bank (Ghana) PLC 2025 Annual Report, note 14: total staff in employment at the end of 2025, 1,164 for the Group (2024: 1,142; Bank 791)", "as_of": "2025-12-31"},
+    "shares_outstanding": {"value": 851966373, "source": "Republic Bank (Ghana) PLC 2025 Annual Report, note 53, analysis of shareholding (total 851,966,373); matches the GSE listed-company page", "as_of": "2025-12-31"},
+    "listing_date": {"value": "1994-10-05", "source": "GSE listed-company page for RBGH (date listed 5th October 1994)", "as_of": "2026-11-18"},
+    "registrar": {"value": "Universal Merchant Bank Limited", "source": "Republic Bank (Ghana) PLC 2025 Annual Report, corporate information (registrar) and notice of the 35th AGM (registrars@myumbbank.com). GSE notices still list MBG Registrars in their distribution lists", "as_of": "2026-02-26"}
+  },
+  "officers": [
+    {"name": "Jonathan Prince Cann", "role": "Chairman", "display_order": 1, "source": "Republic Bank (Ghana) PLC unaudited statements to 30 September 2026 (GSE PR 419/2026), signed as Board Chairman; Chairman in the 2025 Annual Report, corporate information", "as_of": "2026-09-30"},
+    {"name": "Benjamin Dzoboku", "role": "Managing Director", "display_order": 2, "source": "Republic Bank (Ghana) PLC unaudited statements to 30 September 2026 (GSE PR 419/2026), signed as Managing Director; appointment ratified at the 32nd AGM (GSE PR 275/2023)", "as_of": "2026-09-30"},
+    {"name": "Ferguson Ofori-Atta", "role": "Chief Finance Officer", "display_order": 3, "source": "Republic Bank (Ghana) PLC 2025 Annual Report, executive management profiles", "as_of": "2025-12-31"}
+  ],
+  "financials": [
+    {
+      "fiscal_year": 2025, "currency": "GHS",
+      "revenue": {"value": 1048178000, "source": "Republic Bank (Ghana) PLC summary financial statements for 2025 (GSE PR 056/2026), group operating income", "as_of": "2025-12-31"},
+      "net_income": {"value": 276898000, "source": "Republic Bank (Ghana) PLC summary financial statements for 2025 (GSE PR 056/2026), group profit attributable to controlling equity holders (profit for the year GHS 287,937k, of which GHS 11,039k to non-controlling interests)", "as_of": "2025-12-31"},
+      "eps": {"value": 0.325, "source": "Republic Bank (Ghana) PLC 2025 Annual Report, earnings per share note: group basic and diluted EPS 32.50 pesewas on 851,966 thousand shares", "as_of": "2025-12-31"},
+      "book_value": {"value": 1312982000, "source": "Republic Bank (Ghana) PLC summary financial statements for 2025 (GSE PR 056/2026), group total equity attributable to equity holders of the Bank (total equity GHS 1,343,633k including GHS 30,651k non-controlling interest)", "as_of": "2025-12-31"},
+      "dividend_per_share": {"value": 0.05, "source": "Resolutions adopted at the 35th AGM of Republic Bank (Ghana) PLC on 23 April 2026 (GSE PR 154/2026): dividend of GHS 0.05 per share for 2025; GSE PR 162/2026", "as_of": "2026-04-23"},
+      "dividend_payment_dates": {"value": ["2026-06-01"], "source": "GSE PR 162/2026, notice of closure of register: the final dividend of GHS 0.050 per share will be paid on Monday, 1 June 2026", "as_of": "2026-04-28"}
+    },
+    {
+      "fiscal_year": 2024, "currency": "GHS",
+      "revenue": {"value": 869167000, "source": "Republic Bank (Ghana) PLC summary financial statements for 2024 (GSE PR 066/2025), group operating income; the same in the 2025 comparatives", "as_of": "2024-12-31"},
+      "net_income": {"value": 201866000, "source": "Republic Bank (Ghana) PLC summary financial statements for 2024 (GSE PR 066/2025), group profit attributable to controlling equity holders (profit for the year GHS 210,679k)", "as_of": "2024-12-31"},
+      "eps": {"value": 0.2369, "source": "Republic Bank (Ghana) PLC summary financial statements for 2024 (GSE PR 066/2025), group basic EPS 23.69 pesewas", "as_of": "2024-12-31"},
+      "book_value": {"value": 1036084000, "source": "Republic Bank (Ghana) PLC summary financial statements for 2024 (GSE PR 066/2025), group total equity attributable to equity holders of the Bank (total equity GHS 1,055,696k)", "as_of": "2024-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: the report of the directors in the summary financial statements for 2025 (GSE PR 056/2026) gives the 2024 dividend as nil, and the 2025 statement of changes in equity shows no ordinary dividend paid", "as_of": "2025-12-31"}
+    },
+    {
+      "fiscal_year": 2023, "currency": "GHS",
+      "revenue": {"value": 752133000, "source": "Republic Bank (Ghana) PLC summary financial statements for 2024 (GSE PR 066/2025), 2023 comparative group operating income; the same in the 2023 Annual Report (GSE PR 272/2024)", "as_of": "2023-12-31"},
+      "net_income": {"value": 140026000, "source": "Republic Bank (Ghana) PLC 2023 Annual Report (GSE PR 272/2024), group profit attributable to controlling equity holders (profit for the year GHS 145,034k)", "as_of": "2023-12-31"},
+      "eps": {"value": 0.1644, "source": "Republic Bank (Ghana) PLC 2023 Annual Report (GSE PR 272/2024), group basic EPS 16.44 pesewas", "as_of": "2023-12-31"},
+      "book_value": {"value": 834218000, "source": "Republic Bank (Ghana) PLC 2023 Annual Report (GSE PR 272/2024), group total equity attributable to equity holders of the Bank (total equity GHS 847,007k)", "as_of": "2023-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: Republic Bank (Ghana) PLC 2023 Annual Report (GSE PR 272/2024), report of the directors: no dividend recommended (2022: nil)", "as_of": "2023-12-31"}
+    },
+    {
+      "fiscal_year": 2022, "currency": "GHS",
+      "revenue": {"value": 551103000, "source": "Republic Bank (Ghana) PLC 2023 Annual Report (GSE PR 272/2024), 2022 comparative group operating income", "as_of": "2022-12-31"},
+      "net_income": {"value": -63679000, "source": "Republic Bank (Ghana) PLC 2023 Annual Report (GSE PR 272/2024), 2022 group loss attributable to controlling equity holders (loss for the year GHS 61,127k, after GHS 2,552k profit to non-controlling interests)", "as_of": "2022-12-31"},
+      "eps": {"value": -0.0747, "source": "Republic Bank (Ghana) PLC 2023 Annual Report (GSE PR 272/2024), 2022 group basic loss per share 7.47 pesewas", "as_of": "2022-12-31"},
+      "book_value": {"value": 694192000, "source": "Republic Bank (Ghana) PLC 2023 Annual Report (GSE PR 272/2024), group total equity attributable to equity holders of the Bank at 31 December 2022 (total equity GHS 702,834k)", "as_of": "2022-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: Republic Bank (Ghana) PLC 2023 Annual Report (GSE PR 272/2024), report of the directors (2022: nil)", "as_of": "2023-12-31"}
+    },
+    {
+      "fiscal_year": 2021, "currency": "GHS",
+      "revenue": {"value": 426005000, "source": "Republic Bank (Ghana) PLC audited financial statements for 2021 (GSE PR 054/2022), group operating income", "as_of": "2021-12-31"},
+      "net_income": {"value": 88236000, "source": "Republic Bank (Ghana) PLC audited financial statements for 2021 (GSE PR 054/2022), group profit attributable to controlling equity holders (profit for the year GHS 89,877k)", "as_of": "2021-12-31"},
+      "eps": {"value": 0.1036, "source": "Republic Bank (Ghana) PLC audited financial statements for 2021 (GSE PR 054/2022), group basic and diluted EPS 10.36 pesewas", "as_of": "2021-12-31"},
+      "book_value": {"value": 719442000, "source": "Republic Bank (Ghana) PLC audited financial statements for 2021 (GSE PR 054/2022), group total equity attributable to equity holders of the Bank (total equity GHS 726,089k)", "as_of": "2021-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend paid: a final dividend of GHS 0.025 per share was recommended (GSE PR 072/2022), but the Bank of Ghana declined the payment request and the notice was withdrawn (GSE PR 267/2022, 8 August 2022). The 2023 Annual Report (GSE PR 272/2024) shows no ordinary dividend paid in 2022 or 2023", "as_of": "2022-08-08"}
+    }
+  ]
+}
