@@ -1,0 +1,64 @@
+{
+  "symbol": "KASA",
+  "profile": {
+    "description_short": {"value": "Ghanaian maker of alcoholic and non-alcoholic drinks, known for Alomo Bitters, listed on the Ghana Stock Exchange through a GHS 700 million IPO in June 2026.", "source": "Written by us from GSE PR 258/2026 (Kasapreko PLC completes oversubscribed initial public offer) and the Kasapreko PLC 2025 Annual Report (GSE PR 097/2026, directors' report)", "as_of": "2026-06-09"},
+    "description_full": {"value": "Kasapreko PLC manufactures and distributes alcoholic and non-alcoholic beverages. Founded in 1989, it is best known for Alomo Bitters, a herbal alcoholic drink, and its range also includes whisky, gin, wine, soft drinks and drinking water, sold in Ghana and abroad. Before listing it was wholly owned by Pinnacle Holding Company Ltd, which held 3.55 billion shares, about 86% of the enlarged share capital after the IPO. Its founder, Dr. Kwabena Adjei, sits on the board. It had already raised money on the Ghana Fixed Income Market through a note programme before it floated its shares. In its initial public offer, which closed on 1 June 2026, it issued 583,333,333 new shares at GHS 1.20, raising GHS 700 million. The offer was 146% oversubscribed by 18,781 applicants, and the shares began trading on 15 June 2026. Revenue grew from GHS 945 million in 2021 to GHS 3.5 billion in 2025, and profit after tax reached GHS 354 million in 2025 after a loss in 2022. It has paid no dividend in the last five years; its note programme bars dividends for 2024 to 2026 unless noteholders waive the restriction. Its head office is off the Spintex Road at Baatsona, Accra.", "source": "Written by us from GSE PR 258/2026 (IPO results, allocation and listing date), the Kasapreko PLC prospectus (GSE PR 203/2026: offer period; section 3.6.7, dividend policy and payment history; corporate structure under Pinnacle Holding Company Ltd), the 2025 Annual Report (GSE PR 097/2026: directors' report, holding company; appendix II, five-year financial summary), GSE PR 026/2024 and PR 300/2024 (note listings on the Ghana Fixed Income Market) and the GSE listed-company page for KASA (registered office, directors)", "as_of": "2026-11-18"},
+    "sector": {"value": "Food & Beverage", "source": "Our classification, matching the instrument master; from the nature of business in the Kasapreko PLC 2025 Annual Report", "as_of": "2025-12-31"},
+    "industry": {"value": "Beverages (spirits and soft drinks)", "source": "Our classification, from GSE PR 258/2026 (manufacturers and distributors of alcoholic and non-alcoholic beverages)", "as_of": "2026-06-09"},
+    "website": {"value": "https://www.kasapreko.com/", "source": "GSE listed-company page for KASA (www.kasapreko.com)", "as_of": "2026-11-18"},
+    "headquarters_city": {"value": "Accra", "source": "GSE listed-company page for KASA: registered office, DTD 64, off the Spintex Road, Baatsona, Accra", "as_of": "2026-11-18"},
+    "headquarters_country": {"value": "Ghana", "source": "Kasapreko PLC prospectus (GSE PR 203/2026): incorporated in Ghana as a public limited liability company (registration number PL000290823)", "as_of": "2026-05-04"},
+    "employees": {"value": 826, "source": "Kasapreko PLC prospectus (GSE PR 203/2026), section 3.6.4, table 17: 826 permanent employees in 2025; with 1,300 casual and 265 contract workers the total was 2,391", "as_of": "2025-12-31"},
+    "shares_outstanding": {"value": 4133333333, "source": "3,550,000,000 shares in issue before the IPO (Kasapreko PLC 2025 Annual Report, GSE PR 097/2026, shareholding analysis and five-year summary) plus the 583,333,333 new shares allotted in the IPO (GSE PR 258/2026)", "as_of": "2026-06-05"},
+    "listing_date": {"value": "2026-06-15", "source": "GSE PR 258/2026: Kasapreko PLC ordinary shares listed and began trading on the GSE on Monday, 15 June 2026; GSE listed-company page (date listed June 15th 2026)", "as_of": "2026-06-09"},
+    "registrar": {"value": "Central Securities Depository (GH) LTD", "source": "Kasapreko PLC 2025 Annual Report (GSE PR 097/2026), corporate information: registrar; the prospectus (GSE PR 203/2026) also names the CSD as registrar", "as_of": "2025-12-31"}
+  },
+  "officers": [
+    {"name": "Samuel Leslie Adetola", "role": "Chairman", "display_order": 1, "source": "GSE PR 258/2026 (Mr Samuel Leslie Adetola, Board Chairman); GSE listed-company page for KASA", "as_of": "2026-06-09"},
+    {"name": "Richard Adjei", "role": "Managing Director", "display_order": 2, "source": "GSE PR 258/2026 (Mr Richard Adjei, Managing Director); GSE listed-company page for KASA", "as_of": "2026-06-09"},
+    {"name": "Humphrey Appiah", "role": "Finance Director", "display_order": 3, "source": "Kasapreko PLC prospectus (GSE PR 203/2026), senior management profiles", "as_of": "2026-05-04"},
+    {"name": "Kwabena Adjei", "role": "Founder and Director", "display_order": 4, "source": "GSE listed-company page for KASA (Dr. Kwabena Adjei, Founder)", "as_of": "2026-11-18"}
+  ],
+  "financials": [
+    {
+      "fiscal_year": 2025, "currency": "GHS",
+      "revenue": {"value": 3500889869, "source": "Kasapreko PLC 2025 Annual Report (GSE PR 097/2026), statement of comprehensive income: revenue", "as_of": "2025-12-31"},
+      "net_income": {"value": 354203799, "source": "Kasapreko PLC 2025 Annual Report (GSE PR 097/2026), statement of comprehensive income: profit for the year", "as_of": "2025-12-31"},
+      "eps": {"value": 0.0998, "source": "Kasapreko PLC 2025 Annual Report (GSE PR 097/2026), basic and diluted EPS GHS 0.0998, on the 3,550,000,000 shares in issue before the 2026 IPO", "as_of": "2025-12-31"},
+      "book_value": {"value": 700435416, "source": "Kasapreko PLC 2025 Annual Report (GSE PR 097/2026), statement of changes in equity: total equity at 31 December 2025 (before the GHS 700m raised in the 2026 IPO)", "as_of": "2025-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: Kasapreko PLC 2025 Annual Report (GSE PR 097/2026), directors' report: the directors do not recommend a dividend for 2025; the note programme prohibits dividends for 2024 to 2026 (prospectus, GSE PR 203/2026, section 3.6.7.2)", "as_of": "2025-12-31"}
+    },
+    {
+      "fiscal_year": 2024, "currency": "GHS",
+      "revenue": {"value": 2721156870, "source": "Kasapreko PLC 2024 Annual Report (GSE PR 093/2025), statement of comprehensive income: revenue; the same in the 2025 comparatives", "as_of": "2024-12-31"},
+      "net_income": {"value": 137703766, "source": "Kasapreko PLC 2024 Annual Report (GSE PR 093/2025), profit for the year; the same in the 2025 comparatives", "as_of": "2024-12-31"},
+      "eps": {"value": 0.0388, "source": "Kasapreko PLC 2025 Annual Report (GSE PR 097/2026), 2024 comparative basic and diluted EPS GHS 0.0388", "as_of": "2024-12-31"},
+      "book_value": {"value": 346231617, "source": "Kasapreko PLC 2025 Annual Report (GSE PR 097/2026), statement of changes in equity: total equity at 1 January 2025", "as_of": "2024-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: Kasapreko PLC 2024 Annual Report (GSE PR 093/2025), directors' report: no dividend recommended for 2024", "as_of": "2024-12-31"}
+    },
+    {
+      "fiscal_year": 2023, "currency": "GHS",
+      "revenue": {"value": 1875037487, "source": "Kasapreko PLC 2023 Annual Report (GSE PR 110/2024), statement of comprehensive income: revenue", "as_of": "2023-12-31"},
+      "net_income": {"value": 20431504, "source": "Kasapreko PLC 2023 Annual Report (GSE PR 110/2024), statement of comprehensive income: profit for the year", "as_of": "2023-12-31"},
+      "eps": {"value": 0.0058, "source": "Kasapreko PLC 2025 Annual Report (GSE PR 097/2026), appendix II, five-year financial summary: 2023 EPS GHS 0.0058", "as_of": "2023-12-31"},
+      "book_value": {"value": 208527851, "source": "Kasapreko PLC 2023 Annual Report (GSE PR 110/2024), total equity at 31 December 2023 (stated capital GHS 50m and retained earnings GHS 158.5m)", "as_of": "2023-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: Kasapreko PLC 2023 Annual Report (GSE PR 110/2024), directors' report: no dividend recommended for 2023 (2022: nil)", "as_of": "2023-12-31"}
+    },
+    {
+      "fiscal_year": 2022, "currency": "GHS",
+      "revenue": {"value": 1285602976, "source": "Kasapreko PLC 2023 Annual Report (GSE PR 110/2024), 2022 comparative revenue", "as_of": "2022-12-31"},
+      "net_income": {"value": -20461756, "source": "Kasapreko PLC 2023 Annual Report (GSE PR 110/2024), 2022 comparative loss for the year", "as_of": "2022-12-31"},
+      "eps": {"value": -0.0058, "source": "Kasapreko PLC 2025 Annual Report (GSE PR 097/2026), appendix II, five-year financial summary: 2022 loss per share GHS 0.0058", "as_of": "2022-12-31"},
+      "book_value": {"value": 188096000, "source": "Kasapreko PLC 2025 Annual Report (GSE PR 097/2026), appendix II, five-year financial summary: total equity at 31 December 2022, GHS 188,096 thousand (stated capital GHS 50m plus retained earnings GHS 138.1m)", "as_of": "2022-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: Kasapreko PLC 2023 Annual Report (GSE PR 110/2024), directors' report (2022: nil); the prospectus (GSE PR 203/2026, section 3.6.7.1) states no dividends were paid in the last five years", "as_of": "2023-12-31"}
+    },
+    {
+      "fiscal_year": 2021, "currency": "GHS",
+      "revenue": {"value": 944997000, "source": "Kasapreko PLC 2025 Annual Report (GSE PR 097/2026), appendix II, five-year financial summary: 2021 revenue, GHS 944,997 thousand", "as_of": "2021-12-31"},
+      "net_income": {"value": 29762000, "source": "Kasapreko PLC 2025 Annual Report (GSE PR 097/2026), appendix II, five-year financial summary: 2021 profit after income tax and GSL, GHS 29,762 thousand", "as_of": "2021-12-31"},
+      "eps": {"value": 0.0084, "source": "Kasapreko PLC 2025 Annual Report (GSE PR 097/2026), appendix II, five-year financial summary: 2021 EPS GHS 0.0084", "as_of": "2021-12-31"},
+      "book_value": {"value": 208558000, "source": "Kasapreko PLC 2025 Annual Report (GSE PR 097/2026), appendix II, five-year financial summary: total equity at 31 December 2021, GHS 208,558 thousand", "as_of": "2021-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: the Kasapreko PLC prospectus (GSE PR 203/2026, section 3.6.7.1) states that the company has not paid any dividends within the last five years", "as_of": "2026-05-04"}
+    }
+  ]
+}

@@ -12,7 +12,7 @@ that company's description goes blank.
 
 ## Coverage
 
-Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**, **SCB**, **SOGEGH**, **GOIL**, **TOTAL**, **RBGH**, **SIC**.
+Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**, **SCB**, **SOGEGH**, **GOIL**, **TOTAL**, **RBGH**, **SIC**, **KASA**.
 
 Basic profiles only (description, classification, website, headquarters,
 listing date; no officers or financials yet): **UNIL**, **FML**, **CLYD**, **CMLT**, **CPC**, **DASPHARMA**, **EGL**,
@@ -207,6 +207,21 @@ Notes on the basic profiles:
   be understated: GHS 21m provided against a judgment confirmed at about
   GHS 95.7m, and no provision for a Bank of Africa judgment of about
   GHS 68m including interest. The reported figures are used as audited.
+- **KASA** listed on 15 June 2026 after an IPO of 583,333,333 new shares
+  at GHS 1.20 (GSE PR 258/2026). Every reported year predates the
+  listing. Financials are company-only (no subsidiaries are consolidated)
+  and come from the 2023–2025 annual reports (GSE PR 110/2024,
+  PR 093/2025, PR 097/2026); 2021 and 2022 come from the 2025 report's
+  five-year summary and the 2023 report's comparatives.
+  EPS uses the 3.55bn pre-IPO shares, while `shares_outstanding` is the
+  post-IPO 4,133,333,333 (3.55bn plus the IPO shares; no filing states
+  the total), so a P/E built from them mixes bases. Book value at end-2025
+  (GHS 700.4m) excludes the GHS 700m raised in 2026. The 2025 report's
+  capital-management note gives total equity as GHS 700,760,254, against
+  700,435,416 in the statement of changes in equity; the latter is used.
+  `employees` is permanent staff (826); casual and contract workers bring
+  the 2025 total to 2,391. No dividends were paid in 2021–2025, and the
+  note programme bars them for 2024–2026 unless waived.
 - **SCB-PREF** dividends are recorded by the calendar year of the
   half-year periods they cover ("March 2024", "September 2024"), as the
   bank's notices name them. That differs from how the AGM press reports
@@ -296,6 +311,7 @@ Left out (served as null) because they couldn't be found or confirmed:
 | RBGH | FY2021–FY2024 `dividend_payment_dates` | No dividend paid for those years. |
 | SIC | FY2021 `revenue`; `employees` | 2021 was reported under IFRS 4 (gross premium), with no IFRS 17 insurance-revenue figure. No headcount was found in the filings read. |
 | SIC | FY2022 `dividend_payment_dates` | No dividend for FY2022. |
+| KASA | FY2021–FY2025 `dividend_payment_dates` | No dividend paid in those years. |
 | SCB-PREF | FY2025–FY2026 dividends; FY2022 `dividend_payment_dates`; `listing_date` | The March 2025, March 2026 and September 2022 preference dividend notices are not on gse.com.gh. The GSE page gives only the issuer's listing date. |
 | AADS | `shares_outstanding`; dividends | No current count of GhDSs in issue (the GSE page's 0.98m predates 2023). Dividends are declared in USD per ordinary share, with no published cedi amount per GhDS. |
 | TOTAL | `officers` (finance) | The 2025 annual report names no CFO; Mercy Samson, the investor relations director, is listed instead. |
