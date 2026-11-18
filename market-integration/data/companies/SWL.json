@@ -1,0 +1,47 @@
+{
+  "symbol": "SWL",
+  "profile": {
+    "description_short": {"value": "Ghanaian publisher of school textbooks, delisted from the Ghana Stock Exchange on 14 April 2023 after it stopped operating.", "source": "Written by us from GSE PR 102/2023 (notice of compulsory delisting of Sam-Woode Limited) and the Sam-Woode Limited 2018 Annual Report (GSE PR 253/2019, note 1: educational publisher, printer and seller of educational books and material)", "as_of": "2023-04-14"},
+    "description_full": {"value": "Sam-Woode Ltd is a Ghanaian educational publisher that developed, printed and sold textbooks and other teaching materials. It is no longer listed: the Ghana Stock Exchange suspended its shares on 29 September 2020 and compulsorily delisted the company on 14 April 2023. It listed in April 2002. Sales fell from GHS 2.0 million in 2017 to GHS 1.05 million in 2018 and, unaudited, GHS 0.45 million in 2019. It made losses in each of those years, and by the end of 2019 its liabilities exceeded its assets by GHS 0.9 million. Its auditor had drawn attention to the going-concern assumption in the 2018 accounts. A rights issue to fund a digital transformation programme stalled and was cancelled; shareholders approved raising GHS 3 million through a corporate bond instead. In 2018 the company moved its head office from Dansoman to Nyanyano, near Kasoa, where it set up a print-on-demand press. At the annual general meeting of 21 November 2019, shareholders voted to delist voluntarily. In 2020 the company suspended operations, because the new Ghana Education Service curriculum had made its textbook stock obsolete and stopped its book sales. It planned to restructure into a parent company with two subsidiaries: SWL Learn, an online learning app, and SWL Edutech, a printing business. It never completed the voluntary delisting, so the GSE delisted it. Its last dividends were GHS 0.004 a share for 2014 and GHS 0.012 for 2015. In 2018 its chairman, Kwesi Sam-Woode, held 24.74% of the shares.", "source": "Written by us from GSE PR 396/2020 (suspension of listing; delisting resolution and restructuring), PR 102/2023 (compulsory delisting), PR 421/2021 (2019 and 2020 audited statements submitted), PR 186/2015 and PR 213/2016 (2014 and 2015 final dividends), the Sam-Woode Limited 2018 Annual Report (GSE PR 253/2019: chairman's statement; independent auditors' report, emphasis of matter; statements of comprehensive income and financial position; note 25, directors' shareholding), the unaudited 2019 financial statements (GSE PR 065/2020) and the GSE listed-companies page (date listed 24/04/2002)", "as_of": "2026-11-18"},
+    "sector": {"value": "Manufacturing", "source": "Our classification, matching the instrument master; from the nature of business in the Sam-Woode Limited 2018 Annual Report (GSE PR 253/2019, note 1: publisher, printer and seller of educational books)", "as_of": "2018-12-31"},
+    "industry": {"value": "Educational publishing", "source": "Our classification, from the Sam-Woode Limited 2018 Annual Report (GSE PR 253/2019), note 1: educational publisher, printer and seller of educational books and material", "as_of": "2018-12-31"},
+    "headquarters_city": {"value": "Kasoa", "source": "Sam-Woode Limited 2018 Annual Report (GSE PR 253/2019), corporate information: registered office, Plot No. 124, Teachers Quarters, Nyanyano, Kasoa, Central Region; the head office moved there from Dansoman in 2018 (chairman's statement)", "as_of": "2019-07-05"},
+    "headquarters_country": {"value": "Ghana", "source": "Sam-Woode Limited 2018 Annual Report (GSE PR 253/2019), note 1: incorporated in Ghana under the Companies Act 1963 (Act 179) and domiciled in Ghana", "as_of": "2019-07-05"},
+    "shares_outstanding": {"value": 21828035, "source": "Sam-Woode Limited 2018 Annual Report (GSE PR 253/2019), note 19: 21,828,035 ordinary shares issued; unchanged at 31 December 2019 in the unaudited 2019 statements (GSE PR 065/2020, note 13)", "as_of": "2019-12-31"},
+    "listing_date": {"value": "2002-04-24", "source": "GSE listed-companies page (SWL, date listed 24/04/2002); the page still lists SWL although it was delisted on 14 April 2023 (GSE PR 102/2023)", "as_of": "2026-11-18"},
+    "registrar": {"value": "NTHC Limited", "source": "Sam-Woode Limited 2018 Annual Report (GSE PR 253/2019), corporate information: registrars, NTHC Limited, Martco House, Adabraka, Accra", "as_of": "2019-07-05"}
+  },
+  "officers": [
+    {"name": "Kwesi Sam-Woode", "role": "Chairman", "display_order": 1, "source": "Sam-Woode Limited 2018 Annual Report (GSE PR 253/2019), corporate information and chairman's statement; the last annual report on gse.com.gh, before the 2023 delisting", "as_of": "2019-07-05"},
+    {"name": "Kojo Essamuah Sam-Woode", "role": "Managing Director", "display_order": 2, "source": "Sam-Woode Limited 2018 Annual Report (GSE PR 253/2019), chairman's statement: acting Managing Director from 1 March to 31 December 2018, substantive Managing Director from 1 January 2019", "as_of": "2019-07-05"}
+  ],
+  "financials": [
+    {
+      "fiscal_year": 2019,
+      "currency": "GHS",
+      "revenue": {"value": 454180, "source": "Sam-Woode Ltd unaudited financial statements for the year ended 31 December 2019 (GSE PR 065/2020), comprehensive income statement: turnover. Unaudited: the audited 2019 statements (GSE PR 421/2021) are no longer downloadable from gse.com.gh", "as_of": "2019-12-31"},
+      "net_income": {"value": -1265082, "source": "Sam-Woode Ltd unaudited financial statements for 2019 (GSE PR 065/2020), statement of changes in equity and note 6: loss for the year. Unaudited", "as_of": "2019-12-31"},
+      "eps": {"value": -0.058, "source": "Sam-Woode Ltd unaudited financial statements for 2019 (GSE PR 065/2020), basic earnings per share (0.0580). Unaudited", "as_of": "2019-12-31"},
+      "book_value": {"value": -908289, "source": "Sam-Woode Ltd unaudited financial statements for 2019 (GSE PR 065/2020), statement of financial position and statement of changes in equity: net liabilities at 31 December 2019. Unaudited", "as_of": "2019-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: Sam-Woode Ltd unaudited financial statements for 2019 (GSE PR 065/2020), note 6, income surplus account: no dividend declared", "as_of": "2019-12-31"}
+    },
+    {
+      "fiscal_year": 2018,
+      "currency": "GHS",
+      "revenue": {"value": 1052688, "source": "Sam-Woode Limited 2018 Annual Report (GSE PR 253/2019), statement of comprehensive income: turnover", "as_of": "2018-12-31"},
+      "net_income": {"value": -1471127, "source": "Sam-Woode Limited 2018 Annual Report (GSE PR 253/2019), statement of comprehensive income: loss after tax", "as_of": "2018-12-31"},
+      "eps": {"value": -0.0674, "source": "Sam-Woode Limited 2018 Annual Report (GSE PR 253/2019), statement of comprehensive income: basic and diluted EPS (0.0674), labelled in pesewas but in cedis (GHS 1,471,127 loss / 21,828,035 shares)", "as_of": "2018-12-31"},
+      "book_value": {"value": 356793, "source": "Sam-Woode Limited 2018 Annual Report (GSE PR 253/2019), statement of financial position: shareholders' fund at 31 December 2018", "as_of": "2018-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: Sam-Woode Limited 2018 Annual Report (GSE PR 253/2019), report of the directors: no dividend recommended for 2018 (2017: nil)", "as_of": "2019-07-05"}
+    },
+    {
+      "fiscal_year": 2017,
+      "currency": "GHS",
+      "revenue": {"value": 1993696, "source": "Sam-Woode Limited 2018 Annual Report (GSE PR 253/2019), statement of comprehensive income: 2017 comparative turnover", "as_of": "2017-12-31"},
+      "net_income": {"value": -661103, "source": "Sam-Woode Limited 2018 Annual Report (GSE PR 253/2019), statement of comprehensive income: 2017 comparative loss after tax (total comprehensive income GHS 409,446 after a GHS 1,070,549 property revaluation)", "as_of": "2017-12-31"},
+      "eps": {"value": -0.03, "source": "Sam-Woode Limited 2018 Annual Report (GSE PR 253/2019), statement of comprehensive income: 2017 comparative basic and diluted EPS (0.03), as printed", "as_of": "2017-12-31"},
+      "book_value": {"value": 1827920, "source": "Sam-Woode Limited 2018 Annual Report (GSE PR 253/2019), statement of financial position: 2017 comparative shareholders' fund", "as_of": "2017-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: Sam-Woode Limited 2018 Annual Report (GSE PR 253/2019), report of the directors (2017: nil)", "as_of": "2019-07-05"}
+    }
+  ]
+}

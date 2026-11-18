@@ -12,7 +12,7 @@ that company's description goes blank.
 
 ## Coverage
 
-Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**, **SCB**, **SOGEGH**, **GOIL**, **TOTAL**, **RBGH**, **SIC**, **KASA**, **MAC**.
+Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**, **SCB**, **SOGEGH**, **GOIL**, **TOTAL**, **RBGH**, **SIC**, **KASA**, **MAC**, **SWL** (delisted).
 
 Basic profiles only (description, classification, website, headquarters,
 listing date; no officers or financials yet): **UNIL**, **FML**, **CLYD**, **CMLT**, **CPC**, **DASPHARMA**, **EGL**,
@@ -245,6 +245,25 @@ Notes on the basic profiles:
   9,948,576. The last dividends were for 2014 (GHS 0.05) and 2015
   (GHS 0.06), before the years recorded. The website answers over http
   only.
+- **SWL** (Sam-Woode Ltd) is **no longer listed**. The GSE suspended it
+  on 29 September 2020 after it stopped operating (PR 396/2020) and
+  compulsorily delisted it on 14 April 2023 (PR 102/2023), because it
+  never completed the voluntary delisting its shareholders approved in
+  November 2019. The instrument master had it as an active main-board
+  stock named "Sam Wood Ltd". It is now `status: "delisted"` and named
+  Sam-Woode Ltd. Its mock price is still a placeholder; it has had no
+  quote since 2020. The GSE listed-companies page still lists it. Its
+  financials stop at 2019. The audited 2019 and 2020 statements
+  (PR 421/2021) are dead links on gse.com.gh, so 2019 comes from the
+  **unaudited** full-year statements (PR 065/2020), and each 2019 source
+  says so. 2017 and 2018 come from the audited 2018 annual report
+  (PR 253/2019), a scan with no text layer, read from page images. That
+  report prints EPS "in Ghana Pesewas", but the figures are cedis
+  (2018: GHS 1,471,127 loss / 21,828,035 shares = 0.0674). The 2017 EPS
+  is printed rounded (0.03). Officers are those named in the 2018 report;
+  no later list was filed. No website: samwoode.com returns a server
+  error, and swllearn.com is the planned subsidiary's app, not the
+  company's site.
 - **SCB-PREF** dividends are recorded by the calendar year of the
   half-year periods they cover ("March 2024", "September 2024"), as the
   bank's notices name them. That differs from how the AGM press reports
@@ -336,6 +355,7 @@ Left out (served as null) because they couldn't be found or confirmed:
 | SIC | FY2022 `dividend_payment_dates` | No dividend for FY2022. |
 | KASA | FY2021–FY2025 `dividend_payment_dates` | No dividend paid in those years. |
 | MAC | `employees`; FY2021–FY2025 `eps`, `dividend_payment_dates` | The filings give no headcount and no EPS. No dividend was paid in those years. |
+| SWL | FY2020 onward; `employees`, `website`; `officers` (finance) | Delisted 14 April 2023. The audited 2019 and 2020 statements are dead links on gse.com.gh, and nothing later was filed. The 2018 report gives no headcount and names no finance officer. |
 | SCB-PREF | FY2025–FY2026 dividends; FY2022 `dividend_payment_dates`; `listing_date` | The March 2025, March 2026 and September 2022 preference dividend notices are not on gse.com.gh. The GSE page gives only the issuer's listing date. |
 | AADS | `shares_outstanding`; dividends | No current count of GhDSs in issue (the GSE page's 0.98m predates 2023). Dividends are declared in USD per ordinary share, with no published cedi amount per GhDS. |
 | TOTAL | `officers` (finance) | The 2025 annual report names no CFO; Mercy Samson, the investor relations director, is listed instead. |
