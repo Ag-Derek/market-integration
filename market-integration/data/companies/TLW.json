@@ -1,0 +1,67 @@
+{
+  "symbol": "TLW",
+  "profile": {
+    "description_short": {"value": "London-based oil and gas producer focused on Ghana's offshore Jubilee and TEN fields, listed in London and on the Ghana Stock Exchange.", "source": "Written by us from the Tullow Oil plc 2025 Full Year Results (GSE PR 167/2026) and the notes to editors in its GSE announcements (e.g. PR 449/2025)", "as_of": "2026-04-28"},
+    "description_full": {"value": "Tullow Oil plc is an independent oil and gas company incorporated in England and Wales and based in London. Its production now comes from Ghana, chiefly the offshore Jubilee and TEN fields. It has sold its other producing and development assets: it sold its Gabon assets to the Gabon Oil Company for US$307 million net of tax in July 2025, and its Kenya interests to an affiliate of Gulf Energy in September 2025 for at least US$120 million. Its shares are quoted in London and, since July 2011, on the Ghana Stock Exchange. It reports in US dollars. Revenue fell from US$1.78 billion in 2022 to US$847 million in 2025, partly because Gabon is now reported as a discontinued operation. Profit for the year swung between losses and small profits (US$6.5 million in 2025). Its liabilities have exceeded its assets throughout 2021 to 2025 (net liabilities of US$253 million at the end of 2025), and it has paid no dividend in that period. In April 2026 it completed a refinancing, backed by over 99% of bondholders and Glencore, that replaced its 2026 notes with notes due in 2028 and its Glencore loan with junior notes due in 2030. The 2028 notes fall due earlier, in May 2028, unless a sale agreement for its assets is signed by 30 September 2027. First-half 2026 working-interest production was 43.7 thousand barrels of oil equivalent a day. Ian Perks became Chief Executive in September 2025, and Roald Goethe became Chair in December 2025, when the board was cut back.", "source": "Written by us from the Tullow Oil plc 2025 Full Year Results (GSE PR 167/2026: group income statement, balance sheet, statement of changes in equity), the 2022 Annual Report and Accounts (GSE PR 079/2023: registered office, group income statement), the 2026 Half Year Results (GSE PR 392/2026: production, refinancing terms), GSE PR 284/2025 (Gabon sale completed), PR 369/2025 (Kenya sale completed), PR 161/2026 (refinancing completed), PR 351/2025 (CEO appointment), PR 449/2025 (Chair appointment and board reset) and the GSE listed-companies page (date listed)", "as_of": "2026-11-19"},
+    "sector": {"value": "Energy", "source": "Our classification, matching the instrument master; from the Tullow Oil plc 2025 Full Year Results (GSE PR 167/2026)", "as_of": "2025-12-31"},
+    "industry": {"value": "Oil and gas exploration and production", "source": "Our classification, from the Tullow Oil plc 2026 Half Year Results (GSE PR 392/2026): independent oil and gas exploration and production group", "as_of": "2026-06-30"},
+    "website": {"value": "https://www.tullowoil.com/", "source": "Tullow Oil plc announcements on the GSE (e.g. PR 449/2025, notes to editors: www.tullowoil.com); checked live", "as_of": "2026-11-19"},
+    "headquarters_city": {"value": "London", "source": "Tullow Oil plc 2022 Annual Report and Accounts (GSE PR 079/2023), directors' report: registered office, 9 Chiswick Park, 566 Chiswick High Road, London W4 5XT", "as_of": "2023-03-07"},
+    "headquarters_country": {"value": "United Kingdom", "source": "Tullow Oil plc 2022 Annual Report and Accounts (GSE PR 079/2023): company registered in England and Wales, No. 3919249", "as_of": "2023-03-07"},
+    "shares_outstanding": {"value": 1515023041, "source": "GSE PR 249/2026, Tullow Oil plc total voting rights: 1,515,023,041 ordinary shares of 10p in issue at 31 May 2026, none in treasury", "as_of": "2026-05-31"},
+    "listing_date": {"value": "2011-07-27", "source": "GSE listed-companies page (TLW, date listed 27/07/2011)", "as_of": "2026-11-19"},
+    "registrar": {"value": "Central Securities Depository (GH) LTD", "source": "Tullow Oil plc 2022 Annual Report and Accounts (GSE PR 079/2023), shareholder information: Ghana registrar, The Central Securities Depository (Ghana) Limited, Cedi House, Accra (UK register: Computershare Investor Services PLC)", "as_of": "2023-03-07"}
+  },
+  "officers": [
+    {"name": "Roald Goethe", "role": "Chairman", "display_order": 1, "source": "GSE PR 449/2025: appointed independent non-executive Chair of the Board with effect from 1 December 2025, replacing Phuthuma Nhleko", "as_of": "2025-12-01"},
+    {"name": "Ian Perks", "role": "Chief Executive Officer", "display_order": 2, "source": "GSE PR 351/2025 (appointed CEO from 15 September 2025); signs as Chief Executive Officer in the 2026 Half Year Results (GSE PR 392/2026)", "as_of": "2026-09-27"},
+    {"name": "Richard Miller", "role": "Chief Financial Officer", "display_order": 3, "source": "GSE PR 351/2025 (returned to the CFO role after serving as interim CEO); signs as Chief Financial Officer in the 2026 Half Year Results (GSE PR 392/2026)", "as_of": "2026-09-27"}
+  ],
+  "financials": [
+    {
+      "fiscal_year": 2025,
+      "currency": "USD",
+      "revenue": {"value": 847000000, "source": "Tullow Oil plc 2025 Full Year Results (GSE PR 167/2026), group income statement: revenue from continuing operations, US$847.0m (Gabon presented as discontinued)", "as_of": "2025-12-31"},
+      "net_income": {"value": 6500000, "source": "Tullow Oil plc 2025 Full Year Results (GSE PR 167/2026), group income statement: profit for the year attributable to owners, US$6.5m (US$129.2m loss from continuing operations plus US$135.7m profit from discontinued operations)", "as_of": "2025-12-31"},
+      "eps": {"value": 0.004, "source": "Tullow Oil plc 2025 Full Year Results (GSE PR 167/2026), group income statement: basic earnings per ordinary share 0.4 US cents", "as_of": "2025-12-31"},
+      "book_value": {"value": -252900000, "source": "Tullow Oil plc 2025 Full Year Results (GSE PR 167/2026), group balance sheet: total equity (net liabilities) of US$(252.9)m at 31 December 2025", "as_of": "2025-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: Tullow Oil plc 2025 Full Year Results (GSE PR 167/2026), group statement of changes in equity records no dividends in 2024 or 2025", "as_of": "2025-12-31"}
+    },
+    {
+      "fiscal_year": 2024,
+      "currency": "USD",
+      "revenue": {"value": 1287200000, "source": "Tullow Oil plc 2025 Full Year Results (GSE PR 167/2026), group income statement: 2024 revenue restated to US$1,287.2m to present Gabon as discontinued (originally US$1,534.9m in the 2024 Full Year Results, GSE PR 087/2025)", "as_of": "2024-12-31"},
+      "net_income": {"value": 54600000, "source": "Tullow Oil plc 2024 Full Year Results (GSE PR 087/2025), group income statement: profit for the year attributable to owners, US$54.6m; unchanged in the 2025 comparatives", "as_of": "2024-12-31"},
+      "eps": {"value": 0.037, "source": "Tullow Oil plc 2024 Full Year Results (GSE PR 087/2025), group income statement: basic earnings per ordinary share 3.7 US cents; unchanged in the 2025 comparatives", "as_of": "2024-12-31"},
+      "book_value": {"value": -272700000, "source": "Tullow Oil plc 2025 Full Year Results (GSE PR 167/2026), group statement of changes in equity: total equity at 1 January 2025, US$(272.7)m; the same in the 2024 Full Year Results (GSE PR 087/2025)", "as_of": "2024-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: Tullow Oil plc 2025 Full Year Results (GSE PR 167/2026), group statement of changes in equity records no dividends in 2024", "as_of": "2024-12-31"}
+    },
+    {
+      "fiscal_year": 2023,
+      "currency": "USD",
+      "revenue": {"value": 1634100000, "source": "Tullow Oil plc 2024 Full Year Results (GSE PR 087/2025), group income statement: 2023 comparative revenue, US$1,634.1m (includes Gabon; not restated)", "as_of": "2023-12-31"},
+      "net_income": {"value": -109600000, "source": "Tullow Oil plc 2024 Full Year Results (GSE PR 087/2025), group income statement: 2023 comparative loss for the year, US$(109.6)m", "as_of": "2023-12-31"},
+      "eps": {"value": -0.076, "source": "Tullow Oil plc 2024 Full Year Results (GSE PR 087/2025), group income statement: 2023 basic loss per ordinary share 7.6 US cents", "as_of": "2023-12-31"},
+      "book_value": {"value": -359400000, "source": "Tullow Oil plc 2024 Full Year Results (GSE PR 087/2025), group statement of changes in equity: total equity at 1 January 2024, US$(359.4)m", "as_of": "2023-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: Tullow Oil plc 2024 Full Year Results (GSE PR 087/2025), group statement of changes in equity records no dividends in 2023", "as_of": "2023-12-31"}
+    },
+    {
+      "fiscal_year": 2022,
+      "currency": "USD",
+      "revenue": {"value": 1783100000, "source": "Tullow Oil plc 2022 Annual Report and Accounts (GSE PR 079/2023), group income statement: revenue, US$1,783.1m", "as_of": "2022-12-31"},
+      "net_income": {"value": 49100000, "source": "Tullow Oil plc 2022 Annual Report and Accounts (GSE PR 079/2023), group income statement: profit for the year attributable to owners, US$49.1m", "as_of": "2022-12-31"},
+      "eps": {"value": 0.034, "source": "Tullow Oil plc 2022 Annual Report and Accounts (GSE PR 079/2023), group income statement and note 7: basic earnings per share 3.4 US cents", "as_of": "2022-12-31"},
+      "book_value": {"value": -459500000, "source": "Tullow Oil plc 2022 Annual Report and Accounts (GSE PR 079/2023), group balance sheet: total equity (net liabilities) US$(459.5)m; the 2024 Full Year Results (GSE PR 087/2025) open 2023 at the same figure", "as_of": "2022-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: Tullow Oil plc 2022 Annual Report and Accounts (GSE PR 079/2023), group statement of changes in equity records no dividends in 2021 or 2022", "as_of": "2022-12-31"}
+    },
+    {
+      "fiscal_year": 2021,
+      "currency": "USD",
+      "revenue": {"value": 1285400000, "source": "Tullow Oil plc 2022 Annual Report and Accounts (GSE PR 079/2023), group income statement: 2021 comparative revenue, restated, US$1,285.4m", "as_of": "2021-12-31"},
+      "net_income": {"value": -80700000, "source": "Tullow Oil plc 2022 Annual Report and Accounts (GSE PR 079/2023), group income statement: 2021 comparative loss for the year, restated, US$(80.7)m", "as_of": "2021-12-31"},
+      "eps": {"value": -0.057, "source": "Tullow Oil plc 2022 Annual Report and Accounts (GSE PR 079/2023), group income statement: 2021 basic loss per share 5.7 US cents, restated", "as_of": "2021-12-31"},
+      "book_value": {"value": -466100000, "source": "Tullow Oil plc 2022 Annual Report and Accounts (GSE PR 079/2023), group balance sheet: 2021 comparative total equity (net liabilities), restated, US$(466.1)m", "as_of": "2021-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: Tullow Oil plc 2022 Annual Report and Accounts (GSE PR 079/2023), group statement of changes in equity records no dividends in 2021", "as_of": "2021-12-31"}
+    }
+  ]
+}
