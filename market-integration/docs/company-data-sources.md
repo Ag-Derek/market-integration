@@ -12,7 +12,7 @@ that company's description goes blank.
 
 ## Coverage
 
-Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**, **SCB**, **SOGEGH**, **GOIL**, **TOTAL**, **RBGH**, **SIC**, **KASA**, **MAC**, **SWL** (delisted).
+Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**, **SCB**, **SOGEGH**, **GOIL**, **TOTAL**, **RBGH**, **SIC**, **KASA**, **MAC**, **SWL** (delisted), **TLW**, **TBL** (delisted).
 
 Basic profiles only (description, classification, website, headquarters,
 listing date; no officers or financials yet): **UNIL**, **FML**, **CLYD**, **CMLT**, **CPC**, **DASPHARMA**, **EGL**,
@@ -264,6 +264,50 @@ Notes on the basic profiles:
   no later list was filed. No website: samwoode.com returns a server
   error, and swllearn.com is the planned subsidiary's app, not the
   company's site.
+- **TLW** (Tullow Oil plc) reports in US dollars, which its records keep
+  (like ASG), although its GSE shares trade in cedis. Financials come
+  from the 2025 and 2024 full-year results (GSE PR 167/2026,
+  PR 087/2025) and the 2022 Annual Report and Accounts (PR 079/2023).
+  The 2023 annual report and full-year results are not on gse.com.gh
+  (PR 056/2024 is a cover note only), so 2023 comes from the 2024 results'
+  comparatives. EPS is converted from US cents (0.4 cents = 0.004).
+  Following "restated figures win", 2024 revenue is the 2025 report's
+  US$1,287.2m, which excludes Gabon (sold July 2025, now a discontinued
+  operation), not the US$1,534.9m first reported. 2021–2023 revenue still
+  includes Gabon, so the series has a break at 2024. Net income is the
+  profit for the year, including discontinued operations. That matches
+  the reported EPS: in 2025, a US$129.2m continuing loss plus US$135.7m
+  from Gabon gives US$6.5m. There is no non-controlling interest. Book
+  value is negative in every year (net liabilities), so P/B is
+  meaningless. No dividends appear in the equity statements for
+  2021–2025. The share count is the 31 May 2026 total voting rights
+  (PR 249/2026). The registrar is the CSD for the Ghana register
+  (Computershare keeps the UK register). `employees` is left blank: the
+  2025 annual report on gse.com.gh is a cover note, and the 2022 figure
+  predates the Gabon and Kenya sales.
+- **TBL** (Trust Bank PLC, The Gambia) is **no longer listed** on the
+  GSE. Shareholders approved delisting at the July 2024 AGM (PR 293/2024).
+  Solo Dabo Company Limited's tender offer at GHS 1.20 drew 47.89% of the
+  7,328,773 Ghana-register shares, and the shares were delisted on
+  25 September 2026 (PR 351/2026, PR 391/2026). The instrument master
+  now has `status: "delisted"` and the current name, Trust Bank PLC (The
+  Gambia). The GSE listed-companies page still lists it. Financials are
+  group figures in Gambian dalasi (GMD), from the 2021–2025 annual reports
+  (PR 093/2022, PR 150/2023, PR 162/2024, PR 180/2025, PR 231/2026).
+  Revenue is total operating income, as for the other banks. Restated
+  figures are used: 2023 operating income (D1,069.0m, was 1,023.3m) and
+  2022 profit (D248.6m, was 248.2m). **Share basis break:** in 2025 the
+  bank doubled its shares from 200m to 400m by a D200m transfer from
+  statutory reserves, and the 2025 report restates 2024 EPS from D1.70 to
+  D0.85. EPS for 2024–2025 is on 400m shares, and 2021–2023 is as
+  reported on 200m shares (halve those figures to compare). Dividends per
+  share are as declared. The D180m of dividends paid in 2025 matches
+  D0.55 + D0.35 on 200m shares, so the 2025 interim was evidently paid
+  on the old count. The 2025 report's note 13 gives the 2024 total as
+  D0.90, but the GSE notices (D0.30 + D0.55) and that report's own
+  highlights say D0.85; D0.85 is used. The 2021 EPS is the 2021 report's
+  group D0.72; the 2022 report's comparative (75 bututs) is the
+  bank-only figure. `shares_outstanding` is the 400m.
 - **SCB-PREF** dividends are recorded by the calendar year of the
   half-year periods they cover ("March 2024", "September 2024"), as the
   bank's notices name them. That differs from how the AGM press reports
@@ -356,6 +400,8 @@ Left out (served as null) because they couldn't be found or confirmed:
 | KASA | FY2021–FY2025 `dividend_payment_dates` | No dividend paid in those years. |
 | MAC | `employees`; FY2021–FY2025 `eps`, `dividend_payment_dates` | The filings give no headcount and no EPS. No dividend was paid in those years. |
 | SWL | FY2020 onward; `employees`, `website`; `officers` (finance) | Delisted 14 April 2023. The audited 2019 and 2020 statements are dead links on gse.com.gh, and nothing later was filed. The 2018 report gives no headcount and names no finance officer. |
+| TLW | `employees`; FY2021–FY2025 `dividend_payment_dates` | The 2025 annual report on gse.com.gh is only a cover note, and the 2022 headcount predates the asset sales. No dividend was paid in those years. |
+| TBL | FY2021, FY2022, FY2025 `dividend_payment_dates`; `officers` (finance) | The 2021 notices on gse.com.gh are dead links, and the 2022 interim notice was not found. No notice of the 2025 final dividend (proposed for the June 2026 AGM) was filed before delisting. The annual report names no CFO. |
 | SCB-PREF | FY2025–FY2026 dividends; FY2022 `dividend_payment_dates`; `listing_date` | The March 2025, March 2026 and September 2022 preference dividend notices are not on gse.com.gh. The GSE page gives only the issuer's listing date. |
 | AADS | `shares_outstanding`; dividends | No current count of GhDSs in issue (the GSE page's 0.98m predates 2023). Dividends are declared in USD per ordinary share, with no published cedi amount per GhDS. |
 | TOTAL | `officers` (finance) | The 2025 annual report names no CFO; Mercy Samson, the investor relations director, is listed instead. |
