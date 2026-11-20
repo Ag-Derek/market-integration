@@ -31,10 +31,11 @@ def test_checked_in_seed_covers_the_gse_and_every_equity_is_calibrated():
     assert INSTRUMENTS["MTNGH"].isin == "GHEMTN051541"
     assert INSTRUMENTS["GLD"].kind == "etf"
     # Marked **ALW** / PBC** in the 28-Sep-2026 daily shares report.
-    # SWL was delisted on 14 Apr 2023 (GSE PR 102/2023).
-    assert {s for s, i in INSTRUMENTS.items() if i.status != "active"} == {"ALW", "PBC", "SWL"}
-    assert INSTRUMENTS["SWL"].status == "delisted"
-    assert {"ALW", "PBC", "SWL"}.isdisjoint(config.SYMBOLS)
+    # SWL was delisted on 14 Apr 2023 (GSE PR 102/2023), TBL on
+    # 25 Sep 2026 after a tender offer (GSE PR 391/2026).
+    assert {s for s, i in INSTRUMENTS.items() if i.status != "active"} == {"ALW", "PBC", "SWL", "TBL"}
+    assert INSTRUMENTS["SWL"].status == INSTRUMENTS["TBL"].status == "delisted"
+    assert {"ALW", "PBC", "SWL", "TBL"}.isdisjoint(config.SYMBOLS)
 
 
 def test_checked_in_seed_has_every_gfim_sample_security():
