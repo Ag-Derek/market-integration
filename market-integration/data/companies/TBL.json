@@ -1,0 +1,70 @@
+{
+  "symbol": "TBL",
+  "profile": {
+    "description_short": {"value": "Commercial bank in The Gambia, majority-owned by the Gambian social security fund, delisted from the Ghana Stock Exchange on 25 September 2026.", "source": "Written by us from GSE PR 391/2026 (delisting of Trust Bank PLC from the Ghana Stock Exchange) and the Trust Bank PLC 2025 Annual Report (GSE PR 231/2026)", "as_of": "2026-09-25"},
+    "description_full": {"value": "Trust Bank PLC is one of the largest commercial banks in The Gambia by assets and branch network, serving retail and business customers from its head office in Banjul. It was founded in 1997, taking over the assets and liabilities of the failed Meridian Biao (Gambia) Bank, and its major shareholder is the Social Security and Housing Finance Corporation of The Gambia. It is no longer listed in Ghana: shareholders voted at the July 2024 annual general meeting to delist from the Ghana Stock Exchange so that the bank could focus on The Gambia. A tender offer by Solo Dabo Company Limited at GHS 1.20 a share, open from 17 August to 11 September 2026, drew 3,510,021 of the 7,328,773 shares on the Ghana register (47.89%). The shares were delisted on 25 September 2026, and the remaining Ghana holdings are being moved to the principal register in The Gambia. The bank reports in Gambian dalasi. Operating income roughly doubled from D678 million in 2021 to D1.40 billion in 2025, and profit rose from D143 million to D350 million. It has paid interim and final dividends every year, with D0.95 a share for 2025. In 2025 it doubled its share count to 400 million by transferring D200 million from statutory reserves. This is part of meeting a Central Bank of The Gambia rule that banks reach D500 million of capital by the end of 2026. It had 428 employees at the end of 2025.", "source": "Written by us from GSE PR 293/2024 (intention to delist), PR 351/2026 (tender offer), PR 391/2026 (delisting and offer results), the Trust Bank PLC 2025 Annual Report (GSE PR 231/2026: consolidated statements of comprehensive income and financial position, notes 9, 12, 13 and 26) and the 2021 Annual Report (GSE PR 093/2022: 2021 group operating income and profit)", "as_of": "2026-11-19"},
+    "sector": {"value": "Banking", "source": "Our classification, matching the instrument master; from the Trust Bank PLC 2025 Annual Report (GSE PR 231/2026)", "as_of": "2025-12-31"},
+    "industry": {"value": "Commercial banking (The Gambia)", "source": "Our classification, from GSE PR 391/2026 (a leading commercial bank in The Gambia offering banking products and services to retail and business customers)", "as_of": "2026-09-25"},
+    "website": {"value": "https://trustbankgambia.com/", "source": "GSE PR 351/2026 (www.trustbankgambia.com); checked live, it redirects to trustbankgambia.com", "as_of": "2026-11-19"},
+    "headquarters_city": {"value": "Banjul", "source": "Trust Bank PLC 2025 Annual Report (GSE PR 231/2026), general information: registered office, 3/4 ECOWAS Avenue, Banjul, The Gambia", "as_of": "2026-05-14"},
+    "headquarters_country": {"value": "The Gambia", "source": "Trust Bank PLC 2025 Annual Report (GSE PR 231/2026), note 1: registered office at 3-4 ECOWAS Avenue, Banjul, The Gambia", "as_of": "2026-05-14"},
+    "employees": {"value": 428, "source": "Trust Bank PLC 2025 Annual Report (GSE PR 231/2026), note 9: 428 employees at 31 December 2025, of whom 74 were directors and senior management (2024: 409)", "as_of": "2025-12-31"},
+    "shares_outstanding": {"value": 400000000, "source": "Trust Bank PLC 2025 Annual Report (GSE PR 231/2026), note 26: 400 million ordinary shares of D1 in issue at 31 December 2025, up from 200 million by a transfer of D200 million from statutory reserves", "as_of": "2025-12-31"},
+    "listing_date": {"value": "2002-11-15", "source": "GSE listed-companies page (TBL, date listed 15/11/2002); the shares were delisted on 25 September 2026 (GSE PR 391/2026)", "as_of": "2026-11-19"},
+    "registrar": {"value": "Universal Merchant Bank Limited", "source": "Trust Bank PLC 2025 Annual Report (GSE PR 231/2026), general information: registrars, Universal Merchant Bank Limited, Accra; GSE PR 391/2026 names Universal Merchant Bank PLC (Registrar Dept) for the Ghana register during the three-month transition after delisting", "as_of": "2026-09-25"}
+  },
+  "officers": [
+    {"name": "Franklin Hayford", "role": "Chairman", "display_order": 1, "source": "Trust Bank PLC 2025 Annual Report (GSE PR 231/2026), general information: directors (Chairperson)", "as_of": "2026-05-14"},
+    {"name": "Njilan Senghore", "role": "Managing Director", "display_order": 2, "source": "Trust Bank PLC 2025 Annual Report (GSE PR 231/2026), general information: directors (Managing Director)", "as_of": "2026-05-14"},
+    {"name": "Omar Mboob", "role": "Deputy Managing Director", "display_order": 3, "source": "Trust Bank PLC 2025 Annual Report (GSE PR 231/2026), general information: directors (Deputy Managing Director)", "as_of": "2026-05-14"}
+  ],
+  "financials": [
+    {
+      "fiscal_year": 2025,
+      "currency": "GMD",
+      "revenue": {"value": 1402093000, "source": "Trust Bank PLC 2025 Annual Report (GSE PR 231/2026), consolidated statement of comprehensive income: group operating income, D1,402,093 thousand", "as_of": "2025-12-31"},
+      "net_income": {"value": 350436000, "source": "Trust Bank PLC 2025 Annual Report (GSE PR 231/2026), consolidated statement of comprehensive income: group profit for the year, D350,436 thousand", "as_of": "2025-12-31"},
+      "eps": {"value": 0.88, "source": "Trust Bank PLC 2025 Annual Report (GSE PR 231/2026), note 12: group basic earnings per share D0.88, on 400 million shares", "as_of": "2025-12-31"},
+      "book_value": {"value": 1758516000, "source": "Trust Bank PLC 2025 Annual Report (GSE PR 231/2026), consolidated statement of financial position: group total equity, D1,758,516 thousand", "as_of": "2025-12-31"},
+      "dividend_per_share": {"value": 0.95, "source": "Trust Bank PLC 2025 Annual Report (GSE PR 231/2026), note 13: interim D0.35 paid plus final D0.60 proposed for the June 2026 AGM; interim notice GSE PR 437/2025", "as_of": "2026-05-14"}
+    },
+    {
+      "fiscal_year": 2024,
+      "currency": "GMD",
+      "revenue": {"value": 1314869000, "source": "Trust Bank PLC 2025 Annual Report (GSE PR 231/2026), consolidated statement of comprehensive income: 2024 group operating income, D1,314,869 thousand; the same in the 2024 Annual Report (GSE PR 180/2025)", "as_of": "2024-12-31"},
+      "net_income": {"value": 340052000, "source": "Trust Bank PLC 2024 Annual Report (GSE PR 180/2025), consolidated statement of comprehensive income: group profit for the year, D340,052 thousand", "as_of": "2024-12-31"},
+      "eps": {"value": 0.85, "source": "Trust Bank PLC 2025 Annual Report (GSE PR 231/2026), note 12: 2024 group EPS restated to D0.85 on 400 million shares (D1.70 on 200 million shares in the 2024 Annual Report, GSE PR 180/2025)", "as_of": "2024-12-31"},
+      "book_value": {"value": 1578337000, "source": "Trust Bank PLC 2024 Annual Report (GSE PR 180/2025), consolidated statement of financial position: group total equity, D1,578,337 thousand; the same in the 2025 comparatives", "as_of": "2024-12-31"},
+      "dividend_per_share": {"value": 0.85, "source": "Interim D0.30 (GSE PR 372/2024) plus final D0.55 (GSE PR 242/2025); Trust Bank PLC 2024 Annual Report (GSE PR 180/2025), note 13: total D0.85. The 2025 Annual Report's note 13 gives the 2024 total as D0.90, against D0.85 in its own financial highlights", "as_of": "2025-06-19"},
+      "dividend_payment_dates": {"value": ["2024-11-25", "2025-07-17"], "source": "GSE PR 372/2024 (interim paid 25 November 2024) and PR 242/2025 (final paid 17 July 2025)", "as_of": "2025-06-19"}
+    },
+    {
+      "fiscal_year": 2023,
+      "currency": "GMD",
+      "revenue": {"value": 1069049000, "source": "Trust Bank PLC 2024 Annual Report (GSE PR 180/2025), consolidated statement of comprehensive income: 2023 group operating income, restated, D1,069,049 thousand (D1,023,320 thousand in the 2023 Annual Report, GSE PR 162/2024)", "as_of": "2023-12-31"},
+      "net_income": {"value": 258908000, "source": "Trust Bank PLC 2023 Annual Report (GSE PR 162/2024), consolidated statement of comprehensive income: group profit for the year, D258,908 thousand; unchanged in the 2024 comparatives", "as_of": "2023-12-31"},
+      "eps": {"value": 1.29, "source": "Trust Bank PLC 2023 Annual Report (GSE PR 162/2024), note 12: group basic EPS D1.29, on 200 million shares (before the 2025 doubling of the share count)", "as_of": "2023-12-31"},
+      "book_value": {"value": 1353891000, "source": "Trust Bank PLC 2023 Annual Report (GSE PR 162/2024), consolidated statement of financial position: group total equity, D1,353,891 thousand; the same in the 2024 comparatives", "as_of": "2023-12-31"},
+      "dividend_per_share": {"value": 0.75, "source": "Interim D0.30 (GSE PR 364/2023) plus final D0.45 (GSE PR 165/2024); Trust Bank PLC 2023 Annual Report (GSE PR 162/2024), note 13: total D0.75", "as_of": "2024-06-04"},
+      "dividend_payment_dates": {"value": ["2023-11-15", "2024-07-04"], "source": "GSE PR 364/2023 (interim paid 15 November 2023) and PR 165/2024 (final paid 4 July 2024)", "as_of": "2024-06-04"}
+    },
+    {
+      "fiscal_year": 2022,
+      "currency": "GMD",
+      "revenue": {"value": 951927000, "source": "Trust Bank PLC 2022 Annual Report (GSE PR 150/2023), consolidated statement of comprehensive income: group operating income, D951,927 thousand; the same in the 2023 comparatives", "as_of": "2022-12-31"},
+      "net_income": {"value": 248557000, "source": "Trust Bank PLC 2023 Annual Report (GSE PR 162/2024), consolidated statement of comprehensive income: 2022 group profit, restated, D248,557 thousand (D248,248 thousand in the 2022 Annual Report, GSE PR 150/2023)", "as_of": "2022-12-31"},
+      "eps": {"value": 1.24, "source": "Trust Bank PLC 2022 Annual Report (GSE PR 150/2023), note 12: group basic EPS D1.24, on 200 million shares; unchanged in the 2023 comparatives", "as_of": "2022-12-31"},
+      "book_value": {"value": 1192454000, "source": "Trust Bank PLC 2022 Annual Report (GSE PR 150/2023), consolidated statement of financial position: group total equity, D1,192,454 thousand; the same in the 2023 comparatives", "as_of": "2022-12-31"},
+      "dividend_per_share": {"value": 0.75, "source": "Trust Bank PLC 2022 Annual Report (GSE PR 150/2023), note 13: interim D0.45 paid plus final D0.30 proposed, total D0.75; final notice GSE PR 190/2023", "as_of": "2023-05-29"}
+    },
+    {
+      "fiscal_year": 2021,
+      "currency": "GMD",
+      "revenue": {"value": 678243000, "source": "Trust Bank Limited 2021 Annual Report (GSE PR 093/2022), consolidated statement of comprehensive income: group operating income, D678,243 thousand; the same in the 2022 comparatives", "as_of": "2021-12-31"},
+      "net_income": {"value": 143422000, "source": "Trust Bank Limited 2021 Annual Report (GSE PR 093/2022), consolidated statement of comprehensive income: group profit for the year, D143,422 thousand; the same in the 2022 comparatives", "as_of": "2021-12-31"},
+      "eps": {"value": 0.72, "source": "Trust Bank Limited 2021 Annual Report (GSE PR 093/2022), note 12: group basic EPS D0.72, on 200 million shares (the 2022 Annual Report's comparative shows 75 bututs, the bank-only figure)", "as_of": "2021-12-31"},
+      "book_value": {"value": 1091511000, "source": "Trust Bank Limited 2021 Annual Report (GSE PR 093/2022), consolidated statement of financial position: group total equity, D1,091,511 thousand; the same in the 2022 comparatives", "as_of": "2021-12-31"},
+      "dividend_per_share": {"value": 0.55, "source": "Trust Bank Limited 2021 Annual Report (GSE PR 093/2022), note 13: interim D0.25 paid plus final D0.30 proposed; the 2022 Annual Report (GSE PR 150/2023) gives the 2021 total as D0.55", "as_of": "2022-04-05"}
+    }
+  ]
+}
