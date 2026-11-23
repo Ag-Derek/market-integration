@@ -12,7 +12,7 @@ that company's description goes blank.
 
 ## Coverage
 
-Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**, **SCB**, **SOGEGH**, **GOIL**, **TOTAL**, **RBGH**, **SIC**, **KASA**, **MAC**, **SWL** (delisted), **TLW**, **TBL** (delisted).
+Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**, **SCB**, **SOGEGH**, **GOIL**, **TOTAL**, **RBGH**, **SIC**, **KASA**, **MAC**, **SWL** (delisted), **TLW**, **TBL** (delisted), **ZEN**.
 
 Basic profiles only (description, classification, website, headquarters,
 listing date; no officers or financials yet): **UNIL**, **FML**, **CLYD**, **CMLT**, **CPC**, **DASPHARMA**, **EGL**,
@@ -308,6 +308,36 @@ Notes on the basic profiles:
   highlights say D0.85; D0.85 is used. The 2021 EPS is the 2021 report's
   group D0.72; the 2022 report's comparative (75 bututs) is the
   bank-only figure. `shares_outstanding` is the 400m.
+- **ZEN** (ZEN Petroleum Holdings PLC) listed on 22 April 2026 after an
+  IPO of 128m new shares at GHS 5.00, from its prospectus dated 17 March
+  2026. The holding company was only incorporated on 9 December 2025, so
+  FY2023–FY2025 (years to 31 March) come from the reporting accountant's
+  **combined special purpose** statements of the five subsidiaries
+  (prospectus Appendix D). These are not consolidated group accounts.
+  Net income is profit after tax before the foreign currency translation
+  difference, which the prospectus labels confusingly ("profit for the
+  year" is used for both lines). No EPS or dividend per share is recorded
+  for those years: there was no share basis before the holding company
+  existed, and the combined dividends (GHS 51.3m, 175.6m, 135.9m) were
+  paid by the subsidiaries. **FY2026** has only `book_value`. No annual
+  report for the year to 31 March 2026 has been published: the company's
+  site says its first report is "not yet due", and nothing is on
+  gse.com.gh. The H1 2026/27 statements give the audited 1 April 2026
+  equity of GHS 198.9m. That is after a GHS 600m dividend recognised in
+  FY2026 and paid in April–June 2026. The Q1 statements had shown
+  GHS 320.6m before the audit adjustments. The H1 report refers to a note 6
+  on those adjustments, but the PDF ends at note 3. The big fall from
+  GHS 943.6m at March 2025 is mostly that dividend. Its per-share amount
+  is not stated, and it was paid while the 128m IPO shares were being
+  issued, so it is not recorded. `shares_outstanding` is 512m (prospectus)
+  plus the 128m IPO shares. The GSE listed-companies page shows
+  128,000,000, only the IPO shares, and its company link returns 404. The
+  H1 EPS (GHS 0.27 on GHS 172.6m) matches 640m. The website gives "over
+  1,300 staff", and both 58 and 63 stations, so `employees` is left
+  blank and the description says "more than 60" stations. Mr Lithur
+  joined the board as an independent director on 9 October 2026
+  (PR 454/2026); the officers listed are the chair, MD and finance
+  director.
 - **SCB-PREF** dividends are recorded by the calendar year of the
   half-year periods they cover ("March 2024", "September 2024"), as the
   bank's notices name them. That differs from how the AGM press reports
@@ -402,6 +432,7 @@ Left out (served as null) because they couldn't be found or confirmed:
 | SWL | FY2020 onward; `employees`, `website`; `officers` (finance) | Delisted 14 April 2023. The audited 2019 and 2020 statements are dead links on gse.com.gh, and nothing later was filed. The 2018 report gives no headcount and names no finance officer. |
 | TLW | `employees`; FY2021–FY2025 `dividend_payment_dates` | The 2025 annual report on gse.com.gh is only a cover note, and the 2022 headcount predates the asset sales. No dividend was paid in those years. |
 | TBL | FY2021, FY2022, FY2025 `dividend_payment_dates`; `officers` (finance) | The 2021 notices on gse.com.gh are dead links, and the 2022 interim notice was not found. No notice of the 2025 final dividend (proposed for the June 2026 AGM) was filed before delisting. The annual report names no CFO. |
+| ZEN | FY2026 `revenue`, `net_income`, `eps`, dividends; FY2023–FY2025 `eps`, dividends; `employees` | The FY2026 annual report is not yet published. Before the December 2025 holding company there was no share basis, and the subsidiaries paid the dividends. The website's headcount ("over 1,300") is approximate. |
 | SCB-PREF | FY2025–FY2026 dividends; FY2022 `dividend_payment_dates`; `listing_date` | The March 2025, March 2026 and September 2022 preference dividend notices are not on gse.com.gh. The GSE page gives only the issuer's listing date. |
 | AADS | `shares_outstanding`; dividends | No current count of GhDSs in issue (the GSE page's 0.98m predates 2023). Dividends are declared in USD per ordinary share, with no published cedi amount per GhDS. |
 | TOTAL | `officers` (finance) | The 2025 annual report names no CFO; Mercy Samson, the investor relations director, is listed instead. |
