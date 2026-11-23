@@ -1,0 +1,48 @@
+{
+  "symbol": "ZEN",
+  "profile": {
+    "description_short": {"value": "Ghanaian oil marketing group supplying fuel and lubricants mainly to mines, with a retail station network, a Takoradi gasoil terminal and its own tanker fleet; listed in April 2026 and 80% owned by its founder.", "source": "Written by us from the ZEN Petroleum Holdings PLC IPO Prospectus dated 17 March 2026 (sections 3.1-3.3) and the unaudited statements for the six months to 30 September 2026", "as_of": "2026-09-30"},
+    "description_full": {"value": "ZEN Petroleum Holdings PLC is the holding company of the ZEN group, which imports, stores, transports and sells petroleum products in Ghana. William Tewiah founded the business in 2010; its main operating company, ZEN Petroleum Ltd, was incorporated in 2012 and licensed as an oil marketing company in 2013. ZEN's core market is the mining sector: the prospectus estimates it supplies about 49% of the fuel used by Ghana's major mines, from depots at sites including Tarkwa, Ayanfuri, Manso Nkran, Bolgatanga and Kenyasi, and it also sells lubricants and marine gasoil and runs more than 60 retail service stations. Its other subsidiaries are Astra Oil Services, a bulk importer and distributor; ZEN Terminals, which owns a 30,000-tonne gasoil depot at New Takoradi; and two haulage companies, ZEN Transport and Ladybird Logistics, the latter run with an all-female driver team. National Petroleum Authority figures for January to August 2026 placed it fourth among Ghana's oil marketing companies. The holding company was incorporated on 9 December 2025 to take over these subsidiaries and listed on the Ghana Stock Exchange on 22 April 2026, after an initial public offer of 128 million new shares at GHS 5.00 that raised GHS 640 million. Mr Tewiah keeps 512 million of the 640 million shares (80%). The group's year ends on 31 March. On the combined basis in its prospectus, revenue grew from GHS 5.1 billion in the year to March 2023 to GHS 6.3 billion in the year to March 2025, and profit after tax from GHS 212 million to GHS 388 million.", "source": "Written by us from the ZEN Petroleum Holdings PLC IPO Prospectus dated 17 March 2026 (sections 3.1-3.3, director profiles, Table 13 and Appendix D, the reporting accountant's report on the combined special purpose historical financial statements), the unaudited statements for the six months to 30 September 2026 (overview and operational review) and the GSE listed-companies page (date listed 22/04/2026)", "as_of": "2026-11-23"},
+    "sector": {"value": "Energy", "source": "Our classification, matching the instrument master; from the nature of business in the ZEN Petroleum Holdings PLC unaudited statements to 30 September 2026, note 1", "as_of": "2026-09-30"},
+    "industry": {"value": "Petroleum products marketing and distribution", "source": "Our classification, from the ZEN Petroleum Holdings PLC unaudited statements to 30 September 2026, note 1 (sourcing, storage, transportation and distribution of fuels and lubricants)", "as_of": "2026-09-30"},
+    "website": {"value": "https://www.zenpetroleum.com/", "source": "ZEN Petroleum Holdings PLC IPO Prospectus dated 17 March 2026 (www.zenpetroleum.com); checked live", "as_of": "2026-11-23"},
+    "headquarters_city": {"value": "Accra", "source": "ZEN Petroleum Holdings PLC unaudited statements to 30 September 2026, note 1: registered office at 13 Patrice Lumumba Road, Airport Residential Area, Accra", "as_of": "2026-09-30"},
+    "headquarters_country": {"value": "Ghana", "source": "ZEN Petroleum Holdings PLC unaudited statements to 30 September 2026, note 1: registered and domiciled in Ghana", "as_of": "2026-09-30"},
+    "shares_outstanding": {"value": 640000000, "source": "ZEN Petroleum Holdings PLC IPO Prospectus dated 17 March 2026, section 3.3 (512,000,000 shares in issue before the offer) plus the 128,000,000 shares on offer, fully issued (GHS 640,000k share issuance proceeds in the unaudited statements to 30 June 2026). The H1 2026/27 EPS (GHS 0.27 on GHS 172,618k profit) matches 640 million shares. The GSE listed-companies page shows 128,000,000 issued shares, only the IPO shares", "as_of": "2026-09-30"},
+    "listing_date": {"value": "2026-04-22", "source": "GSE listed-companies page (ZEN, date listed 22/04/2026)", "as_of": "2026-11-23"},
+    "registrar": {"value": "Central Securities Depository (GH) Ltd", "source": "ZEN Petroleum Holdings PLC IPO Prospectus dated 17 March 2026, important information: \"Central Securities Depository (GH) LTD (CSD) is acting as Registrar\"; definitions: \"Registrar means the CSD\"", "as_of": "2026-03-17"}
+  },
+  "officers": [
+    {"name": "Frank Brako Adu", "role": "Chairman", "display_order": 1, "source": "ZEN Petroleum Holdings PLC IPO Prospectus dated 17 March 2026, corporate information (Chairman, Independent Non-Executive Director, appointed 1 January 2026); company website, our leadership page (Board Chairman)", "as_of": "2026-11-23"},
+    {"name": "William Tewiah", "role": "Managing Director", "display_order": 2, "source": "ZEN Petroleum Holdings PLC IPO Prospectus dated 17 March 2026, corporate information (Managing Director); company website, our leadership page; signed the unaudited statements to 30 June 2026 as director on 28 July 2026", "as_of": "2026-11-23"},
+    {"name": "Kwame Asante Asamoah", "role": "Finance Director", "display_order": 3, "source": "ZEN Petroleum Holdings PLC IPO Prospectus dated 17 March 2026, corporate information (Executive Director, Finance Director); company website, our leadership page (Finance Director)", "as_of": "2026-11-23"}
+  ],
+  "financials": [
+    {
+      "fiscal_year": 2026,
+      "currency": "GHS",
+      "book_value": {"value": 198899000, "source": "ZEN Petroleum Holdings PLC unaudited statements to 30 September 2026, statement of changes in equity: balance at 1 April 2026 (note 6), GHS 198,899k, \"updated to reflect adjustments arising from the audit of the financial statements for the year ended 31 March 2026\"; after the GHS 600m dividend recognised in that year. The 30 June 2026 statements had given GHS 320,567k before the audit adjustments", "as_of": "2026-03-31"}
+    },
+    {
+      "fiscal_year": 2025,
+      "currency": "GHS",
+      "revenue": {"value": 6343058000, "source": "ZEN Petroleum Holdings PLC IPO Prospectus dated 17 March 2026, Appendix D (reporting accountant's report): combined special purpose historical statement of comprehensive income of the five subsidiaries, revenue GHS 6,343,058k; also Table 13", "as_of": "2025-03-31"},
+      "net_income": {"value": 388165000, "source": "ZEN Petroleum Holdings PLC IPO Prospectus dated 17 March 2026, Appendix D: combined profit for the year before other comprehensive income, GHS 388,165k (all subsidiaries wholly owned)", "as_of": "2025-03-31"},
+      "book_value": {"value": 943637000, "source": "ZEN Petroleum Holdings PLC IPO Prospectus dated 17 March 2026, Appendix D: combined special purpose statement of changes in equity, total equity GHS 943,637k", "as_of": "2025-03-31"}
+    },
+    {
+      "fiscal_year": 2024,
+      "currency": "GHS",
+      "revenue": {"value": 4906491000, "source": "ZEN Petroleum Holdings PLC IPO Prospectus dated 17 March 2026, Appendix D: combined special purpose historical statement of comprehensive income, revenue GHS 4,906,491k; also Table 13", "as_of": "2024-03-31"},
+      "net_income": {"value": 208816000, "source": "ZEN Petroleum Holdings PLC IPO Prospectus dated 17 March 2026, Appendix D: combined profit for the year before other comprehensive income, GHS 208,816k", "as_of": "2024-03-31"},
+      "book_value": {"value": 642787000, "source": "ZEN Petroleum Holdings PLC IPO Prospectus dated 17 March 2026, Appendix D: combined special purpose statement of changes in equity, total equity GHS 642,787k", "as_of": "2024-03-31"}
+    },
+    {
+      "fiscal_year": 2023,
+      "currency": "GHS",
+      "revenue": {"value": 5112735000, "source": "ZEN Petroleum Holdings PLC IPO Prospectus dated 17 March 2026, Appendix D: combined special purpose historical statement of comprehensive income, revenue GHS 5,112,735k; also Table 13", "as_of": "2023-03-31"},
+      "net_income": {"value": 212043000, "source": "ZEN Petroleum Holdings PLC IPO Prospectus dated 17 March 2026, Appendix D: combined profit for the year before other comprehensive income, GHS 212,043k", "as_of": "2023-03-31"},
+      "book_value": {"value": 559738000, "source": "ZEN Petroleum Holdings PLC IPO Prospectus dated 17 March 2026, Appendix D: combined special purpose statement of changes in equity, total equity GHS 559,738k", "as_of": "2023-03-31"}
+    }
+  ]
+}
