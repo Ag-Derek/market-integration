@@ -12,7 +12,7 @@ that company's description goes blank.
 
 ## Coverage
 
-Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**, **SCB**, **SOGEGH**, **GOIL**, **TOTAL**, **RBGH**, **SIC**, **KASA**, **MAC**, **SWL** (delisted), **TLW**, **TBL** (delisted), **ZEN**.
+Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**, **SCB**, **SOGEGH**, **GOIL**, **TOTAL**, **RBGH**, **SIC**, **KASA**, **MAC**, **SWL** (delisted), **TLW**, **TBL** (delisted), **ZEN**, **IIL**.
 
 Basic profiles only (description, classification, website, headquarters,
 listing date; no officers or financials yet): **UNIL**, **FML**, **CLYD**, **CMLT**, **CPC**, **DASPHARMA**, **EGL**,
@@ -338,6 +338,36 @@ Notes on the basic profiles:
   joined the board as an independent director on 9 October 2026
   (PR 454/2026); the officers listed are the chair, MD and finance
   director.
+- **IIL** (Intravenous Infusions PLC) trades on the GAX. Its annual
+  reports for 2022–2025 (GSE PR 103/2023, PR 117/2024, PR 136/2025,
+  PR 147/2026) and the H1 2026 statements (PR 329/2026) are scans with no
+  text layer. On gse.com.gh each is a one-page cover note plus a separate
+  attachment. They were read from rendered page images. Figures are
+  company-only: the FlexPharm subsidiary (GHS 9,720 investment) is not
+  consolidated. EPS is printed as "pesewa", but the figures are cedis
+  (2025: GHS 4,631,793 / 274,408,346 = 0.0169). The 2022 report gives no
+  EPS, so 2022 comes from the 2023 report's comparative, and 2021 is
+  blank. The 2022 book value follows the 2024 report's 1 January 2023
+  balance (GHS 14,778,726); the 2022 report shows 14,778,723. The FY2023
+  dividend is GHS 0.0028 per the payment notice (PR 266/2025). The 2024
+  report's directors' report says GHS 0.004, but its total (GHS 768,343)
+  is 0.0028 a share. It was approved at the 2024 AGM but only paid on
+  18 July 2025. **Share count:** `shares_outstanding` is the 274,408,346
+  at end-2025. The GSE page's 258.82m is stale. In February 2026 shareholders
+  approved a GHS 50m rights issue and private placement, and converting
+  GHS 5.04m of loans from CCM Healthcare Investments and AI Acquisitions
+  into shares (PR 088/2026). The conversion took effect on 9 August 2026
+  (PR 455/2026), and stated capital is GHS 16.4m at 30 June 2026. No filing gives the
+  number of new shares or the conversion price, so the count, and any
+  market cap from it, understates the current total. The H1 2026 EPS
+  (GHS 0.0005) is too rounded to back out a share count. The 2025
+  auditor (Intellisys) flagged material uncertainty over going concern.
+  Ernst & Young was appointed auditor at the October 2026 AGM. The
+  registrar is GCB Bank's Share Registry, per the 2026 AGM notice; the
+  GSE distribution lists name NTHC Registrars. That notice gives the
+  registered office as No. 9 Carrot Avenue, East Legon, which is the
+  company secretary's address. The annual report and the 2026 letterhead
+  both give Koforidua, which is used.
 - **SCB-PREF** dividends are recorded by the calendar year of the
   half-year periods they cover ("March 2024", "September 2024"), as the
   bank's notices name them. That differs from how the AGM press reports
@@ -433,6 +463,7 @@ Left out (served as null) because they couldn't be found or confirmed:
 | TLW | `employees`; FY2021–FY2025 `dividend_payment_dates` | The 2025 annual report on gse.com.gh is only a cover note, and the 2022 headcount predates the asset sales. No dividend was paid in those years. |
 | TBL | FY2021, FY2022, FY2025 `dividend_payment_dates`; `officers` (finance) | The 2021 notices on gse.com.gh are dead links, and the 2022 interim notice was not found. No notice of the 2025 final dividend (proposed for the June 2026 AGM) was filed before delisting. The annual report names no CFO. |
 | ZEN | FY2026 `revenue`, `net_income`, `eps`, dividends; FY2023–FY2025 `eps`, dividends; `employees` | The FY2026 annual report is not yet published. Before the December 2025 holding company there was no share basis, and the subsidiaries paid the dividends. The website's headcount ("over 1,300") is approximate. |
+| IIL | `employees`; FY2021 `eps`; FY2021–FY2022, FY2024–FY2025 `dividend_payment_dates` | The filings give no headcount. The 2022 report gives no EPS, and 2021 has no later comparative. No dividend was declared for those years. |
 | SCB-PREF | FY2025–FY2026 dividends; FY2022 `dividend_payment_dates`; `listing_date` | The March 2025, March 2026 and September 2022 preference dividend notices are not on gse.com.gh. The GSE page gives only the issuer's listing date. |
 | AADS | `shares_outstanding`; dividends | No current count of GhDSs in issue (the GSE page's 0.98m predates 2023). Dividends are declared in USD per ordinary share, with no published cedi amount per GhDS. |
 | TOTAL | `officers` (finance) | The 2025 annual report names no CFO; Mercy Samson, the investor relations director, is listed instead. |
