@@ -12,7 +12,7 @@ that company's description goes blank.
 
 ## Coverage
 
-Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**, **SCB**, **SOGEGH**, **GOIL**, **TOTAL**, **RBGH**, **SIC**, **KASA**, **MAC**, **SWL** (delisted), **TLW**, **TBL** (delisted), **ZEN**, **IIL**.
+Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**, **SCB**, **SOGEGH**, **GOIL**, **TOTAL**, **RBGH**, **SIC**, **KASA**, **MAC**, **SWL** (delisted), **TLW**, **TBL** (delisted), **ZEN**, **IIL**, **MMH**.
 
 Basic profiles only (description, classification, website, headquarters,
 listing date; no officers or financials yet): **UNIL**, **FML**, **CLYD**, **CMLT**, **CPC**, **DASPHARMA**, **EGL**,
@@ -368,6 +368,42 @@ Notes on the basic profiles:
   registered office as No. 9 Carrot Avenue, East Legon, which is the
   company secretary's address. The annual report and the 2026 letterhead
   both give Koforidua, which is used.
+- **MMH** (Meridian Marshalls Holdings Limited) trades on the GAX, and
+  its year ends on 31 July. It owns Marshalls University College and
+  Meridian Pre-University. The instrument master had it as
+  "Meridian-Marshall Holdings" in Financial Services; it is now Meridian
+  Marshalls Holdings Limited in **Education**, as on the GSE. Its filings
+  are unreliable:
+  - **FY2024:** the only "annual report" on gse.com.gh (PR 045/2025)
+    covers the holding company alone: no income, a GHS 24,190 loss and
+    equity of GHS 1.24m. Its directors' and auditor's reports are
+    copied from 2023 and still refer to "31st July 2023". FY2024 is
+    therefore taken from the consolidated full-year comparatives in the
+    **unaudited** January 2025 interim (PR 122/2025): income
+    GHS 1,222,711, loss 463,613, equity 762,495. The January 2026 interim
+    gives the same loss and equity, and the opening equity matches the
+    audited FY2023 close.
+  - **FY2025 is left out.** The January 2026 interim (PR 157/2026) has a
+    "2025" column that looks like the full year to July 2025: income
+    GHS 3,085,993, loss 304,666, equity 457,829. But it contradicts
+    itself and the January 2025 interim. The equity table labelled "year
+    ended 31 July 2025" actually covers FY2024. The 2026 column opens
+    retained earnings at (262,668) against a (1,092,671) close. The
+    January 2025 interim's H1 loss (644,323) is larger than that "full
+    year" loss. No FY2025 annual report has been filed.
+  - **FY2021** has only `book_value`, the opening equity in the FY2023
+    report's equity statement. The FY2022 report (PR 392/2022) on
+    gse.com.gh is a damaged PDF with no pages.
+  - Revenue is total operating income (tuition, registration and other
+    fees).
+  - No filing gives EPS.
+  - `shares_outstanding` is the register total (96,084,166); the
+    stated-capital note rounds it to 96,084 thousand.
+  - **Officers:** Prof. Amenumey is chairman in the FY2024 report and on
+    the GSE page. The 2025 and 2026 interims drop him from the board
+    list and name no chairman. No filing names an executive head.
+  - **Website:** marshalls.edu.gh redirects to a placeholder "/test/"
+    page, so `website` is blank.
 - **SCB-PREF** dividends are recorded by the calendar year of the
   half-year periods they cover ("March 2024", "September 2024"), as the
   bank's notices name them. That differs from how the AGM press reports
@@ -464,6 +500,7 @@ Left out (served as null) because they couldn't be found or confirmed:
 | TBL | FY2021, FY2022, FY2025 `dividend_payment_dates`; `officers` (finance) | The 2021 notices on gse.com.gh are dead links, and the 2022 interim notice was not found. No notice of the 2025 final dividend (proposed for the June 2026 AGM) was filed before delisting. The annual report names no CFO. |
 | ZEN | FY2026 `revenue`, `net_income`, `eps`, dividends; FY2023–FY2025 `eps`, dividends; `employees` | The FY2026 annual report is not yet published. Before the December 2025 holding company there was no share basis, and the subsidiaries paid the dividends. The website's headcount ("over 1,300") is approximate. |
 | IIL | `employees`; FY2021 `eps`; FY2021–FY2022, FY2024–FY2025 `dividend_payment_dates` | The filings give no headcount. The 2022 report gives no EPS, and 2021 has no later comparative. No dividend was declared for those years. |
+| MMH | FY2025; FY2021 `revenue`, `net_income`; `eps`; `employees`, `website`, `registrar`; `officers` (executive) | The FY2025 figures in the January 2026 interim contradict each other, and no FY2025 annual report has been filed. The FY2022 report PDF is damaged. The filings give no EPS, headcount, registrar or executive head, and the college website is a placeholder. |
 | SCB-PREF | FY2025–FY2026 dividends; FY2022 `dividend_payment_dates`; `listing_date` | The March 2025, March 2026 and September 2022 preference dividend notices are not on gse.com.gh. The GSE page gives only the issuer's listing date. |
 | AADS | `shares_outstanding`; dividends | No current count of GhDSs in issue (the GSE page's 0.98m predates 2023). Dividends are declared in USD per ordinary share, with no published cedi amount per GhDS. |
 | TOTAL | `officers` (finance) | The 2025 annual report names no CFO; Mercy Samson, the investor relations director, is listed instead. |

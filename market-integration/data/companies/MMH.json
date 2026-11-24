@@ -1,0 +1,48 @@
+{
+  "symbol": "MMH",
+  "profile": {
+    "description_short": {"value": "Holding company of Marshalls University College, a small private tertiary college in Accra, and a pre-university school; traded on the Ghana Alternative Market and loss-making every year since 2022.", "source": "Written by us from the Meridian Marshalls Holdings Limited consolidated reports and financial statements for the year ended 31 July 2023 (GSE PR 432/2023: nature of business, notes 1 and 14a, statement of consolidated comprehensive income)", "as_of": "2023-07-31"},
+    "description_full": {"value": "Meridian Marshalls Holdings Limited owns all of Marshalls University College Limited, a private tertiary college in Accra, and Meridian Pre-University, and is registered to carry on education and research and to import and export educational materials. Its main campus is at Odorkor, on the Kasoa-Mallam highway, and its registered office is in the NTHC Estate at East Airport, Accra. The company raised capital through an initial public offer in 2015 and its shares were listed on the Ghana Alternative Market on 7 July 2015. Dr Tetteh Nettey and Mrs Genevieve Naa Aku Nettey each hold 39.03% of the 96.1 million shares, and CAL Brokers 17.33%. It is a very small business: tuition and other fees were about GHS 1.0 million in each of the years to July 2022 and July 2023 and GHS 1.2 million in the year to July 2024, and it has made a loss after tax every year since 2022. Its equity fell from GHS 1.7 million in July 2021 to GHS 0.8 million in July 2024. Its liabilities are mostly amounts owed to its directors and other payables, and the 2023 auditors noted a working-capital shortfall of about GHS 5.2 million, a current ratio of 0.25, and that its going concern was \"highly in doubt\". No dividend has been recommended in any recent year.", "source": "Written by us from the Meridian Marshalls Holdings Limited consolidated reports and financial statements for the year ended 31 July 2023 (GSE PR 432/2023: report of the directors, auditors' report key audit matters, statements of consolidated comprehensive income, financial position and changes in equity, notes 1, 12-14a, analysis of shareholding), the unaudited consolidated statements for the period ended 31 January 2025 (GSE PR 122/2025: 2024 comparatives) and the GSE listed-company page (date listed)", "as_of": "2026-11-24"},
+    "sector": {"value": "Education", "source": "Our classification, matching the instrument master and the GSE's Education category for MMH; from the nature of business in the Meridian Marshalls Holdings 2023 report (GSE PR 432/2023): education and research", "as_of": "2023-07-31"},
+    "industry": {"value": "Private tertiary education", "source": "Our classification, from the Meridian Marshalls Holdings 2023 report (GSE PR 432/2023), notes 1 and 14a: main campus at Odorkor; parent of Marshalls University College Limited and Meridian Pre-University", "as_of": "2023-07-31"},
+    "headquarters_city": {"value": "Accra", "source": "Meridian Marshalls Holdings unaudited consolidated statements for the period ended 31 January 2026 (GSE PR 157/2026), note 1.1: registered office at House No. A4 Pilot Link, NTHC Estate, East Airport", "as_of": "2026-01-31"},
+    "headquarters_country": {"value": "Ghana", "source": "Meridian Marshalls Holdings unaudited consolidated statements for the period ended 31 January 2026 (GSE PR 157/2026), note 1.1: incorporated in Ghana", "as_of": "2026-01-31"},
+    "shares_outstanding": {"value": 96084166, "source": "Meridian Marshalls Holdings unaudited consolidated statements for the period ended 31 January 2026 (GSE PR 157/2026): analysis of shareholding and top twenty shareholders, grand total 96,084,166 shares; note 11 gives 96,084 thousand issued shares and the GSE listed-company page 96,084,000", "as_of": "2026-01-31"},
+    "listing_date": {"value": "2015-07-07", "source": "GSE listed-company page for MMH (date listed 7/7/2015); GSE PR 218/2015 (MMH listing and first day of trading)", "as_of": "2026-11-24"}
+  },
+  "officers": [
+    {"name": "Divine E.K. Amenumey", "role": "Chairman", "display_order": 1, "source": "Meridian Marshalls Holdings report and financial statements for the year ended 31 July 2024 (GSE PR 045/2025), general information: Prof. Divine E.K. Amenumey - Chairman; also the GSE listed-company page. The January 2025 and January 2026 interim statements list the board without him and name no chairman", "as_of": "2025-02-28"},
+    {"name": "Tetteh Nettey", "role": "Director", "display_order": 2, "source": "Meridian Marshalls Holdings unaudited consolidated statements for the period ended 31 January 2026 (GSE PR 157/2026): first-named director, signed the statement of financial position on 10 April 2026; holds 39.03% of the shares", "as_of": "2026-04-10"}
+  ],
+  "financials": [
+    {
+      "fiscal_year": 2024,
+      "currency": "GHS",
+      "revenue": {"value": 1222711, "source": "Meridian Marshalls Holdings unaudited consolidated statements for the period ended 31 January 2025 (GSE PR 122/2025), statement of consolidated comprehensive income, 2024 (year to 31 July 2024) column: total operating income GHS 1,222,711. Unaudited: the audited FY2024 report on gse.com.gh (PR 045/2025) covers the holding company alone", "as_of": "2024-07-31"},
+      "net_income": {"value": -463613, "source": "Meridian Marshalls Holdings unaudited consolidated statements for the period ended 31 January 2025 (GSE PR 122/2025), 2024 column: loss after taxation GHS 463,613; the same in the consolidated statement of changes in equity in that filing and in GSE PR 157/2026", "as_of": "2024-07-31"},
+      "book_value": {"value": 762495, "source": "Meridian Marshalls Holdings unaudited consolidated statements for the period ended 31 January 2025 (GSE PR 122/2025): consolidated statement of changes in equity, at 31 July 2024, GHS 762,495; the same in GSE PR 157/2026", "as_of": "2024-07-31"},
+      "dividend_per_share": {"value": 0.0, "source": "Meridian Marshalls Holdings report and financial statements for the year ended 31 July 2024 (GSE PR 045/2025), report of the directors: \"The Directors do not recommend the payment of dividend\"", "as_of": "2024-07-31"}
+    },
+    {
+      "fiscal_year": 2023,
+      "currency": "GHS",
+      "revenue": {"value": 1026908, "source": "Meridian Marshalls Holdings consolidated reports and financial statements for the year ended 31 July 2023 (GSE PR 432/2023), statement of consolidated comprehensive income: total operating income GHS 1,026,908", "as_of": "2023-07-31"},
+      "net_income": {"value": -300212, "source": "Meridian Marshalls Holdings consolidated reports and financial statements for the year ended 31 July 2023 (GSE PR 432/2023), statement of consolidated comprehensive income: loss after taxation GHS 300,212", "as_of": "2023-07-31"},
+      "book_value": {"value": 1226108, "source": "Meridian Marshalls Holdings consolidated reports and financial statements for the year ended 31 July 2023 (GSE PR 432/2023), statement of consolidated financial position: equity GHS 1,226,108", "as_of": "2023-07-31"},
+      "dividend_per_share": {"value": 0.0, "source": "Meridian Marshalls Holdings consolidated reports and financial statements for the year ended 31 July 2023 (GSE PR 432/2023), report of the directors: the Directors do not recommend the payment of dividend", "as_of": "2023-07-31"}
+    },
+    {
+      "fiscal_year": 2022,
+      "currency": "GHS",
+      "revenue": {"value": 1025995, "source": "Meridian Marshalls Holdings consolidated reports and financial statements for the year ended 31 July 2023 (GSE PR 432/2023), statement of consolidated comprehensive income, 2022 column: total operating income GHS 1,025,995", "as_of": "2022-07-31"},
+      "net_income": {"value": -191082, "source": "Meridian Marshalls Holdings consolidated reports and financial statements for the year ended 31 July 2023 (GSE PR 432/2023), 2022 column: loss after taxation GHS 191,082", "as_of": "2022-07-31"},
+      "book_value": {"value": 1526320, "source": "Meridian Marshalls Holdings consolidated reports and financial statements for the year ended 31 July 2023 (GSE PR 432/2023), statement of consolidated financial position, 2022 column: equity GHS 1,526,320", "as_of": "2022-07-31"},
+      "dividend_per_share": {"value": 0.0, "source": "Meridian Marshalls Holdings consolidated reports and financial statements for the year ended 31 July 2023 (GSE PR 432/2023), report of the directors, dividend: none recommended for the year, prior year nil", "as_of": "2023-07-31"}
+    },
+    {
+      "fiscal_year": 2021,
+      "currency": "GHS",
+      "book_value": {"value": 1717402, "source": "Meridian Marshalls Holdings consolidated reports and financial statements for the year ended 31 July 2023 (GSE PR 432/2023), consolidated statement of changes in equity for the year ended 31 July 2022: at 1 August 2021, GHS 1,717,402", "as_of": "2021-07-31"}
+    }
+  ]
+}
