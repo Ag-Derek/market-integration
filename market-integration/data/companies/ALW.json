@@ -1,0 +1,54 @@
+{
+  "symbol": "ALW",
+  "profile": {
+    "description_short": {"value": "Tema aluminium cold-rolling mill, majority-owned by SSNIT, idle since 2022 and suspended from the Ghana Stock Exchange since October 2023 for failing to file accounts.", "source": "Written by us from GSE PR 351/2023 (suspension of listing status of Aluworks Plc) and the Aluworks Plc report and financial statements for 2021 (GSE PR 208/2022: report of the directors, note 34)", "as_of": "2023-10-02"},
+    "description_full": {"value": "Aluworks Plc runs an aluminium continuous-casting and cold-rolling mill in Tema's Heavy Industrial Area, the only cold-rolling plant in Ghana, making sheets-in-coil, flat and corrugated roofing sheets, discs and other semi-finished aluminium products for the building and household markets in Ghana and West Africa. Its shares have been listed on the Ghana Stock Exchange since 29 November 1996. At the end of 2021 the Social Security and National Insurance Trust (SSNIT) owned 62.6% and Caitlyn Limited, an investment vehicle of the Indian aluminium group Vedanta, 21.9%. The company has lost money every year since at least 2017. Revenue was GHS 99 million in 2021, when the loss was GHS 66 million, and fell to GHS 33 million in 2022, with a loss of GHS 75 million that left equity negative. Since 2019 it has been waiting for a restructuring in which Caitlyn, later MALCO, another Vedanta company, would invest working capital in exchange for majority control while SSNIT converted part of its loans into shares. Deloitte, its auditor, declined to give an opinion on the 2021 accounts because of the doubt over its ability to continue as a going concern. Production stopped in 2022. The Ghana Stock Exchange suspended the shares from 2 October 2023 because the company had not filed audited 2022 accounts or its 2023 quarterly reports; the unaudited 2022 statements are its last filing.", "source": "Written by us from the Aluworks Plc report and financial statements for 2021 (GSE PR 208/2022: report of the directors, five-year financial highlights, going concern and subsequent events, independent auditor's report, note 34), the unaudited statements for 2022 (GSE PR 024/2023), GSE PR 351/2023 (suspension), the GSE listed-company page (nature of business, date listed) and Ghana News Agency, April 2025 (plant idle since 2022, restart awaiting SSNIT board approval)", "as_of": "2026-11-24"},
+    "sector": {"value": "Manufacturing", "source": "Our classification, matching the instrument master; from the nature of business on the GSE listed-company page (aluminium continuous casting and cold rolling)", "as_of": "2026-11-24"},
+    "industry": {"value": "Aluminium rolling and flat products", "source": "Our classification, from the nature of business on the GSE listed-company page for ALW and the Aluworks Plc 2021 report (GSE PR 208/2022)", "as_of": "2026-11-24"},
+    "headquarters_city": {"value": "Tema", "source": "Aluworks Plc unaudited statements for 2022 (GSE PR 024/2023), corporate information: principal place of business and registered office, Plot No. 63/1, Heavy Industrial Area, Tema", "as_of": "2022-12-31"},
+    "headquarters_country": {"value": "Ghana", "source": "Aluworks Plc unaudited statements for 2022 (GSE PR 024/2023), corporate information", "as_of": "2022-12-31"},
+    "employees": {"value": 183, "source": "Aluworks Plc report and financial statements for 2021 (GSE PR 208/2022), note 25: average number of persons employed during 2021 was 183 (2020: 177); no later figure, and the plant has been idle since 2022", "as_of": "2021-12-31"},
+    "shares_outstanding": {"value": 236687001, "source": "Aluworks Plc report and financial statements for 2021 (GSE PR 208/2022), note 34: 236,687,001 ordinary shares in issue at 31 December 2021 (2020: the same). The GSE listed-company page gives 236,685,180; EPS in the 2022 unaudited statements matches either", "as_of": "2021-12-31"},
+    "listing_date": {"value": "1996-11-29", "source": "GSE listed-company page for ALW (date listed 29th November, 1996)", "as_of": "2026-11-24"},
+    "registrar": {"value": "Universal Merchant Bank Limited", "source": "Aluworks Plc unaudited statements for 2022 (GSE PR 024/2023), corporate information: registrars, Universal Merchant Bank Limited, Merban House, Accra; GSE PR 351/2023 distribution list: \"UMB Registrars, (Registrars for ALW shares)\"", "as_of": "2023-09-28"}
+  },
+  "officers": [
+    {"name": "Lade Wosornu", "role": "Chairman", "display_order": 1, "source": "Aluworks Plc unaudited statements for 2022 (GSE PR 024/2023), corporate information: Professor Lade Wosornu - Chairman; also the GSE listed-company page. No board change has been filed since", "as_of": "2023-01-31"},
+    {"name": "Ernest Kwasi Okoh", "role": "Managing Director", "display_order": 2, "source": "Aluworks Plc unaudited statements for 2022 (GSE PR 024/2023), corporate information: Ernest Kwasi Okoh - Managing Director; signed the 2021 statement of financial position (GSE PR 208/2022)", "as_of": "2023-01-31"}
+  ],
+  "financials": [
+    {
+      "fiscal_year": 2022,
+      "currency": "GHS",
+      "revenue": {"value": 33441000, "source": "Aluworks Plc UNAUDITED statements for the year ended 31 December 2022 (GSE PR 024/2023), statement of comprehensive income: revenue GHS 33,441 thousand. Audited 2022 accounts were never filed (GSE PR 351/2023)", "as_of": "2022-12-31"},
+      "net_income": {"value": -74943000, "source": "Aluworks Plc unaudited 2022 statements (GSE PR 024/2023), statement of comprehensive income: loss for the period GHS 74,943 thousand", "as_of": "2022-12-31"},
+      "eps": {"value": -0.3166, "source": "Aluworks Plc unaudited 2022 statements (GSE PR 024/2023), statement of comprehensive income: basic loss per share GHS 0.3166", "as_of": "2022-12-31"},
+      "book_value": {"value": -32462000, "source": "Aluworks Plc unaudited 2022 statements (GSE PR 024/2023), statement of changes in equity: balance at 31 December 2022, GHS (32,462) thousand", "as_of": "2022-12-31"}
+    },
+    {
+      "fiscal_year": 2021,
+      "currency": "GHS",
+      "revenue": {"value": 99011000, "source": "Aluworks Plc report and financial statements for 2021 (GSE PR 208/2022), statement of profit or loss and five-year highlights: revenue GHS 99,011 thousand", "as_of": "2021-12-31"},
+      "net_income": {"value": -65755000, "source": "Aluworks Plc 2021 report (GSE PR 208/2022), statement of profit or loss: loss for the year GHS 65,755 thousand. Deloitte gave a disclaimer of opinion on these statements", "as_of": "2021-12-31"},
+      "eps": {"value": -0.2778, "source": "Aluworks Plc 2021 report (GSE PR 208/2022), statement of profit or loss and five-year highlights: basic loss per share GHS 0.2778", "as_of": "2021-12-31"},
+      "book_value": {"value": 42481000, "source": "Aluworks Plc 2021 report (GSE PR 208/2022), statement of financial position: total equity GHS 42,481 thousand (stated capital 31,650 + revaluation surplus 195,052 + other reserves 980 - retained deficit 185,201; printed in brackets on that statement, but positive in the directors' report and the 2022 statement of changes in equity)", "as_of": "2021-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "Aluworks Plc 2021 report (GSE PR 208/2022), report of the directors: the Directors do not recommend the payment of dividend for the year ended 31 December 2021", "as_of": "2022-06-29"}
+    },
+    {
+      "fiscal_year": 2020,
+      "currency": "GHS",
+      "revenue": {"value": 68975000, "source": "Aluworks Plc 2021 report (GSE PR 208/2022), statement of profit or loss and five-year highlights: 2020 revenue GHS 68,975 thousand", "as_of": "2020-12-31"},
+      "net_income": {"value": -33794000, "source": "Aluworks Plc 2021 report (GSE PR 208/2022), five-year highlights: 2020 loss after tax GHS 33,794 thousand", "as_of": "2020-12-31"},
+      "eps": {"value": -0.1428, "source": "Aluworks Plc 2021 report (GSE PR 208/2022), five-year highlights: 2020 basic loss per share GHS 0.1428", "as_of": "2020-12-31"},
+      "book_value": {"value": -14683000, "source": "Aluworks Plc 2021 report (GSE PR 208/2022), statement of financial position: 2020 total equity GHS (14,683) thousand", "as_of": "2020-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "Aluworks Plc 2021 report (GSE PR 208/2022), report of the directors: no dividend for 2021 (2020: nil)", "as_of": "2022-06-29"}
+    },
+    {
+      "fiscal_year": 2019,
+      "currency": "GHS",
+      "revenue": {"value": 76993000, "source": "Aluworks Plc 2021 report (GSE PR 208/2022), five-year financial highlights: 2019 revenue GHS 76,993 thousand", "as_of": "2019-12-31"},
+      "net_income": {"value": -24199000, "source": "Aluworks Plc 2021 report (GSE PR 208/2022), five-year financial highlights: 2019 loss after tax GHS 24,199 thousand", "as_of": "2019-12-31"},
+      "eps": {"value": -0.1022, "source": "Aluworks Plc 2021 report (GSE PR 208/2022), five-year financial highlights: 2019 basic loss per share GHS 0.1022", "as_of": "2019-12-31"}
+    }
+  ]
+}

@@ -251,14 +251,22 @@ def test_description_has_performance_and_beta_from_the_stored_candles(client):
 
 
 def unprofiled_equity():
-    """An active, quoted equity with no file in data/companies/ (picked, not
-    hard-coded, so seeding another company doesn't break these tests)."""
+    """An active, quoted equity with no shares outstanding and no EPS
+    recorded: either no file in data/companies/, or one that leaves both
+    blank (e.g. GLD, AADS). Picked, not hard-coded, so seeding another
+    company doesn't break these tests."""
     from app import main
     from app.instruments import INSTRUMENTS
 
+    def unvalued(symbol):
+        company = main.COMPANIES.get(symbol)
+        return company is None or (
+            company.profile.shares_outstanding.value is None
+            and all(f.eps.value is None for f in company.financials))
+
     return next(i.symbol for i in INSTRUMENTS.values()
                 if i.asset_class == "equity" and i.status == "active"
-                and i.symbol not in main.COMPANIES and main.processor.get_latest(i.symbol))
+                and unvalued(i.symbol) and main.processor.get_latest(i.symbol))
 
 
 def test_simulated_gse_ci_endpoint(client):

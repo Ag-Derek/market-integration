@@ -1,0 +1,61 @@
+{
+  "symbol": "PBC",
+  "profile": {
+    "description_short": {"value": "Ghanaian cocoa-buying company, about 75% owned by SSNIT and the Government of Ghana, whose purchases have collapsed since 2023; suspended from the Ghana Stock Exchange since November 2023, with liabilities far above its assets.", "source": "Written by us from the PBC Limited financial statements for the year ended 30 September 2025 (GSE PR 393/2026: report of the directors, consolidated statements of comprehensive income and financial position) and GSE PR 401/2023 (suspension of listing status)", "as_of": "2025-09-30"},
+    "description_full": {"value": "PBC Limited, formerly the Produce Buying Company, buys cocoa beans from farmers, stores them in sheds at village and society level, and carts them to collection points where the Ghana Cocoa Board (COCOBOD) inspects, grades and seals them. It was the cocoa-buying arm of COCOBOD before being incorporated as a separate company on 15 September 1999 and listed on the Ghana Stock Exchange in May 2000. It also owns Golden Bean Hotel Limited, a hotel business. The Social Security and National Insurance Trust (SSNIT, 38.1%) and the Ministry of Finance (36.7%) together own about 75% of its 480 million shares, and the government also holds a golden preference share. Revenue, which is mostly the value of cocoa bought and delivered, fell from GHS 1.26 billion in the year to September 2021 and GHS 779 million in 2023 to GHS 41 million in 2024, and was GHS 64 million in 2025. The group has made a loss every year since 2021 (GHS 39.8 million in 2025), and its liabilities, mainly long-term loans of about GHS 318 million, exceed its assets: equity was negative GHS 481 million at September 2025. The auditors qualified their opinion on the 2025 accounts over going concern and noted that title deeds to the sheds and buildings ceded to the company by COCOBOD in 1999 have not been seen. The Ghana Stock Exchange suspended the shares from 8 November 2023 because no results had been filed since September 2022; the company has since filed its accounts for 2023 to 2025, but the shares remained suspended. A new board, chaired by Nana Meisu Adu, with Seidu Yonye as managing director, was appointed on 31 July 2025.", "source": "Written by us from the PBC Limited financial statements for 2022, 2023, 2024 and 2025 (GSE PR 404/2023, PR 004/2026, PR 393/2026: corporate information, report of the directors, independent auditor's report, consolidated statements, notes 19 and 33), GSE PR 401/2023 (suspension), the GSE listed-company page (nature of business) and the GSE daily shares report of 28 September 2026 (still marked suspended)", "as_of": "2026-11-24"},
+    "sector": {"value": "Agriculture", "source": "Our classification, matching the instrument master; from the nature of business on the GSE listed-company page (purchase of cocoa beans from farmers)", "as_of": "2026-11-24"},
+    "industry": {"value": "Cocoa purchasing (licensed buying)", "source": "Our classification, from the nature of business on the GSE listed-company page and the PBC Limited 2025 financial statements (GSE PR 393/2026), report of the directors", "as_of": "2025-09-30"},
+    "website": {"value": "https://www.pbcgh.com/", "source": "GSE PR 033/2026 (notice of EGM): Microsoft Teams link on the company's website at www.pbcgh.com. Checked live: the server responds but refuses automated requests (HTTP 406)", "as_of": "2026-11-24"},
+    "headquarters_city": {"value": "Accra", "source": "PBC Limited 2025 financial statements (GSE PR 393/2026), corporate information: registered office, No. 106 Olusegun Obasanjo Highway, Dzorwulu Junction, Accra", "as_of": "2025-09-30"},
+    "headquarters_country": {"value": "Ghana", "source": "PBC Limited 2025 financial statements (GSE PR 393/2026), corporate information", "as_of": "2025-09-30"},
+    "shares_outstanding": {"value": 480000000, "source": "PBC Limited 2022 audited financial statements (GSE PR 404/2023), note 19: 480,000 thousand ordinary shares issued (2,005 thousand for cash, 477,995 thousand for consideration other than cash), plus one golden preference share held by the Ministry of Finance; note 33 totals 480,000,000. Stated capital is unchanged at GHS 15.0m in the 2025 statements (GSE PR 393/2026); the GSE listed-company page also gives 480.00 million", "as_of": "2025-09-30"},
+    "listing_date": {"value": "2000-05-17", "source": "GSE listed-company page for PBC (date listed May 17th, 2000). The company's directors' reports give 19 May 2000", "as_of": "2026-11-24"},
+    "registrar": {"value": "MBG Registrars", "source": "GSE PR 393/2026 and PR 033/2026, distribution lists: \"MBG Registrars, (Registrars PBC shares)\"; the 2023 suspension notice (PR 401/2023) named NTHC Registrars", "as_of": "2026-09-29"}
+  },
+  "officers": [
+    {"name": "Nana Meisu Adu", "role": "Chairman", "display_order": 1, "source": "PBC Limited 2025 financial statements (GSE PR 393/2026), corporate information: Chairman (appointed 31 July 2025)", "as_of": "2025-09-30"},
+    {"name": "Seidu Yonye", "role": "Managing Director", "display_order": 2, "source": "PBC Limited 2025 financial statements (GSE PR 393/2026), corporate information: MD/Member (appointed 31 July 2025); top management, Managing Director", "as_of": "2025-09-30"},
+    {"name": "Thomas Ayisi-Kumah", "role": "Deputy Managing Director, Finance and Administration", "display_order": 3, "source": "PBC Limited 2025 financial statements (GSE PR 393/2026), corporate information: top management, DMD, Finance & Administration", "as_of": "2025-09-30"}
+  ],
+  "financials": [
+    {
+      "fiscal_year": 2025,
+      "currency": "GHS",
+      "revenue": {"value": 64199000, "source": "PBC Limited financial statements for the year ended 30 September 2025 (GSE PR 393/2026), consolidated statement of comprehensive income: group revenue GHS 64,199 thousand", "as_of": "2025-09-30"},
+      "net_income": {"value": -39825000, "source": "PBC Limited 2025 financial statements (GSE PR 393/2026), consolidated statement of comprehensive income: group loss for the period GHS 39,825 thousand. Qualified audit opinion (going concern, title deeds)", "as_of": "2025-09-30"},
+      "book_value": {"value": -481152000, "source": "PBC Limited 2025 financial statements (GSE PR 393/2026), consolidated statement of financial position: group total equity GHS (481,152) thousand", "as_of": "2025-09-30"},
+      "dividend_per_share": {"value": 0.0, "source": "PBC Limited 2025 financial statements (GSE PR 393/2026), report of the directors: no dividends are recommended for the year ended 30 September 2025", "as_of": "2025-09-30"}
+    },
+    {
+      "fiscal_year": 2024,
+      "currency": "GHS",
+      "revenue": {"value": 41495000, "source": "PBC Limited financial statements for the year ended 30 September 2024 (GSE PR 004/2026), consolidated statement of comprehensive income: group revenue GHS 41,495 thousand; the same in the 2025 comparatives (which reclassify part of cost of sales)", "as_of": "2024-09-30"},
+      "net_income": {"value": -69941000, "source": "PBC Limited 2024 financial statements (GSE PR 004/2026), consolidated statement of comprehensive income: group loss GHS 69,941 thousand; the same in the 2025 comparatives", "as_of": "2024-09-30"},
+      "book_value": {"value": -441327000, "source": "PBC Limited 2024 financial statements (GSE PR 004/2026), consolidated statement of financial position: group total equity GHS (441,327) thousand; the same in the 2025 comparatives", "as_of": "2024-09-30"},
+      "dividend_per_share": {"value": 0.0, "source": "PBC Limited 2024 financial statements (GSE PR 004/2026), report of the directors: no dividends are recommended for the year ended 30 September 2024", "as_of": "2024-09-30"}
+    },
+    {
+      "fiscal_year": 2023,
+      "currency": "GHS",
+      "revenue": {"value": 778852000, "source": "PBC Limited financial statements for the year ended 30 September 2023 (GSE PR 004/2026), consolidated statement of comprehensive income: group revenue GHS 778,852 thousand; the same in the 2024 comparatives", "as_of": "2023-09-30"},
+      "net_income": {"value": -34109000, "source": "PBC Limited 2023 financial statements (GSE PR 004/2026), consolidated statement of comprehensive income: group loss GHS 34,109 thousand; the same in the 2024 comparatives", "as_of": "2023-09-30"},
+      "book_value": {"value": -381340000, "source": "PBC Limited 2023 financial statements (GSE PR 004/2026), consolidated statement of financial position: group total equity GHS (381,340) thousand; the same in the 2024 comparatives", "as_of": "2023-09-30"},
+      "dividend_per_share": {"value": 0.0, "source": "PBC Limited 2023 financial statements (GSE PR 004/2026), report of the directors: no dividends are recommended for the year ended 30 September 2023", "as_of": "2023-09-30"}
+    },
+    {
+      "fiscal_year": 2022,
+      "currency": "GHS",
+      "revenue": {"value": 636383000, "source": "PBC Limited audited financial statements for the year ended 30 September 2022 (GSE PR 404/2023), consolidated statement of comprehensive income: group revenue GHS 636,383 thousand; the same in the 2023 comparatives", "as_of": "2022-09-30"},
+      "net_income": {"value": -30596000, "source": "PBC Limited 2022 audited financial statements (GSE PR 404/2023), consolidated statement of comprehensive income: group loss GHS 30,596 thousand; the same in the 2023 comparatives", "as_of": "2022-09-30"},
+      "book_value": {"value": -347232000, "source": "PBC Limited 2022 audited financial statements (GSE PR 404/2023), consolidated statement of financial position: group total equity GHS (347,232) thousand; the same in the 2023 comparatives", "as_of": "2022-09-30"},
+      "dividend_per_share": {"value": 0.0, "source": "PBC Limited 2022 audited financial statements (GSE PR 404/2023), report of the directors: no dividends are recommended for the year ended 30 September 2022", "as_of": "2022-09-30"}
+    },
+    {
+      "fiscal_year": 2021,
+      "currency": "GHS",
+      "revenue": {"value": 1255600000, "source": "PBC Limited 2022 audited financial statements (GSE PR 404/2023), consolidated statement of comprehensive income: 2021 group revenue GHS 1,255,600 thousand", "as_of": "2021-09-30"},
+      "net_income": {"value": -5654000, "source": "PBC Limited 2022 audited financial statements (GSE PR 404/2023), consolidated statement of comprehensive income: 2021 group loss GHS 5,654 thousand", "as_of": "2021-09-30"},
+      "book_value": {"value": -315632000, "source": "PBC Limited 2022 audited financial statements (GSE PR 404/2023), consolidated statement of financial position: 2021 group total equity GHS (315,632) thousand", "as_of": "2021-09-30"}
+    }
+  ]
+}

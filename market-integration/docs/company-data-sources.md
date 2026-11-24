@@ -12,7 +12,7 @@ that company's description goes blank.
 
 ## Coverage
 
-Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**, **SCB**, **SOGEGH**, **GOIL**, **TOTAL**, **RBGH**, **SIC**, **KASA**, **MAC**, **SWL** (delisted), **TLW**, **TBL** (delisted), **ZEN**, **IIL**, **MMH**.
+Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**, **SCB**, **SOGEGH**, **GOIL**, **TOTAL**, **RBGH**, **SIC**, **KASA**, **MAC**, **SWL** (delisted), **TLW**, **TBL** (delisted), **ZEN**, **IIL**, **MMH**, **SAMBA**, **ALW** (suspended), **PBC** (suspended).
 
 Basic profiles only (description, classification, website, headquarters,
 listing date; no officers or financials yet): **UNIL**, **FML**, **CLYD**, **CMLT**, **CPC**, **DASPHARMA**, **EGL**,
@@ -27,9 +27,10 @@ make P/E, P/B and market cap wrong for a security priced differently.
 The page's link to the issuer (`related_symbols`) leads to the company's
 results.
 
-Every other listed equity has no file yet. Its API fields are all null,
-and the description page shows a one-line summary from the instrument
-master (name, board, sector) instead.
+Every equity in the instrument master now has a file. An equity added
+later without one gets all-null API fields, and its description page
+shows a one-line summary from the instrument master (name, board,
+sector) instead.
 
 Notes on the basic profiles:
 
@@ -404,6 +405,76 @@ Notes on the basic profiles:
     list and name no chairman. No filing names an executive head.
   - **Website:** marshalls.edu.gh redirects to a placeholder "/test/"
     page, so `website` is blank.
+- **SAMBA** (Samba Foods Limited) trades on the GAX. The 2021, 2023,
+  2024 and 2025 statements on gse.com.gh (PR 070/2022, PR 278/2024,
+  PR 206/2025, PR 188/2026) are photographed or scanned pages with no
+  text layer. They were read from rendered page images. The 2022
+  statements (PR 110/2023) have a text layer, but its columns are
+  scrambled, so they were read from images too. Revenue is "income"
+  (product sales). The statements give no EPS, so none is recorded. The
+  2022 equity includes a GHS 74,600 prior-year adjustment to income
+  surplus. The 2022 loss is GHS 219,590 in its own report and 219,589
+  in the 2023 comparative; the 2022 report's figure is used.
+  `shares_outstanding` is the 5,976,053 in the 2022 note 15 and on the
+  GSE page; stated capital is unchanged through 2025. The GSE page's
+  listing date "12/5/2015" is day/month: PR 165/2015 confirms 12 May 2015.
+  The 2025 directors' report repeats the sentence "the loss of this
+  year's operation was as a result of decrease in sales" from an
+  earlier year, although 2025 was a profit. No website: the GSE page's
+  sambaolec.getafricaonline.com and the notices' sambafoodsghana.org
+  do not resolve.
+- **ALW** (Aluworks PLC) has been **suspended** since 2 October 2023
+  (PR 351/2023) for failing to file audited 2022 accounts and its 2023
+  Q1 and Q2 reports. Nothing has been filed since the unaudited 2022
+  statements (PR 024/2023). The instrument master name is now Aluworks
+  PLC, as in the filings; it was "Aluworks Limited".
+  - **FY2022 is unaudited**, and each FY2022 source says so.
+  - **FY2021** comes from the 2021 report (PR 208/2022), a 73-page scan
+    read from page images. Deloitte gave a **disclaimer of opinion** on
+    it (going concern), so the 2021 figures are unaudited in substance.
+    The 2021 balance sheet prints total equity as "(42,481)" in brackets.
+    The components, the directors' report and the 2022 equity statement
+    all make it a positive GHS 42.5m, which is used. The auditor's
+    report says liabilities exceeded assets by GHS 5.9m, which matches
+    neither.
+  - **FY2019–FY2020** come from the 2021 report's five-year highlights.
+    FY2019 has no book value: the audited 2019 and 2020 reports were not
+    read (PR 427/2021 is a cover note).
+  - Figures are converted from GHS '000.
+  - **Shares:** `shares_outstanding` is the 2021 report's 236,687,001;
+    the GSE page shows 236,685,180.
+  - **Employees:** `employees` is the 2021 average (183). The plant has
+    been idle since 2022, per news reports.
+  - **Officers:** they are the chair and MD named in the last filing
+    (January 2023); no change has been filed since.
+  - **Website:** www.aluworks.com, on the GSE page, was not checked as
+    live and is left out.
+- **PBC** (PBC Limited, formerly Produce Buying Company) has been
+  **suspended** since 8 November 2023 (PR 401/2023) for not filing
+  results after September 2022. It has since filed FY2023 and FY2024
+  (PR 004/2026, January 2026) and FY2025 (PR 393/2026), but the
+  September 2026 daily report still marks it suspended. Its year ends
+  on 30 September.
+  - **Sources:** the FY2023–FY2025 statements are scans with no text
+    layer. The FY2022 report (PR 404/2023) has an unreliable OCR layer.
+    All were read from page images.
+  - **Basis:** figures are group figures (PBC plus Golden Bean Hotel),
+    converted from GHS '000. Revenue is mostly the value of cocoa bought
+    and delivered, which is why it collapsed from GHS 779m (2023) to
+    GHS 41m (2024). The filings read do not explain the fall.
+  - **EPS:** none of the reports gives EPS, so none is recorded.
+  - **FY2024 restatement:** the FY2025 report reclassifies part of FY2024
+    cost of sales (gross profit 28,588 to 20,251) but leaves revenue,
+    loss and equity unchanged.
+  - **Unexplained equity movement:** group equity goes from (381,340) to
+    (441,327) in FY2024, against a loss of 69,941. That leaves about
+    GHS 10.0m unexplained by the figures read.
+  - **Shares:** `shares_outstanding` is the 480,000,000 ordinary shares.
+    The Ministry of Finance's single golden preference share is excluded.
+  - **Listing date:** the GSE page gives 17 May 2000 and the directors'
+    reports 19 May 2000; the GSE date is used.
+  - **Registrar:** MBG Registrars per the 2026 notices; the 2023
+    suspension notice said NTHC.
 - **SCB-PREF** dividends are recorded by the calendar year of the
   half-year periods they cover ("March 2024", "September 2024"), as the
   bank's notices name them. That differs from how the AGM press reports
@@ -501,6 +572,9 @@ Left out (served as null) because they couldn't be found or confirmed:
 | ZEN | FY2026 `revenue`, `net_income`, `eps`, dividends; FY2023–FY2025 `eps`, dividends; `employees` | The FY2026 annual report is not yet published. Before the December 2025 holding company there was no share basis, and the subsidiaries paid the dividends. The website's headcount ("over 1,300") is approximate. |
 | IIL | `employees`; FY2021 `eps`; FY2021–FY2022, FY2024–FY2025 `dividend_payment_dates` | The filings give no headcount. The 2022 report gives no EPS, and 2021 has no later comparative. No dividend was declared for those years. |
 | MMH | FY2025; FY2021 `revenue`, `net_income`; `eps`; `employees`, `website`, `registrar`; `officers` (executive) | The FY2025 figures in the January 2026 interim contradict each other, and no FY2025 annual report has been filed. The FY2022 report PDF is damaged. The filings give no EPS, headcount, registrar or executive head, and the college website is a placeholder. |
+| SAMBA | `eps`; `employees`, `website`; FY2021 dividends; `dividend_payment_dates` | The statements give no EPS or headcount, and neither listed website resolves. The FY2021 dividend decision was not found. No dividend was paid in FY2022–FY2025. |
+| ALW | FY2023 onward; FY2022 dividends; FY2019 `book_value`, dividends; `website`; `dividend_payment_dates` | Suspended in October 2023 after filing nothing beyond the unaudited 2022 statements. The 2019 and 2020 reports were not read. No dividends were paid in the years recorded. |
+| PBC | `eps`; `employees`; FY2021 dividends; `dividend_payment_dates` | The statements give no EPS or headcount on their face. The FY2021 dividend decision was not read. No dividend was paid in FY2022–FY2025. |
 | SCB-PREF | FY2025–FY2026 dividends; FY2022 `dividend_payment_dates`; `listing_date` | The March 2025, March 2026 and September 2022 preference dividend notices are not on gse.com.gh. The GSE page gives only the issuer's listing date. |
 | AADS | `shares_outstanding`; dividends | No current count of GhDSs in issue (the GSE page's 0.98m predates 2023). Dividends are declared in USD per ordinary share, with no published cedi amount per GhDS. |
 | TOTAL | `officers` (finance) | The 2025 annual report names no CFO; Mercy Samson, the investor relations director, is listed instead. |
