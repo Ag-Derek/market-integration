@@ -46,7 +46,7 @@ $root = Split-Path -Parent $PSScriptRoot
 # pythonw: no console window popping up at each run.
 $python = Join-Path $root ".venv\Scripts\pythonw.exe"
 if (-not (Test-Path $python)) {
-    throw "No virtual environment at $root\.venv. Set it up first (README, Setup)."
+    throw "No virtual environment at $root\.venv. Set it up first (README, Quick start; or docs/setup.md)."
 }
 
 $user = "$env:USERDOMAIN\$env:USERNAME"
