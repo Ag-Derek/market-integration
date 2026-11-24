@@ -12,7 +12,7 @@ that company's description goes blank.
 
 ## Coverage
 
-Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**, **SCB**, **SOGEGH**, **GOIL**, **TOTAL**, **RBGH**, **SIC**, **KASA**, **MAC**, **SWL** (delisted), **TLW**, **TBL** (delisted), **ZEN**, **IIL**, **MMH**.
+Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**, **SCB**, **SOGEGH**, **GOIL**, **TOTAL**, **RBGH**, **SIC**, **KASA**, **MAC**, **SWL** (delisted), **TLW**, **TBL** (delisted), **ZEN**, **IIL**, **MMH**, **SAMBA**.
 
 Basic profiles only (description, classification, website, headquarters,
 listing date; no officers or financials yet): **UNIL**, **FML**, **CLYD**, **CMLT**, **CPC**, **DASPHARMA**, **EGL**,
@@ -404,6 +404,24 @@ Notes on the basic profiles:
     list and name no chairman. No filing names an executive head.
   - **Website:** marshalls.edu.gh redirects to a placeholder "/test/"
     page, so `website` is blank.
+- **SAMBA** (Samba Foods Limited) trades on the GAX. The 2021, 2023,
+  2024 and 2025 statements on gse.com.gh (PR 070/2022, PR 278/2024,
+  PR 206/2025, PR 188/2026) are photographed or scanned pages with no
+  text layer. They were read from rendered page images. The 2022
+  statements (PR 110/2023) have a text layer, but its columns are
+  scrambled, so they were read from images too. Revenue is "income"
+  (product sales). The statements give no EPS, so none is recorded. The
+  2022 equity includes a GHS 74,600 prior-year adjustment to income
+  surplus. The 2022 loss is GHS 219,590 in its own report and 219,589
+  in the 2023 comparative; the 2022 report's figure is used.
+  `shares_outstanding` is the 5,976,053 in the 2022 note 15 and on the
+  GSE page; stated capital is unchanged through 2025. The GSE page's
+  listing date "12/5/2015" is day/month: PR 165/2015 confirms 12 May 2015.
+  The 2025 directors' report repeats the sentence "the loss of this
+  year's operation was as a result of decrease in sales" from an
+  earlier year, although 2025 was a profit. No website: the GSE page's
+  sambaolec.getafricaonline.com and the notices' sambafoodsghana.org
+  do not resolve.
 - **SCB-PREF** dividends are recorded by the calendar year of the
   half-year periods they cover ("March 2024", "September 2024"), as the
   bank's notices name them. That differs from how the AGM press reports
@@ -501,6 +519,7 @@ Left out (served as null) because they couldn't be found or confirmed:
 | ZEN | FY2026 `revenue`, `net_income`, `eps`, dividends; FY2023–FY2025 `eps`, dividends; `employees` | The FY2026 annual report is not yet published. Before the December 2025 holding company there was no share basis, and the subsidiaries paid the dividends. The website's headcount ("over 1,300") is approximate. |
 | IIL | `employees`; FY2021 `eps`; FY2021–FY2022, FY2024–FY2025 `dividend_payment_dates` | The filings give no headcount. The 2022 report gives no EPS, and 2021 has no later comparative. No dividend was declared for those years. |
 | MMH | FY2025; FY2021 `revenue`, `net_income`; `eps`; `employees`, `website`, `registrar`; `officers` (executive) | The FY2025 figures in the January 2026 interim contradict each other, and no FY2025 annual report has been filed. The FY2022 report PDF is damaged. The filings give no EPS, headcount, registrar or executive head, and the college website is a placeholder. |
+| SAMBA | `eps`; `employees`, `website`; FY2021 dividends; `dividend_payment_dates` | The statements give no EPS or headcount, and neither listed website resolves. The FY2021 dividend decision was not found. No dividend was paid in FY2022–FY2025. |
 | SCB-PREF | FY2025–FY2026 dividends; FY2022 `dividend_payment_dates`; `listing_date` | The March 2025, March 2026 and September 2022 preference dividend notices are not on gse.com.gh. The GSE page gives only the issuer's listing date. |
 | AADS | `shares_outstanding`; dividends | No current count of GhDSs in issue (the GSE page's 0.98m predates 2023). Dividends are declared in USD per ordinary share, with no published cedi amount per GhDS. |
 | TOTAL | `officers` (finance) | The 2025 annual report names no CFO; Mercy Samson, the investor relations director, is listed instead. |

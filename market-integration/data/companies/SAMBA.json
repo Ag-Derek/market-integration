@@ -1,0 +1,59 @@
+{
+  "symbol": "SAMBA",
+  "profile": {
+    "description_short": {"value": "Small Tema-based processor of spices, condiments and seasonings, traded on the Ghana Alternative Market; production has depended on a supply agreement with Unifa Brothers since 2025.", "source": "Written by us from the Samba Foods Limited financial statements for the year ended 31 December 2025 (GSE PR 188/2026: report of the directors, principal activities) and GSE PR 342/2025 and PR 038/2026 (memorandum of understanding with Unifa Brothers)", "as_of": "2026-02-09"},
+    "description_full": {"value": "Samba Foods Limited processes food in Tema, specialising in spices, condiments and seasonings; its stated activities also include farming and the export of processed foods. It operates from the West Coast Dyeing Industries compound in Tema's Heavy Industrial Area. The company raised capital through an initial public offer arranged by UniSecurities, and its shares began trading on the Ghana Alternative Market on 12 May 2015; it has 5,976,053 shares in issue. It is very small: income was GHS 1.06 million in 2021, fell to GHS 0.39 million in 2023, and recovered to GHS 1.62 million in 2025. It lost money in 2022, 2023 and 2024, then made a profit of GHS 265,000 in 2025. Accumulated losses of GHS 3.1 million are offset in its equity by a GHS 2.2 million revaluation surplus on its property. After its main packaging machine broke down, it signed a memorandum of understanding with Unifa Brothers in August 2025, under which Unifa supplies raw and packaging materials, replaces the packaging machine and buys finished products made to its standards. The agreement covered 2025 and was extended to 31 March 2026. Dr Leticia Osafo-Addo is managing director and Alexander Banful chairman. No dividend has been recommended in recent years.", "source": "Written by us from the Samba Foods Limited financial statements for 2022, 2023, 2024 and 2025 (GSE PR 110/2023, PR 278/2024, PR 206/2025, PR 188/2026: corporate information, reports of the directors, statements of comprehensive income and financial position), GSE PR 165/2015 (listing and first day of trading), PR 342/2025 and PR 038/2026 (Unifa Brothers memorandum of understanding) and the GSE listed-company page", "as_of": "2026-11-24"},
+    "sector": {"value": "Food & Beverage", "source": "Our classification, matching the instrument master; from the principal activities in the Samba Foods Limited 2025 financial statements (GSE PR 188/2026)", "as_of": "2025-12-31"},
+    "industry": {"value": "Spices, condiments and seasonings", "source": "Our classification, from the Samba Foods Limited 2025 financial statements (GSE PR 188/2026), principal activities (food processing, producers of spices) and the GSE listed-company page (food processing and preservation specialized in condiments and seasoning)", "as_of": "2025-12-31"},
+    "headquarters_city": {"value": "Tema", "source": "Samba Foods Limited 2025 financial statements (GSE PR 188/2026), corporate information: registered office, West Coast Dyeing Company, Heavy Industrial Area, Tema", "as_of": "2025-12-31"},
+    "headquarters_country": {"value": "Ghana", "source": "Samba Foods Limited 2025 financial statements (GSE PR 188/2026), notes: incorporated in Ghana", "as_of": "2025-12-31"},
+    "shares_outstanding": {"value": 5976053, "source": "Samba Foods Limited 2022 audited financial statements (GSE PR 110/2023), note 15: 5,976,053 issued shares, stated capital GHS 2,750,498; the GSE listed-company page gives the same count. Stated capital is unchanged at GHS 2,750,498 in the 2025 statements (GSE PR 188/2026)", "as_of": "2025-12-31"},
+    "listing_date": {"value": "2015-05-12", "source": "GSE PR 165/2015 (SAMBA listing and first day of trading): listing and first trading on the Ghana Alternative Market postponed to Tuesday, 12 May 2015; the GSE listed-company page gives 12/5/2015", "as_of": "2015-05-12"},
+    "registrar": {"value": "Universal Merchant Bank Limited", "source": "Samba Foods Limited notice of the 9th AGM dated 7 October 2026 (GSE PR 402/2026): \"the Registrars of the Company, Universal Merchant Bank Limited\", SSNIT Emporium, Airport City, Accra", "as_of": "2026-10-07"}
+  },
+  "officers": [
+    {"name": "Alexander Banful", "role": "Chairman", "display_order": 1, "source": "Samba Foods Limited 2025 financial statements (GSE PR 188/2026), corporate information (Chairman); signed the report of the directors and statement of financial position on 27 April 2026", "as_of": "2026-04-27"},
+    {"name": "Leticia Osafo-Addo", "role": "Managing Director", "display_order": 2, "source": "Samba Foods Limited 2025 financial statements (GSE PR 188/2026), corporate information (Dr. Leticia Osafo-Addo, Managing Director); also the GSE listed-company page", "as_of": "2026-04-27"}
+  ],
+  "financials": [
+    {
+      "fiscal_year": 2025,
+      "currency": "GHS",
+      "revenue": {"value": 1620126, "source": "Samba Foods Limited financial statements for the year ended 31 December 2025 (GSE PR 188/2026), statement of comprehensive income: income GHS 1,620,126", "as_of": "2025-12-31"},
+      "net_income": {"value": 264988, "source": "Samba Foods Limited 2025 financial statements (GSE PR 188/2026), statement of comprehensive income: net profit after taxation GHS 264,988", "as_of": "2025-12-31"},
+      "book_value": {"value": 1826107, "source": "Samba Foods Limited 2025 financial statements (GSE PR 188/2026), statement of financial position: equity GHS 1,826,107 (stated capital 2,750,498, retained earnings (3,146,950), revaluation surplus 2,222,559)", "as_of": "2025-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "Samba Foods Limited 2025 financial statements (GSE PR 188/2026), report of the directors: the Directors do not recommend the payment of dividend for the period ended 31 December 2025", "as_of": "2026-04-27"}
+    },
+    {
+      "fiscal_year": 2024,
+      "currency": "GHS",
+      "revenue": {"value": 802124, "source": "Samba Foods Limited financial statements for the year ended 31 December 2024 (GSE PR 206/2025), statement of comprehensive income: income GHS 802,124; the same in the 2025 comparatives", "as_of": "2024-12-31"},
+      "net_income": {"value": -245140, "source": "Samba Foods Limited 2024 financial statements (GSE PR 206/2025), statement of comprehensive income: net loss after taxation GHS 245,140; the same in the 2025 comparatives", "as_of": "2024-12-31"},
+      "book_value": {"value": 1561119, "source": "Samba Foods Limited 2024 financial statements (GSE PR 206/2025), statement of financial position: equity GHS 1,561,119; the same in the 2025 comparatives", "as_of": "2024-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "Samba Foods Limited 2024 financial statements (GSE PR 206/2025), report of the directors: no dividend recommended for 2024 (loss year)", "as_of": "2025-05-21"}
+    },
+    {
+      "fiscal_year": 2023,
+      "currency": "GHS",
+      "revenue": {"value": 386583, "source": "Samba Foods Limited annual report and financial statements for the year ended 31 December 2023 (GSE PR 278/2024), statement of profit or loss: revenue GHS 386,583; the same in the 2024 comparatives", "as_of": "2023-12-31"},
+      "net_income": {"value": -540141, "source": "Samba Foods Limited 2023 annual report (GSE PR 278/2024), statement of profit or loss: net loss after taxation GHS 540,141; the same in the 2024 comparatives", "as_of": "2023-12-31"},
+      "book_value": {"value": 1806259, "source": "Samba Foods Limited 2023 annual report (GSE PR 278/2024), statement of financial position: total equity GHS 1,806,259; the same in the 2024 comparatives", "as_of": "2023-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "Samba Foods Limited 2023 annual report (GSE PR 278/2024), report of the directors: the Directors do not recommend payment of a dividend (loss year)", "as_of": "2024-06-05"}
+    },
+    {
+      "fiscal_year": 2022,
+      "currency": "GHS",
+      "revenue": {"value": 760925, "source": "Samba Foods Limited audited financial statements for the year ended 31 December 2022 (GSE PR 110/2023), statement of comprehensive income: income GHS 760,925; the same in the 2023 comparatives", "as_of": "2022-12-31"},
+      "net_income": {"value": -219590, "source": "Samba Foods Limited 2022 audited financial statements (GSE PR 110/2023), statement of comprehensive income: net loss after taxation GHS 219,590 (GHS 219,589 in the 2023 comparatives)", "as_of": "2022-12-31"},
+      "book_value": {"value": 2346400, "source": "Samba Foods Limited 2022 audited financial statements (GSE PR 110/2023), statement of financial position: equity GHS 2,346,400, after a prior-year adjustment of GHS 74,600 to income surplus; the same in the 2023 comparatives", "as_of": "2022-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "Samba Foods Limited 2022 audited financial statements (GSE PR 110/2023), report of the directors: the Directors do not recommend the payment of dividend for the year ended 31 December 2022", "as_of": "2023-04-13"}
+    },
+    {
+      "fiscal_year": 2021,
+      "currency": "GHS",
+      "revenue": {"value": 1059735, "source": "Samba Foods Limited 2022 audited financial statements (GSE PR 110/2023), statement of comprehensive income: 2021 income GHS 1,059,735", "as_of": "2021-12-31"},
+      "net_income": {"value": 94993, "source": "Samba Foods Limited 2022 audited financial statements (GSE PR 110/2023), statement of comprehensive income: 2021 net profit after taxation GHS 94,993 (including a tax credit of GHS 4,362)", "as_of": "2021-12-31"},
+      "book_value": {"value": 2640590, "source": "Samba Foods Limited 2022 audited financial statements (GSE PR 110/2023), statement of financial position: 2021 equity GHS 2,640,590", "as_of": "2021-12-31"}
+    }
+  ]
+}
