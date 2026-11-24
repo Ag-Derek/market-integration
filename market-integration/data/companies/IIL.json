@@ -1,0 +1,67 @@
+{
+  "symbol": "IIL",
+  "profile": {
+    "description_short": {"value": "Koforidua-based maker of intravenous fluids and small-volume injectables, traded on the Ghana Alternative Market; loss-making in 2024-2025 and recapitalising in 2026.", "source": "Written by us from the Intravenous Infusions PLC 2025 Annual Report (GSE PR 147/2026: directors' report, principal activities and going concern) and GSE PR 088/2026 and PR 455/2026", "as_of": "2026-10-23"},
+    "description_full": {"value": "Intravenous Infusions PLC manufactures intravenous infusion fluids and small-volume injectables at its factory in Koforidua, in Ghana's Eastern Region, and sells them in Ghana and elsewhere in West Africa; the company dates its business to 1969. Its production is certified by the Food and Drugs Authority, and it owns a small retail and wholesale subsidiary, FlexPharm Ltd. The shares have traded on the Ghana Alternative Market since December 2015. At the end of 2025 the largest holders were AI Acquisitions Company Limited (22.9%) and National Investment Bank (13.0%), with members of the Appenteng family among the other large holders. After a profit of GHS 2.5 million in 2023, revenue fell from GHS 31.4 million to GHS 9.3 million in 2025 as working-capital shortages held back imports of raw materials. The company lost GHS 0.6 million in 2024 and GHS 4.6 million in 2025, and its 2025 accounts drew attention to doubt over its ability to continue as a going concern. In February 2026 shareholders approved a GHS 50 million rights issue and private placement. They also approved converting GHS 5.0 million of loans from CCM Healthcare Investments and AI Acquisitions into shares; the conversion took effect on 9 August 2026 and raised stated capital to GHS 16.4 million. The company reported a small profit for the first half of 2026, on lower revenue of GHS 4.3 million. Leon Kendon Appenteng became chairman in September 2026, and Ernst & Young was appointed auditor at the October 2026 AGM.", "source": "Written by us from the Intravenous Infusions PLC 2025 Annual Report (GSE PR 147/2026: general information, directors' report, statement of profit or loss, notes 18, 28 and 29, share structure), the 2024 and 2023 Annual Reports (GSE PR 136/2025, PR 117/2024), the unaudited statements and press release for the six months to 30 June 2026 (GSE PR 329/2026, PR 338/2026), GSE PR 088/2026 (EGM resolutions), PR 388/2026 (new chairman), PR 455/2026 (AGM resolutions) and the GSE listed-company page (date listed)", "as_of": "2026-11-24"},
+    "sector": {"value": "Pharmaceuticals", "source": "Our classification, matching the instrument master; from the principal activities in the Intravenous Infusions PLC 2025 Annual Report (GSE PR 147/2026)", "as_of": "2025-12-31"},
+    "industry": {"value": "Intravenous fluids and injectables manufacturing", "source": "Our classification, from the Intravenous Infusions PLC 2025 Annual Report (GSE PR 147/2026), directors' report: production of intravenous infusions and small volume injectables", "as_of": "2025-12-31"},
+    "website": {"value": "https://iil.com.gh/", "source": "GSE listed-company page for IIL and the company letterhead (www.iil.com.gh); checked live", "as_of": "2026-11-24"},
+    "headquarters_city": {"value": "Koforidua", "source": "Intravenous Infusions PLC 2025 Annual Report (GSE PR 147/2026), general information: registered office, Plot 4/7, Blk L Effiduase, P.O. Box KF 63, Koforidua; the same address on the October 2026 AGM resolutions letterhead (GSE PR 455/2026)", "as_of": "2026-10-23"},
+    "headquarters_country": {"value": "Ghana", "source": "Intravenous Infusions PLC 2025 Annual Report (GSE PR 147/2026), general information", "as_of": "2025-12-31"},
+    "shares_outstanding": {"value": 274408346, "source": "Intravenous Infusions PLC 2025 Annual Report (GSE PR 147/2026), note 18 and share structure: 274,408,346 ordinary shares at 31 December 2025. Excludes the shares issued on the conversion of GHS 5.0m of convertible loans on 9 August 2026 (GSE PR 455/2026), whose number has not been published. The GSE listed-company page shows an older 258.82 million", "as_of": "2025-12-31"},
+    "listing_date": {"value": "2015-12-15", "source": "GSE listed-company page for IIL (date listed December 15, 2015; Ghana Alternative Market)", "as_of": "2026-11-24"},
+    "registrar": {"value": "GCB Bank PLC (Share Registry)", "source": "Intravenous Infusions PLC notice of AGM dated 29 September 2026 (GSE PR 398/2026): proxy forms to the Share Registry, GCB Bank, High Street, Accra (shareregistry@gcb.com.gh). The GSE press-release distribution lists name NTHC Registrars", "as_of": "2026-09-29"}
+  },
+  "officers": [
+    {"name": "Leon Kendon Appenteng", "role": "Chairman", "display_order": 1, "source": "GSE PR 388/2026: appointed Chairman of the Board effective 18 September 2026, succeeding Isaac Osei; Chairman on the letterhead of the AGM resolutions (GSE PR 455/2026)", "as_of": "2026-10-23"},
+    {"name": "Moukhtar Soalihu", "role": "Managing Director", "display_order": 2, "source": "Intravenous Infusions PLC unaudited statements to 30 June 2026 (GSE PR 329/2026), signed as Managing Director; 2025 Annual Report (GSE PR 147/2026), general information; AGM resolutions letterhead (GSE PR 455/2026)", "as_of": "2026-10-23"},
+    {"name": "Eugenia Bulley", "role": "General Manager, Finance and Administration", "display_order": 3, "source": "Intravenous Infusions PLC unaudited statements to 30 June 2026 (GSE PR 329/2026), signed as General Manager, Finance and Administration", "as_of": "2026-07-28"}
+  ],
+  "financials": [
+    {
+      "fiscal_year": 2025,
+      "currency": "GHS",
+      "revenue": {"value": 9303973, "source": "Intravenous Infusions PLC 2025 Annual Report (GSE PR 147/2026), statement of profit or loss: revenue GHS 9,303,973 (note 5: local 7,145,823, foreign 2,158,150)", "as_of": "2025-12-31"},
+      "net_income": {"value": -4631793, "source": "Intravenous Infusions PLC 2025 Annual Report (GSE PR 147/2026), statement of profit or loss: loss for the year GHS 4,631,793", "as_of": "2025-12-31"},
+      "eps": {"value": -0.0169, "source": "Intravenous Infusions PLC 2025 Annual Report (GSE PR 147/2026), note 11: basic loss per share 0.0169 on 274,408,346 shares (labelled \"pesewa\" but in cedis)", "as_of": "2025-12-31"},
+      "book_value": {"value": 11279089, "source": "Intravenous Infusions PLC 2025 Annual Report (GSE PR 147/2026), statement of financial position: total equity GHS 11,279,089", "as_of": "2025-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: loss year, and the agenda and resolutions of the 23 October 2026 AGM, which received the 2025 accounts, include none (GSE PR 398/2026, PR 455/2026)", "as_of": "2026-10-23"}
+    },
+    {
+      "fiscal_year": 2024,
+      "currency": "GHS",
+      "revenue": {"value": 24940063, "source": "Intravenous Infusions PLC 2024 Annual Report (GSE PR 136/2025), statement of profit or loss: revenue GHS 24,940,063; the same in the 2025 comparatives", "as_of": "2024-12-31"},
+      "net_income": {"value": -642888, "source": "Intravenous Infusions PLC 2024 Annual Report (GSE PR 136/2025), statement of profit or loss: loss for the year GHS 642,888; the same in the 2025 comparatives", "as_of": "2024-12-31"},
+      "eps": {"value": -0.0023, "source": "Intravenous Infusions PLC 2024 Annual Report (GSE PR 136/2025), statement of profit or loss: basic loss per share 0.0023; 2025 Annual Report note 11", "as_of": "2024-12-31"},
+      "book_value": {"value": 15910882, "source": "Intravenous Infusions PLC 2024 Annual Report (GSE PR 136/2025), statement of changes in equity: total equity GHS 15,910,882 at 31 December 2024; the same in the 2025 comparatives", "as_of": "2024-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "No dividend: loss year, and the 2025 Annual Report (GSE PR 147/2026) statement of changes in equity shows no dividend declared in 2025", "as_of": "2025-12-31"}
+    },
+    {
+      "fiscal_year": 2023,
+      "currency": "GHS",
+      "revenue": {"value": 31416619, "source": "Intravenous Infusions PLC 2023 Annual Report (GSE PR 117/2024), statement of profit or loss: revenue GHS 31,416,619; the same in the 2024 comparatives", "as_of": "2023-12-31"},
+      "net_income": {"value": 2543387, "source": "Intravenous Infusions PLC 2023 Annual Report (GSE PR 117/2024), statement of profit or loss: profit for the year GHS 2,543,387; the same in the 2024 comparatives", "as_of": "2023-12-31"},
+      "eps": {"value": 0.0093, "source": "Intravenous Infusions PLC 2023 Annual Report (GSE PR 117/2024), statement of profit or loss: basic earnings per share 0.0093", "as_of": "2023-12-31"},
+      "book_value": {"value": 17322113, "source": "Intravenous Infusions PLC 2024 Annual Report (GSE PR 136/2025), statement of changes in equity: total equity GHS 17,322,113 at 31 December 2023", "as_of": "2023-12-31"},
+      "dividend_per_share": {"value": 0.0028, "source": "GSE PR 266/2025 (payment of approved dividend for 2023): final dividend of GHS 0.0028 per share approved at the 2024 AGM. The 2024 Annual Report (GSE PR 136/2025) says GHS 0.004, but its total of GHS 768,343 is GHS 0.0028 on 274,408,346 shares", "as_of": "2025-07-15"},
+      "dividend_payment_dates": {"value": ["2025-07-18"], "source": "GSE PR 266/2025: paid on Friday, 18 July 2025 to shareholders registered on 21 June 2024", "as_of": "2025-07-15"}
+    },
+    {
+      "fiscal_year": 2022,
+      "currency": "GHS",
+      "revenue": {"value": 20355205, "source": "Intravenous Infusions PLC 2022 Annual Report (GSE PR 103/2023), statement of profit or loss: revenue GHS 20,355,205; the same in the 2023 comparatives", "as_of": "2022-12-31"},
+      "net_income": {"value": -3509155, "source": "Intravenous Infusions PLC 2022 Annual Report (GSE PR 103/2023), statement of profit or loss: loss for the year GHS 3,509,155; the same in the 2023 comparatives", "as_of": "2022-12-31"},
+      "eps": {"value": -0.0128, "source": "Intravenous Infusions PLC 2023 Annual Report (GSE PR 117/2024), statement of profit or loss: 2022 basic loss per share 0.0128 (the 2022 report gives no EPS)", "as_of": "2022-12-31"},
+      "book_value": {"value": 14778726, "source": "Intravenous Infusions PLC 2024 Annual Report (GSE PR 136/2025), statement of changes in equity: balance at 1 January 2023, GHS 14,778,726 (GHS 14,778,723 in the 2022 Annual Report, GSE PR 103/2023)", "as_of": "2022-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "Intravenous Infusions PLC 2023 Annual Report (GSE PR 117/2024), directors' report: no dividend declared or paid during 2023", "as_of": "2023-12-31"}
+    },
+    {
+      "fiscal_year": 2021,
+      "currency": "GHS",
+      "revenue": {"value": 22670720, "source": "Intravenous Infusions PLC 2022 Annual Report (GSE PR 103/2023), statement of profit or loss: 2021 revenue GHS 22,670,720", "as_of": "2021-12-31"},
+      "net_income": {"value": 1146349, "source": "Intravenous Infusions PLC 2022 Annual Report (GSE PR 103/2023), statement of profit or loss: 2021 profit for the year GHS 1,146,349", "as_of": "2021-12-31"},
+      "book_value": {"value": 18287878, "source": "Intravenous Infusions PLC 2022 Annual Report (GSE PR 103/2023), statement of changes in equity: total equity GHS 18,287,878 at 31 December 2021", "as_of": "2021-12-31"},
+      "dividend_per_share": {"value": 0.0, "source": "Intravenous Infusions PLC 2022 Annual Report (GSE PR 103/2023), directors' report: no dividend declared or paid during 2022. The GHS 798,528 paid in 2021 was for 2020", "as_of": "2022-12-31"}
+    }
+  ]
+}
