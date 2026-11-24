@@ -12,7 +12,7 @@ that company's description goes blank.
 
 ## Coverage
 
-Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**, **SCB**, **SOGEGH**, **GOIL**, **TOTAL**, **RBGH**, **SIC**, **KASA**, **MAC**, **SWL** (delisted), **TLW**, **TBL** (delisted), **ZEN**, **IIL**, **MMH**, **SAMBA**.
+Seeded so far: **MTNGH**, **GCB**, **ADB**, **ACCESS**, **ASG**, **CAL**, **BOPP**, **ALLGH**, **AGA**, **DIGICUT**, **EGH**, **SCB**, **SOGEGH**, **GOIL**, **TOTAL**, **RBGH**, **SIC**, **KASA**, **MAC**, **SWL** (delisted), **TLW**, **TBL** (delisted), **ZEN**, **IIL**, **MMH**, **SAMBA**, **ALW** (suspended).
 
 Basic profiles only (description, classification, website, headquarters,
 listing date; no officers or financials yet): **UNIL**, **FML**, **CLYD**, **CMLT**, **CPC**, **DASPHARMA**, **EGL**,
@@ -422,6 +422,32 @@ Notes on the basic profiles:
   earlier year, although 2025 was a profit. No website: the GSE page's
   sambaolec.getafricaonline.com and the notices' sambafoodsghana.org
   do not resolve.
+- **ALW** (Aluworks PLC) has been **suspended** since 2 October 2023
+  (PR 351/2023) for failing to file audited 2022 accounts and its 2023
+  Q1 and Q2 reports. Nothing has been filed since the unaudited 2022
+  statements (PR 024/2023). The instrument master name is now Aluworks
+  PLC, as in the filings; it was "Aluworks Limited".
+  - **FY2022 is unaudited**, and each FY2022 source says so.
+  - **FY2021** comes from the 2021 report (PR 208/2022), a 73-page scan
+    read from page images. Deloitte gave a **disclaimer of opinion** on
+    it (going concern), so the 2021 figures are unaudited in substance.
+    The 2021 balance sheet prints total equity as "(42,481)" in brackets.
+    The components, the directors' report and the 2022 equity statement
+    all make it a positive GHS 42.5m, which is used. The auditor's
+    report says liabilities exceeded assets by GHS 5.9m, which matches
+    neither.
+  - **FY2019–FY2020** come from the 2021 report's five-year highlights.
+    FY2019 has no book value: the audited 2019 and 2020 reports were not
+    read (PR 427/2021 is a cover note).
+  - Figures are converted from GHS '000.
+  - **Shares:** `shares_outstanding` is the 2021 report's 236,687,001;
+    the GSE page shows 236,685,180.
+  - **Employees:** `employees` is the 2021 average (183). The plant has
+    been idle since 2022, per news reports.
+  - **Officers:** they are the chair and MD named in the last filing
+    (January 2023); no change has been filed since.
+  - **Website:** www.aluworks.com, on the GSE page, was not checked as
+    live and is left out.
 - **SCB-PREF** dividends are recorded by the calendar year of the
   half-year periods they cover ("March 2024", "September 2024"), as the
   bank's notices name them. That differs from how the AGM press reports
@@ -520,6 +546,7 @@ Left out (served as null) because they couldn't be found or confirmed:
 | IIL | `employees`; FY2021 `eps`; FY2021–FY2022, FY2024–FY2025 `dividend_payment_dates` | The filings give no headcount. The 2022 report gives no EPS, and 2021 has no later comparative. No dividend was declared for those years. |
 | MMH | FY2025; FY2021 `revenue`, `net_income`; `eps`; `employees`, `website`, `registrar`; `officers` (executive) | The FY2025 figures in the January 2026 interim contradict each other, and no FY2025 annual report has been filed. The FY2022 report PDF is damaged. The filings give no EPS, headcount, registrar or executive head, and the college website is a placeholder. |
 | SAMBA | `eps`; `employees`, `website`; FY2021 dividends; `dividend_payment_dates` | The statements give no EPS or headcount, and neither listed website resolves. The FY2021 dividend decision was not found. No dividend was paid in FY2022–FY2025. |
+| ALW | FY2023 onward; FY2022 dividends; FY2019 `book_value`, dividends; `website`; `dividend_payment_dates` | Suspended in October 2023 after filing nothing beyond the unaudited 2022 statements. The 2019 and 2020 reports were not read. No dividends were paid in the years recorded. |
 | SCB-PREF | FY2025–FY2026 dividends; FY2022 `dividend_payment_dates`; `listing_date` | The March 2025, March 2026 and September 2022 preference dividend notices are not on gse.com.gh. The GSE page gives only the issuer's listing date. |
 | AADS | `shares_outstanding`; dividends | No current count of GhDSs in issue (the GSE page's 0.98m predates 2023). Dividends are declared in USD per ordinary share, with no published cedi amount per GhDS. |
 | TOTAL | `officers` (finance) | The 2025 annual report names no CFO; Mercy Samson, the investor relations director, is listed instead. |
