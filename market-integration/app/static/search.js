@@ -726,7 +726,8 @@
   // ------------------------------------------------------------ command bar
 
   // Ctrl K (Cmd K on a Mac) opens the command bar on any page that loads
-  // this script (#100). Function codes jump to a screen, like the
+  // this script, which every page does (#100); the header search itself
+  // only appears where a page calls mount(). Function codes jump to a screen, like the
   // Bloomberg Terminal's: "MTNGH DES" opens MTN Ghana's description,
   // "MTNGH GP" its price chart. A symbol on its own lists its codes;
   // anything else falls back to the instrument search. The codes and the
