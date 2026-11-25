@@ -45,7 +45,8 @@ def test_pages_mount_the_market_strip_after_the_render_helpers(client, path, cra
     assert f'{{ crawl: "{crawl}" }}' in page
 
 
-@pytest.mark.parametrize("path", ["/ticker", "/stock/MTNGH", "/fixed-income", "/bond/GHGGOG069931", "/commodity/GEJWM2"])
+@pytest.mark.parametrize("path", ["/ticker", "/stock/MTNGH", "/fixed-income", "/bond/GHGGOG069931", "/commodity/GEJWM2",
+                                  "/screener"])
 def test_live_pages_load_the_render_helpers_first(client, path):
     page = client.get(path).text
     tag = '<script src="/static/render.js"></script>'
@@ -67,3 +68,16 @@ def test_the_hedging_pages_links_resolve(client):
             assert f'id="view-{href[1:]}"' in page, href
         elif href.startswith("/"):
             assert client.get(href).status_code == 200, href
+
+
+TABBED_PAGES = ["/ticker", "/screener", "/fixed-income", "/yield-curve", "/auctions", "/fx", "/commodities",
+                "/calendar", "/graph", "/tickets", "/hedging"]
+
+
+@pytest.mark.parametrize("path", TABBED_PAGES)
+def test_every_tab_bar_links_the_screener(client, path):
+    # #99: the Screener tab sits after Equities on every page with tabs.
+    page = client.get(path).text
+    assert '<nav class="tabs"' in page
+    assert page.index('href="/ticker"') < page.index('href="/screener"') < page.index('href="/fixed-income"')
+    assert client.get("/screener").status_code == 200

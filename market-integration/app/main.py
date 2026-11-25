@@ -72,6 +72,7 @@ from app.company.index import BASE_LEVEL, simulated_gse_ci
 from app.company.performance import Day, days
 from app.company.seasonality import seasonality
 from app.company.store import CompanyStore
+from app.screener import Entry as ScreenerEntry, screen
 from app.connectors.composite_connector import CompositeConnector
 from app.connectors.depository import Depository, EmailDepository, MockDepository, OutboxSender, SmtpSender
 from app.connectors.fixed_income_connector import MockFixedIncomeConnector
@@ -125,6 +126,7 @@ from app.models.commodity import KG_PER_BAG, KG_PER_MT, CommodityTick
 from app.models.fx import FxRate
 from app.models.instrument import COMMODITY_NAMES, AssetClass, Instrument
 from app.models.market_data import MarketData
+from app.models.screener import ScreenerResult, ScreenerSort
 from app.models.ticket import Notification, Ticket, TicketConfirmation, TicketRequest, TicketStatus
 from app.processors.market_processor import MarketProcessor
 from app.processors.movers import MoverType, change_percent, rank_movers
@@ -1052,6 +1054,54 @@ async def sectors():
     """Every sector in the instrument master with its number of
     instruments, for the search bar's Sector filter."""
     return [{"sector": name, "count": n} for name, n in instrument_search.sectors()]
+
+
+@app.get("/screener/results", response_model=ScreenerResult)
+async def screener_results(
+    sector: Optional[str] = None,
+    pe_max: Optional[float] = None,
+    pb_max: Optional[float] = None,
+    yield_min: Optional[float] = Query(None, description="minimum dividend yield, in %"),
+    roe_min: Optional[float] = Query(None, description="minimum return on equity, in %"),
+    market_cap_min: Optional[float] = Query(None, description="minimum market cap, in GHS"),
+    sort: ScreenerSort = ScreenerSort.dividend_yield,
+):
+    """The stock screener (Bloomberg's EQS, #99): every company with a
+    file in data/companies/ and its price, market cap, P/E, P/B,
+    dividend yield and ROE, as its description page calculates them
+    (app/company/figures.py). Optional `sector` (case-insensitive; 400
+    if no company is in it) and bounds, all inclusive. A company without
+    a filtered figure is left out and counted per filter in `filters`,
+    with the figure's reasons; never treated as zero. `sort` orders the
+    rows (highest yield, ROE, market cap first; lowest P/E, P/B first);
+    rows without the sort figure go last. See docs/screener.md."""
+    now = datetime.now(timezone.utc)
+    entries = []
+    for symbol, company in COMPANIES.items():
+        instrument = INSTRUMENTS.get(symbol)
+        if instrument is None:
+            continue
+        quote = processor.get_latest(symbol)
+        quote = quote if isinstance(quote, MarketData) else None
+        # The latest close only matters without a live quote.
+        daily = [] if quote else days(await aggregator.get_candles(symbol, "1d", now - FIGURES_HISTORY))
+        figures = calculated_figures(company, quote, daily=daily[-1:], today=now.date())
+        entries.append(ScreenerEntry(symbol=symbol, name=instrument.name, sector=instrument.sector, figures=figures))
+    try:
+        return screen(
+            entries, sector=sector, sort=sort, pe_max=pe_max, pb_max=pb_max,
+            yield_min=yield_min, roe_min=roe_min, market_cap_min=market_cap_min,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/screener", response_class=HTMLResponse)
+async def screener_page():
+    """The Screener tab (app/static/screener.html) over /screener/results.
+    The page keeps its filters in its own query string (/screener?pe_max=10&sort=pe_ratio),
+    so a screen can be bookmarked or shared."""
+    return (STATIC_DIR / "screener.html").read_text(encoding="utf-8")
 
 
 @app.get("/movers")

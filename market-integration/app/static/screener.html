@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stock Screener</title>
+<style>
+  :root {
+    --bg: #0E1613;
+    --panel: #16211B;
+    --panel-strong: #1C2921;
+    --ink: #EAE7DA;
+    --ink-soft: #AEB6A9;
+    --ink-faint: #6F766D;
+    --line: #26362F;
+    --teal: #3E9C82;
+    --gold: #D9A44C;
+    --gold-bg: #2A2313;
+    --green: #34C57F;
+    --red: #E5675A;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .num { font-family: ui-monospace, "SFMono-Regular", "Cascadia Mono", Consolas, monospace; font-variant-numeric: tabular-nums; }
+
+  .page { max-width: 1360px; margin: 0 auto; padding: 28px 20px 60px; }
+
+  .topbar { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
+  .brand { font-size: 18px; font-weight: 700; color: var(--ink); letter-spacing: 0.01em; flex-basis: 100%; }
+  .tabs { display: flex; gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 3px; flex-wrap: wrap; }
+  .tab { font-size: 13px; font-weight: 600; color: var(--ink-soft); text-decoration: none; padding: 6px 14px; border-radius: 6px; }
+  .tab:hover { color: var(--ink); }
+  .tab.active { color: var(--bg); background: var(--teal); }
+  .topbar .spacer { flex: 1; }
+  #search .msearch-panel { left: auto; right: 0; }
+  @media (min-width: 621px) {
+    #search { flex: 0 1 600px; max-width: 600px; }
+    #search .msearch-panel { width: 100%; }
+  }
+
+  /* Filters */
+
+  .controls {
+    display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 12px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px;
+  }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 11px; color: var(--ink-faint); white-space: nowrap; }
+  .field input, .field select {
+    font: inherit; font-size: 13px; color: var(--ink); background: var(--bg); border: 1px solid var(--line);
+    border-radius: 7px; padding: 6px 8px; min-width: 0;
+  }
+  .field input { width: 96px; }
+  .field input:focus, .field select:focus { outline: none; border-color: var(--teal); }
+  .controls button {
+    font: inherit; font-size: 12px; color: var(--ink-soft); background: none; border: 1px solid var(--line);
+    border-radius: 7px; padding: 6px 12px; cursor: pointer;
+  }
+  .controls button:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .controls .summary { margin-left: auto; font-size: 12px; color: var(--ink-soft); align-self: center; }
+
+  .left-out { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .left-out li {
+    font-size: 12.5px; color: var(--ink-soft); background: var(--panel); border: 1px solid var(--line);
+    border-left: 3px solid var(--gold); border-radius: 8px; padding: 7px 12px;
+  }
+  .left-out li b { color: var(--ink); font-weight: 600; }
+  .left-out .syms { color: var(--ink-faint); }
+
+  /* Results */
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-faint);
+    text-align: left; padding: 8px 12px; white-space: nowrap; background: var(--panel-strong);
+  }
+  th[data-formula] { cursor: help; text-decoration: underline dotted var(--ink-faint); text-underline-offset: 3px; }
+  th button {
+    font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; background: none; border: 0;
+    padding: 0; cursor: pointer; text-decoration: inherit;
+  }
+  th.sorted { color: var(--teal); }
+  th.r, td.r { text-align: right; }
+  td { padding: 7px 12px; border-top: 1px solid var(--line); white-space: nowrap; }
+  tbody tr:hover td { background: var(--panel-strong); }
+  td.sym a { color: var(--ink); font-weight: 600; text-decoration: none; }
+  td.sym a:hover { color: var(--teal); }
+  td.name { color: var(--ink-soft); max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
+  td.sector { color: var(--ink-faint); }
+  td.na { color: var(--ink-faint); cursor: help; }
+  td[title] { cursor: help; }
+  .empty { padding: 26px; text-align: center; color: var(--ink-faint); font-size: 13px; }
+
+  .error { color: var(--gold); background: var(--gold-bg); border: 1px solid var(--gold); border-radius: 10px; padding: 10px 14px; font-size: 13px; margin-bottom: 14px; }
+  .error[hidden], .empty[hidden] { display: none; }
+
+  footer { margin-top: 26px; font-size: 12px; color: var(--ink-faint); line-height: 1.6; }
+  footer code { font-family: ui-monospace, monospace; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+
+  @media (max-width: 640px) {
+    .page { padding: 20px 16px 48px; }
+    .field input { width: 80px; }
+    .controls .summary { margin-left: 0; flex-basis: 100%; }
+    .col-name, .col-sector { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <div class="topbar">
+    <span class="brand">Market Integration</span>
+    <nav class="tabs" aria-label="Markets">
+      <a class="tab" href="/ticker">Equities</a>
+      <a class="tab active" href="/screener" aria-current="page">Screener</a>
+      <a class="tab" href="/fixed-income">Fixed Income</a>
+      <a class="tab" href="/yield-curve">Yield Curve</a>
+      <a class="tab" href="/auctions">Auctions</a>
+      <a class="tab" href="/fx">FX</a>
+      <a class="tab" href="/commodities">Commodities</a>
+      <a class="tab" href="/calendar">Calendar</a>
+      <a class="tab" href="/graph">Graph</a>
+      <a class="tab" href="/tickets">Trade Tickets</a>
+      <a class="tab" href="/hedging">Hedging</a>
+    </nav>
+    <span class="spacer"></span>
+    <div id="search"></div>
+  </div>
+
+  <div class="error" id="error" hidden></div>
+
+  <form class="controls" id="controls" autocomplete="off">
+    <div class="field">
+      <label for="f-sector">Sector</label>
+      <select id="f-sector" name="sector"><option value="">All sectors</option></select>
+    </div>
+    <div class="field">
+      <label for="f-pe_max">Max P/E</label>
+      <input id="f-pe_max" name="pe_max" type="number" step="any" inputmode="decimal" placeholder="any">
+    </div>
+    <div class="field">
+      <label for="f-pb_max">Max P/B</label>
+      <input id="f-pb_max" name="pb_max" type="number" step="any" inputmode="decimal" placeholder="any">
+    </div>
+    <div class="field">
+      <label for="f-yield_min">Min div. yield (%)</label>
+      <input id="f-yield_min" name="yield_min" type="number" step="any" inputmode="decimal" placeholder="any">
+    </div>
+    <div class="field">
+      <label for="f-roe_min">Min ROE (%)</label>
+      <input id="f-roe_min" name="roe_min" type="number" step="any" inputmode="decimal" placeholder="any">
+    </div>
+    <div class="field">
+      <label for="f-market_cap_min">Min mkt cap (GHS m)</label>
+      <input id="f-market_cap_min" name="market_cap_min" type="number" step="any" min="0" inputmode="decimal" placeholder="any">
+    </div>
+    <div class="field">
+      <label for="f-sort">Sort by</label>
+      <select id="f-sort" name="sort">
+        <option value="dividend_yield">Highest dividend yield</option>
+        <option value="pe_ratio">Lowest P/E</option>
+        <option value="price_to_book">Lowest P/B</option>
+        <option value="return_on_equity">Highest ROE</option>
+        <option value="market_cap">Largest market cap</option>
+        <option value="symbol">Symbol</option>
+      </select>
+    </div>
+    <button type="button" id="reset">Clear filters</button>
+    <span class="summary" id="summary" role="status"></span>
+  </form>
+
+  <ul class="left-out" id="leftOut" aria-label="Companies left out"></ul>
+
+  <section class="panel">
+    <div class="table-wrap">
+      <table>
+        <thead><tr id="head"></tr></thead>
+        <tbody id="body"></tbody>
+      </table>
+    </div>
+    <div class="empty" id="empty" hidden>No company passes every filter.</div>
+  </section>
+
+  <footer>
+    From <code>/screener/results</code>. Every company with a profile file is screened, with the same figures its
+    Description page shows: price is the session VWAP (the GSE closing price), or the latest daily close without a live
+    quote; ratios use the latest fiscal year that reports the input, in cedis. Hover a column heading for its formula,
+    and an <b>n/a</b> for why it can't be calculated. A company without a filtered figure is left out and counted above,
+    never treated as zero; sorting keeps it, at the bottom. Filters are inclusive and kept in this page's address, so a
+    screen can be bookmarked.
+  </footer>
+
+</div>
+
+<script src="/static/render.js"></script>
+<script src="/static/search.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  const REFRESH_MS = 60000;
+  const PARAMS = ["sector", "pe_max", "pb_max", "yield_min", "roe_min", "market_cap_min", "sort"];
+  const DEFAULT_SORT = "dividend_yield";
+  const MILLION = 1e6;  // the market cap box is in GHS millions; the API takes GHS
+
+  const el = {
+    form: document.getElementById("controls"),
+    sector: document.getElementById("f-sector"),
+    sort: document.getElementById("f-sort"),
+    reset: document.getElementById("reset"),
+    summary: document.getElementById("summary"),
+    leftOut: document.getElementById("leftOut"),
+    head: document.getElementById("head"),
+    body: document.getElementById("body"),
+    empty: document.getElementById("empty"),
+    error: document.getElementById("error"),
+  };
+  const input = function (name) { return document.getElementById("f-" + name); };
+
+  MarketSearch.mount(document.getElementById("search"));
+
+  // ---------------------------------------------------------------- formatting
+
+  function grouped(v, digits) {
+    return v.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  }
+  function large(v) {
+    const a = Math.abs(v);
+    if (a >= 1e9) return grouped(v / 1e9, 2) + "bn";
+    if (a >= 1e6) return grouped(v / 1e6, 1) + "m";
+    return grouped(v, 0);
+  }
+  function format(key, unit, v) {
+    if (key === "market_cap") return large(v);
+    if (unit === "%") return grouped(v, 2) + "%";
+    if (unit === "x") return grouped(v, 2) + "x";
+    return grouped(v, 2);
+  }
+
+  // ---------------------------------------------------------------- query string <-> form
+
+  function readQuery() {
+    const q = new URLSearchParams(location.search);
+    PARAMS.forEach(function (name) {
+      let v = q.get(name);
+      if (v === null) return;
+      if (name === "market_cap_min" && v !== "" && isFinite(Number(v))) v = String(Number(v) / MILLION);
+      input(name).value = v;
+    });
+    if (!el.sort.value) el.sort.value = DEFAULT_SORT;
+  }
+
+  function formQuery() {
+    const q = new URLSearchParams();
+    PARAMS.forEach(function (name) {
+      let v = input(name).value.trim();
+      if (v === "" || (name === "sort" && v === DEFAULT_SORT)) return;
+      if (name === "market_cap_min") v = String(Number(v) * MILLION);
+      q.set(name, v);
+    });
+    return q;
+  }
+
+  // ---------------------------------------------------------------- rendering
+
+  let columns = null;
+
+  function paintHead(result) {
+    if (!columns) {
+      columns = result.columns;
+      const cells = ['<th>Symbol</th>', '<th class="col-name">Name</th>', '<th class="col-sector">Sector</th>'];
+      columns.forEach(function (c) {
+        cells.push('<th class="r" data-key="' + c.key + '" data-formula></th>');
+      });
+      el.head.innerHTML = cells.join("");
+      columns.forEach(function (c) {
+        const th = el.head.querySelector('th[data-key="' + c.key + '"]');
+        th.title = c.formula;
+        const label = c.label + (c.unit === "GHS" ? " (GHS)" : "");
+        if (el.sort.querySelector('option[value="' + c.key + '"]')) {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.textContent = label;
+          b.title = c.formula + " · click to sort";
+          b.addEventListener("click", function () { el.sort.value = c.key; update(); });
+          th.appendChild(b);
+        } else {
+          th.textContent = label;
+        }
+      });
+    }
+    columns.forEach(function (c) {
+      Render.cls(el.head.querySelector('th[data-key="' + c.key + '"]'), "r" + (c.key === result.sort ? " sorted" : ""));
+    });
+  }
+
+  function paintSectors(result) {
+    if (el.sector.options.length > 1) return;
+    const want = el.sector.value || new URLSearchParams(location.search).get("sector") || "";
+    result.sectors.forEach(function (s) {
+      const o = document.createElement("option");
+      o.value = s; o.textContent = s;
+      el.sector.appendChild(o);
+    });
+    const match = result.sectors.find(function (s) { return s.toLowerCase() === want.toLowerCase(); });
+    el.sector.value = match || "";
+  }
+
+  function cell(td, key, unit, figure) {
+    if (figure.value === null) {
+      Render.text(td, "n/a");
+      Render.cls(td, "r num na");
+      td.title = figure.reason ? figure.reason + " (" + figure.formula + ")" : figure.formula;
+    } else {
+      Render.text(td, format(key, unit, figure.value));
+      Render.cls(td, "r num");
+      td.title = figure.formula;
+    }
+  }
+
+  function paintRows(result) {
+    const frag = document.createDocumentFragment();
+    result.rows.forEach(function (row) {
+      const tr = document.createElement("tr");
+      const sym = document.createElement("td");
+      sym.className = "sym";
+      const a = document.createElement("a");
+      a.href = "/stock/" + encodeURIComponent(row.symbol) + "#description";
+      a.textContent = row.symbol;
+      sym.appendChild(a);
+      const name = document.createElement("td");
+      name.className = "name col-name"; name.textContent = row.name; name.title = row.name;
+      const sector = document.createElement("td");
+      sector.className = "sector col-sector"; sector.textContent = row.sector;
+      tr.append(sym, name, sector);
+      columns.forEach(function (c) {
+        const td = document.createElement("td");
+        cell(td, c.key, c.unit, row[c.key]);
+        tr.appendChild(td);
+      });
+      frag.appendChild(tr);
+    });
+    el.body.replaceChildren(frag);
+    el.empty.hidden = result.rows.length > 0;
+  }
+
+  function paintLeftOut(result) {
+    el.leftOut.replaceChildren();
+    result.filters.forEach(function (f) {
+      if (!f.left_out) return;
+      const li = document.createElement("li");
+      const b = document.createElement("b");
+      b.textContent = (f.bound === "min" ? "Min " : "Max ") + f.label + ": ";
+      const syms = document.createElement("span");
+      syms.className = "syms";
+      syms.textContent = " (" + f.symbols.join(", ") + ")";
+      li.append(b, document.createTextNode(f.note), syms);
+      el.leftOut.appendChild(li);
+    });
+  }
+
+  function paint(result) {
+    paintSectors(result);
+    paintHead(result);
+    paintRows(result);
+    paintLeftOut(result);
+    const where = result.sector ? " in " + result.sector : "";
+    Render.text(el.summary, result.count + " of " + result.universe + " companies" + where);
+  }
+
+  // ---------------------------------------------------------------- loading
+
+  let pending = null;
+
+  function load() {
+    const q = formQuery();
+    const qs = q.toString();
+    history.replaceState(null, "", "/screener" + (qs ? "?" + qs : ""));
+    if (pending) pending.abort();
+    const ctl = new AbortController();
+    pending = ctl;
+    return fetch("/screener/results" + (qs ? "?" + qs : ""), { signal: ctl.signal })
+      .then(function (r) {
+        return r.json().then(function (body) {
+          if (!r.ok) throw new Error(typeof body.detail === "string" ? body.detail : "Couldn't run the screen.");
+          return body;
+        });
+      })
+      .then(function (result) { el.error.hidden = true; paint(result); })
+      .catch(function (e) {
+        if (e.name === "AbortError") return;
+        el.error.textContent = e.message || "Couldn't load the screener.";
+        el.error.hidden = false;
+      })
+      .finally(function () { if (pending === ctl) pending = null; });
+  }
+
+  let debounce = null;
+  function update() {
+    clearTimeout(debounce);
+    debounce = setTimeout(load, 200);
+  }
+
+  el.form.addEventListener("input", update);
+  el.form.addEventListener("change", update);
+  el.form.addEventListener("submit", function (e) { e.preventDefault(); load(); });
+  el.reset.addEventListener("click", function () {
+    PARAMS.forEach(function (name) { if (name !== "sort") input(name).value = ""; });
+    load();
+  });
+
+  readQuery();
+  load();
+  setInterval(function () { if (!document.hidden) load(); }, REFRESH_MS);
+})();
+</script>
+</body>
+</html>
