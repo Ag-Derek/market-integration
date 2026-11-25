@@ -1,7 +1,9 @@
 /*
  * Header search bar with autocomplete, over GET /search. Shared by
- * /ticker and /stock/{symbol}; styles itself with the page's colour
- * variables.
+ * /ticker, /stock/{symbol} and /screener; styles itself with the page's
+ * colour variables. Loading the script also installs the Ctrl K command
+ * bar (function codes such as "MTNGH DES"; see "command bar" below and
+ * docs/commands.md).
  *
  *   MarketSearch.mount(document.getElementById("search"), { onPin: fn });
  *
@@ -721,8 +723,306 @@
     return { input: input };
   }
 
+  // ------------------------------------------------------------ command bar
+
+  // Ctrl K (Cmd K on a Mac) opens the command bar on any page that loads
+  // this script, which every page does (#100); the header search itself
+  // only appears where a page calls mount(). Function codes jump to a screen, like the
+  // Bloomberg Terminal's: "MTNGH DES" opens MTN Ghana's description,
+  // "MTNGH GP" its price chart. A symbol on its own lists its codes;
+  // anything else falls back to the instrument search. The codes and the
+  // parsing live on the server (app/commands.py, GET /commands and
+  // /commands/resolve), so a new page registers its code in one place.
+
+  const CMD_DEBOUNCE_MS = 80;
+  const CMD_SEARCH_LIMIT = 8;
+
+  const CMD_CSS = `
+  .mcmd-backdrop {
+    position: fixed; inset: 0; z-index: 1000; display: flex; justify-content: center; align-items: flex-start;
+    padding: 12vh 16px 16px; background: rgba(0, 0, 0, 0.55);
+  }
+  .mcmd-backdrop[hidden] { display: none; }
+  .mcmd {
+    width: 100%; max-width: 640px; overflow: hidden;
+    background: var(--panel-strong, #1C2921); border: 1px solid var(--teal, #3E9C82); border-radius: 12px;
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+    font: 13px -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink, #EAE7DA);
+  }
+  .mcmd-head { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid var(--line, #26362F); }
+  .mcmd-prompt { font: 700 15px ui-monospace, monospace; color: var(--gold, #D9A44C); }
+  .mcmd-input {
+    flex: 1; min-width: 0; font: 600 15px ui-monospace, monospace; color: var(--ink, #EAE7DA);
+    background: transparent; border: 0; outline: none; text-transform: uppercase;
+  }
+  .mcmd-input::placeholder { color: var(--ink-faint, #6F766D); text-transform: none; font-weight: 400; }
+  .mcmd-go { font-size: 11.5px; color: var(--ink-faint, #6F766D); white-space: nowrap; }
+  .mcmd-body { max-height: 360px; overflow-y: auto; padding: 6px 8px 8px; }
+  .mcmd-group {
+    padding: 8px 10px 6px; font-size: 11.5px; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--ink-soft, #AEB6A9);
+  }
+  .mcmd-list { margin: 0; padding: 0; list-style: none; }
+  .mcmd-opt {
+    display: grid; grid-template-columns: 132px minmax(0, 1fr) auto; align-items: center; gap: 12px;
+    padding: 10px 10px; border-radius: 8px; cursor: pointer;
+  }
+  .mcmd-opt.active { background: var(--panel, #17221D); }
+  .mcmd-code { font: 600 12.5px ui-monospace, monospace; color: var(--gold, #D9A44C); white-space: nowrap; }
+  .mcmd-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mcmd-badge { font-size: 10px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; color: var(--ink-faint, #6F766D); }
+  .mcmd-empty { padding: 14px 10px; color: var(--ink-faint, #6F766D); }
+  .mcmd-foot {
+    display: flex; gap: 14px; flex-wrap: wrap; padding: 8px 18px; border-top: 1px solid var(--line, #26362F);
+    font-size: 11px; color: var(--ink-faint, #6F766D);
+  }
+  .mcmd-foot kbd { font: 10.5px ui-monospace, monospace; border: 1px solid var(--line, #26362F); border-radius: 3px; padding: 0 4px; }
+  @media (max-width: 620px) {
+    .mcmd-backdrop { padding-top: 8vh; }
+    .mcmd-opt { grid-template-columns: 112px minmax(0, 1fr); }
+    .mcmd-badge { display: none; }
+  }`;
+
+  let commandBar = null;
+
+  function getJson(url, signal) {
+    return fetch(url, { signal: signal }).then(function (res) {
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.json();
+    });
+  }
+
+  function buildCommandBar() {
+    const style = document.createElement("style");
+    style.textContent = CMD_CSS;
+    document.head.appendChild(style);
+
+    const listId = "mcmd-list-" + Math.random().toString(36).slice(2, 8);
+    const backdrop = document.createElement("div");
+    backdrop.className = "mcmd-backdrop";
+    backdrop.hidden = true;
+    backdrop.innerHTML =
+      '<div class="mcmd" role="dialog" aria-modal="true" aria-label="Command bar">' +
+      '  <div class="mcmd-head">' +
+      '    <span class="mcmd-prompt" aria-hidden="true">&gt;</span>' +
+      '    <input class="mcmd-input" type="text" autocomplete="off" spellcheck="false"' +
+      '      placeholder="Symbol and function code, e.g. MTNGH DES" aria-label="Command"' +
+      '      role="combobox" aria-autocomplete="list" aria-expanded="true" aria-controls="' + listId + '">' +
+      '    <span class="mcmd-go">Enter to go</span>' +
+      '  </div>' +
+      '  <div class="mcmd-body">' +
+      '    <div class="mcmd-group" hidden></div>' +
+      '    <ul class="mcmd-list" id="' + listId + '" role="listbox"></ul>' +
+      '  </div>' +
+      '  <div class="mcmd-foot" aria-hidden="true">' +
+      '    <span><kbd>↑</kbd> <kbd>↓</kbd> move</span><span><kbd>Tab</kbd> complete</span>' +
+      '    <span><kbd>Enter</kbd> go</span><span><kbd>Esc</kbd> close</span>' +
+      '  </div>' +
+      '</div>';
+    document.body.appendChild(backdrop);
+
+    const input = backdrop.querySelector(".mcmd-input");
+    const group = backdrop.querySelector(".mcmd-group");
+    const list = backdrop.querySelector(".mcmd-list");
+
+    let table = null;       // GET /commands, for the empty-box listing
+    let rows = [];          // [{code, title, badge, url, complete}]
+    let target = null;      // the URL an exact command resolved to
+    let active = -1;
+    let timer = null;
+    let controller = null;
+    let seq = 0;
+    let pending = Promise.resolve();
+    let opener = null;      // focus goes back here on close
+
+    function setActive(i) {
+      const opts = list.querySelectorAll(".mcmd-opt");
+      if (!opts.length) { active = -1; input.removeAttribute("aria-activedescendant"); return; }
+      active = (i + opts.length) % opts.length;
+      opts.forEach(function (o, j) {
+        o.classList.toggle("active", j === active);
+        o.setAttribute("aria-selected", j === active ? "true" : "false");
+      });
+      input.setAttribute("aria-activedescendant", opts[active].id);
+      opts[active].scrollIntoView({ block: "nearest" });
+    }
+
+    function render(heading, items, emptyText) {
+      group.hidden = !heading;
+      group.textContent = heading || "";
+      rows = items;
+      list.innerHTML = "";
+      if (!items.length) {
+        const li = document.createElement("li");
+        li.className = "mcmd-empty";
+        li.textContent = emptyText;
+        list.appendChild(li);
+        setActive(-1);
+        return;
+      }
+      items.forEach(function (r, i) {
+        const li = document.createElement("li");
+        li.className = "mcmd-opt";
+        li.id = listId + "-" + i;
+        li.setAttribute("role", "option");
+        const code = document.createElement("span");
+        code.className = "mcmd-code";
+        code.textContent = r.code;
+        const title = document.createElement("span");
+        title.className = "mcmd-title";
+        title.textContent = r.title;
+        title.title = r.title;
+        const badge = document.createElement("span");
+        badge.className = "mcmd-badge";
+        badge.textContent = r.badge || "";
+        li.appendChild(code);
+        li.appendChild(title);
+        li.appendChild(badge);
+        li.addEventListener("mousedown", function (e) { e.preventDefault(); });
+        li.addEventListener("mousemove", function () { if (active !== i) setActive(i); });
+        li.addEventListener("click", function () { go(r); });
+        list.appendChild(li);
+      });
+      setActive(0);
+    }
+
+    function renderTable() {
+      const show = function () {
+        if (input.value.trim()) return;
+        render("Function codes", (table || []).map(function (c) {
+          const example = c.kind === "instrument" ? "<SYMBOL> " + c.code : c.code;
+          return { code: example, title: c.title, badge: (c.asset_classes || []).join(", "), url: null, complete: null };
+        }), table ? "No function codes yet" : "Loading function codes…");
+      };
+      show();
+      if (table === null) {
+        getJson("/commands").then(function (body) { table = body; show(); }).catch(function () { table = []; show(); });
+      }
+    }
+
+    function refresh() {
+      clearTimeout(timer);
+      if (controller) controller.abort();
+      const mine = ++seq;
+      const q = input.value.trim();
+      target = null;
+      if (!q) {
+        renderTable();
+        pending = Promise.resolve();
+        return pending;
+      }
+      controller = new AbortController();
+      const signal = controller.signal;
+      pending = getJson("/commands/resolve?q=" + encodeURIComponent(q), signal).then(function (res) {
+        if (mine !== seq) return;
+        if (res.kind === "instrument" || res.kind === "screen") {
+          target = res.url;
+          const heading = res.kind === "instrument" ? res.symbol + " · " + res.name : "Screens";
+          render(heading, res.options.map(function (o) {
+            const full = res.kind === "instrument" ? res.symbol + " " + o.code : o.code;
+            return { code: full, title: o.title, badge: "", url: o.url, complete: full };
+          }), "");
+          return;
+        }
+        return getJson("/search?limit=" + CMD_SEARCH_LIMIT + "&q=" + encodeURIComponent(res.q), signal).then(function (found) {
+          if (mine !== seq) return;
+          render(found.length ? "Instruments" : "", found.map(function (r) {
+            return { code: r.symbol, title: r.name, badge: BADGE[r.asset_class] || r.asset_class, url: detailUrl(r), complete: r.symbol };
+          }), "No function code or instrument matches “" + q + "”");
+        });
+      }).catch(function (err) {
+        if (err.name === "AbortError" || mine !== seq) return;
+        render("", [], "The command bar is unavailable right now");
+      });
+      return pending;
+    }
+
+    function go(r) {
+      const url = r ? r.url : target;
+      if (!url) return;
+      close();
+      location.href = url;
+    }
+
+    function open() {
+      opener = document.activeElement;
+      backdrop.hidden = false;
+      input.focus();
+      input.select();
+      refresh();
+    }
+
+    function close() {
+      clearTimeout(timer);
+      if (controller) controller.abort();
+      seq++;
+      backdrop.hidden = true;
+      if (opener && typeof opener.focus === "function" && document.contains(opener)) opener.focus();
+      opener = null;
+    }
+
+    input.addEventListener("input", function () {
+      clearTimeout(timer);
+      if (controller) controller.abort();
+      seq++;
+      // Enter right after typing waits for this, not a stale result.
+      pending = new Promise(function (resolve) {
+        timer = setTimeout(function () { refresh().then(resolve, resolve); }, CMD_DEBOUNCE_MS);
+      });
+    });
+
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        setActive(active + (e.key === "ArrowDown" ? 1 : -1));
+      } else if (e.key === "Tab") {
+        const r = rows[active];
+        if (r && r.complete) {
+          e.preventDefault();
+          input.value = r.complete;
+          refresh();
+        } else {
+          e.preventDefault();   // keep focus in the dialog
+        }
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        pending.then(function () {
+          // An exact code wins; otherwise the highlighted row.
+          if (target) go(null);
+          else if (rows[active]) go(rows[active]);
+        });
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        close();
+      }
+    });
+
+    backdrop.addEventListener("mousedown", function (e) {
+      if (e.target === backdrop) close();
+    });
+
+    return { open: open, close: close, isOpen: function () { return !backdrop.hidden; } };
+  }
+
+  function toggleCommandBar() {
+    if (!commandBar) commandBar = buildCommandBar();
+    if (commandBar.isOpen()) commandBar.close(); else commandBar.open();
+  }
+
+  document.addEventListener("keydown", function (e) {
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && (e.key === "k" || e.key === "K")) {
+      e.preventDefault();
+      toggleCommandBar();
+    }
+  });
+
   window.MarketSearch = {
     mount: mount,
+    openCommandBar: function () {
+      if (!commandBar) commandBar = buildCommandBar();
+      if (!commandBar.isOpen()) commandBar.open();
+    },
     loadWatchlist: loadWatchlist,
     readWatchlist: readWatchlist,
     saveWatchlist: saveWatchlist,

@@ -58,6 +58,7 @@ from app.econ.events import calendar_events, policy_rate_now
 from app.econ.gss import GssCalendarClient
 from app.econ.store import EconStore
 from app.econ.tracker import RETRY_SECONDS as ECON_RETRY_SECONDS, EconTracker
+from app.commands import COMMANDS, resolve as resolve_command
 from app.bond_math import settlement_date
 from app.bond_math.conventions import add_months
 from app.bond_math.calculator import calculate, quoted_yield, security_for
@@ -1054,6 +1055,24 @@ async def sectors():
     """Every sector in the instrument master with its number of
     instruments, for the search bar's Sector filter."""
     return [{"sector": name, "count": n} for name, n in instrument_search.sectors()]
+
+
+@app.get("/commands")
+async def commands():
+    """The command bar's function codes (#100): code, title, kind
+    (`instrument` codes follow a symbol, `screen` codes stand alone),
+    route ({symbol} filled in for instrument codes) and the asset classes
+    an instrument code applies to. The one table is app/commands.py."""
+    return [c.as_dict() for c in COMMANDS.values()]
+
+
+@app.get("/commands/resolve")
+async def commands_resolve(q: str = ""):
+    """Parse what was typed in the Ctrl K bar: `MTNGH DES` resolves to
+    a URL, `MTNGH` or `MTNGH D` lists the matching codes for that
+    symbol, and anything else comes back as {"kind": "search"} for the
+    instrument search. See app/commands.py."""
+    return resolve_command(q, INSTRUMENTS)
 
 
 @app.get("/screener/results", response_model=ScreenerResult)
