@@ -123,8 +123,17 @@ def test_every_instrument_code_opens_a_page_for_a_listed_equity(client, code):
     assert client.get(url.split("#")[0]).status_code == 200
 
 
-def test_pages_with_the_search_script_get_the_command_bar(client):
+@pytest.mark.parametrize("path", [
+    "/ticker", "/stock/MTNGH", "/screener", "/auctions", "/bond/GHGGOG069931", "/calendar",
+    "/commodities", "/commodity/GEJWM2", "/fixed-income", "/fx", "/graph", "/hedging",
+    "/tickets", "/yield-curve",
+])
+def test_every_page_loads_the_command_bar(client, path):
+    # Ctrl K works on a page only if it loads search.js; without it the
+    # browser's own Ctrl K (the address bar) takes over.
+    assert '<script src="/static/search.js"></script>' in client.get(path).text
+
+
+def test_the_search_script_installs_the_command_bar(client):
     script = client.get("/static/search.js").text
     assert "openCommandBar" in script and "/commands/resolve" in script
-    for path in ("/ticker", "/stock/MTNGH", "/screener"):
-        assert '<script src="/static/search.js"></script>' in client.get(path).text, path

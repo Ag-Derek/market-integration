@@ -1,9 +1,14 @@
 # Command bar and function codes
 
-Press **Ctrl K** (Cmd K on a Mac) to open the command bar. It works on
-every page that loads `app/static/search.js`: currently `/ticker`,
-`/stock/{symbol}` and `/screener`. Type a short function code, like
-those on the Bloomberg Terminal, to jump straight to a screen (#100).
+Press **Ctrl K** (Cmd K on a Mac) to open the command bar on any page.
+Type a short function code, like those on the Bloomberg Terminal, to
+jump straight to a screen (#100).
+
+The bar is installed by `app/static/search.js`, which every page loads.
+A new page must load it too
+(`<script src="/static/search.js"></script>`), or the browser's own
+Ctrl K (the address bar) takes over there. `tests/test_commands.py`
+lists the pages it checks.
 
 | You type | What happens |
 |---|---|
