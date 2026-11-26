@@ -60,7 +60,25 @@ def test_codes_only_apply_to_their_asset_classes():
     assert resolve("GHGGOG069931", INSTRUMENTS)["kind"] == "search"
 
 
-@pytest.mark.parametrize("text", ["", "   ", "fan milk", "NOPE", "NOPE DES", "DES", "GP"])
+@pytest.mark.parametrize("text", ["eqs", "EQS", "  Eqs "])
+def test_eqs_opens_the_screener(text):
+    assert resolve(text, INSTRUMENTS) == {
+        "kind": "screen",
+        "options": [{"code": "EQS", "title": "Stock screener", "url": "/screener"}],
+        "url": "/screener",
+    }
+
+
+def test_a_partial_screen_code_lists_without_going():
+    result = resolve("EQ", INSTRUMENTS)
+    assert result["kind"] == "screen" and _codes(result) == ["EQS"] and result["url"] is None
+
+
+def test_a_screen_code_after_a_symbol_is_not_an_instrument_code():
+    assert resolve("MTNGH EQS", INSTRUMENTS)["kind"] == "search"
+
+
+@pytest.mark.parametrize("text", ["", "   ", "fan milk", "NOPE", "NOPE DES", "DES", "GP", "EQS SCREEN"])
 def test_anything_else_falls_back_to_search(text):
     assert resolve(text, INSTRUMENTS) == {"kind": "search", "q": " ".join(text.split())}
 
@@ -117,10 +135,16 @@ def test_resolve_endpoint_uses_the_instrument_master(client):
     assert client.get("/commands/resolve").json() == {"kind": "search", "q": ""}
 
 
-@pytest.mark.parametrize("code", list(COMMANDS))
+@pytest.mark.parametrize("code", [c for c, cmd in COMMANDS.items() if cmd.kind == "instrument"])
 def test_every_instrument_code_opens_a_page_for_a_listed_equity(client, code):
     url = client.get("/commands/resolve", params={"q": f"MTNGH {code}"}).json()["url"]
     assert client.get(url.split("#")[0]).status_code == 200
+
+
+@pytest.mark.parametrize("code", [c for c, cmd in COMMANDS.items() if cmd.kind == "screen"])
+def test_every_screen_code_opens_a_page(client, code):
+    url = client.get("/commands/resolve", params={"q": code}).json()["url"]
+    assert url and client.get(url.split("#")[0]).status_code == 200
 
 
 @pytest.mark.parametrize("path", [

@@ -15,6 +15,7 @@ lists the pages it checks.
 | `MTNGH DES` | Opens MTN Ghana's Description page |
 | `MTNGH GP` | Opens MTN Ghana's price chart |
 | `MTNGH` or `MTNGH D` | Lists MTN Ghana's codes that start with what you typed |
+| `EQS` | Opens the stock screener |
 | anything else | Shows the instrument search results, as in the header search |
 
 Case and extra spaces don't matter. Use ↑/↓ to move, Tab to complete
@@ -27,14 +28,15 @@ exactly, Enter follows it. Otherwise Enter opens the highlighted row.
 |---|---|---|---|---|
 | `DES` | instrument | equity | Company description and figures | `/stock/{symbol}#description` |
 | `GP` | instrument | equity | Price chart with indicators | `/stock/{symbol}` |
+| `EQS` | screen | | Stock screener | `/screener` |
 
 There are two kinds of code:
 
 - **instrument** codes follow a symbol (`<SYMBOL> <CODE>`). They apply
   only to their asset classes, so `<bond> DES` falls back to search,
   which opens the bond's own page.
-- **screen** codes stand alone (`<CODE>`). There are none yet. `EQS`
-  (screener), `GC` (yield curve), `AUC` (auctions), `ECO` (economic
+- **screen** codes stand alone (`<CODE>`), like `EQS` for the
+  screener. `GC` (yield curve), `AUC` (auctions), `ECO` (economic
   calendar), `FXC` (FX) and `GCX` (commodities) will be added here.
 
 Planned instrument codes include `DCF` (once the DCF panel ships) and

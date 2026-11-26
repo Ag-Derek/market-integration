@@ -14,8 +14,8 @@ Two kinds of code:
 
   instrument  "<SYMBOL> <CODE>", for a symbol of one of the code's asset
               classes. The route has a {symbol} placeholder.
-  screen      "<CODE>" alone. (None yet: EQS, ECO, FXC and the other
-              tabs register theirs as they gain one.)
+  screen      "<CODE>" alone, e.g. EQS for the screener. The other tabs
+              register theirs as they gain one.
 
 Anything else falls back to the instrument search.
 """
@@ -56,6 +56,7 @@ COMMANDS: dict[str, Command] = {c.code: c for c in (
             "/stock/{symbol}#description", ("equity",)),
     Command("GP", "Price chart with indicators", "instrument",
             "/stock/{symbol}", ("equity",)),
+    Command("EQS", "Stock screener", "screen", "/screener"),
 )}
 
 
