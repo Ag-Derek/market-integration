@@ -81,6 +81,20 @@ def test_gc_opens_the_yield_curve(text):
     assert result["options"][0] == {"code": "GC", "title": "Government yield curve", "url": "/yield-curve"}
 
 
+@pytest.mark.parametrize("text", ["auc", "AUC", " Auc "])
+def test_auc_opens_the_auctions(text):
+    assert resolve(text, INSTRUMENTS) == {
+        "kind": "screen",
+        "options": [{"code": "AUC", "title": "T-bill and bond auctions", "url": "/auctions"}],
+        "url": "/auctions",
+    }
+
+
+def test_a_partial_auc_lists_it_without_going():
+    result = resolve("AU", INSTRUMENTS)
+    assert result["kind"] == "screen" and _codes(result) == ["AUC"] and result["url"] is None
+
+
 def test_gc_does_not_take_over_gcb():
     # Symbols match whole: GC is the yield curve, GCB is still GCB Bank,
     # with its own codes.
@@ -93,7 +107,7 @@ def test_a_screen_code_after_a_symbol_is_not_an_instrument_code():
     assert resolve("MTNGH EQS", INSTRUMENTS)["kind"] == "search"
 
 
-@pytest.mark.parametrize("text", ["", "   ", "fan milk", "NOPE", "NOPE DES", "DES", "GP", "EQS SCREEN", "GC CURVE"])
+@pytest.mark.parametrize("text", ["", "   ", "fan milk", "NOPE", "NOPE DES", "DES", "GP", "EQS SCREEN", "GC CURVE", "AUC BILLS"])
 def test_anything_else_falls_back_to_search(text):
     assert resolve(text, INSTRUMENTS) == {"kind": "search", "q": " ".join(text.split())}
 

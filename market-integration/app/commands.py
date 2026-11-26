@@ -58,6 +58,7 @@ COMMANDS: dict[str, Command] = {c.code: c for c in (
             "/stock/{symbol}", ("equity",)),
     Command("EQS", "Stock screener", "screen", "/screener"),
     Command("GC", "Government yield curve", "screen", "/yield-curve"),
+    Command("AUC", "T-bill and bond auctions", "screen", "/auctions"),
 )}
 
 
