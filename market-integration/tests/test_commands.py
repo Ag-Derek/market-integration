@@ -95,6 +95,20 @@ def test_a_partial_auc_lists_it_without_going():
     assert result["kind"] == "screen" and _codes(result) == ["AUC"] and result["url"] is None
 
 
+@pytest.mark.parametrize("text", ["eco", "ECO", " Eco "])
+def test_eco_opens_the_economic_calendar(text):
+    assert resolve(text, INSTRUMENTS) == {
+        "kind": "screen",
+        "options": [{"code": "ECO", "title": "Economic calendar and policy rate", "url": "/calendar"}],
+        "url": "/calendar",
+    }
+
+
+def test_e_lists_both_e_codes_in_table_order():
+    result = resolve("E", INSTRUMENTS)
+    assert _codes(result) == ["EQS", "ECO"] and result["url"] is None
+
+
 def test_gc_does_not_take_over_gcb():
     # Symbols match whole: GC is the yield curve, GCB is still GCB Bank,
     # with its own codes.
@@ -107,7 +121,7 @@ def test_a_screen_code_after_a_symbol_is_not_an_instrument_code():
     assert resolve("MTNGH EQS", INSTRUMENTS)["kind"] == "search"
 
 
-@pytest.mark.parametrize("text", ["", "   ", "fan milk", "NOPE", "NOPE DES", "DES", "GP", "EQS SCREEN", "GC CURVE", "AUC BILLS"])
+@pytest.mark.parametrize("text", ["", "   ", "fan milk", "NOPE", "NOPE DES", "DES", "GP", "EQS SCREEN", "GC CURVE", "AUC BILLS", "ECO CPI"])
 def test_anything_else_falls_back_to_search(text):
     assert resolve(text, INSTRUMENTS) == {"kind": "search", "q": " ".join(text.split())}
 

@@ -20,6 +20,7 @@ lists the pages it checks.
 | `EQS` | Opens the stock screener |
 | `GC` | Opens the government yield curve. The instruments that `GC` finds (such as GCB) are listed below it |
 | `AUC` | Opens the T-bill and bond auctions |
+| `ECO` | Opens the economic calendar and policy rate |
 | anything else | Shows the instrument search results, as in the header search |
 
 Case and extra spaces don't matter. Use ↑/↓ to move, Tab to complete
@@ -35,6 +36,7 @@ exactly, Enter follows it. Otherwise Enter opens the highlighted row.
 | `EQS` | screen | | Stock screener | `/screener` |
 | `GC` | screen | | Government yield curve | `/yield-curve` |
 | `AUC` | screen | | T-bill and bond auctions | `/auctions` |
+| `ECO` | screen | | Economic calendar and policy rate | `/calendar` |
 
 There are two kinds of code:
 
@@ -42,8 +44,7 @@ There are two kinds of code:
   only to their asset classes, so `<bond> DES` falls back to search,
   which opens the bond's own page.
 - **screen** codes stand alone (`<CODE>`), like `EQS` for the
-  screener. `ECO` (economic calendar), `FXC` (FX) and `GCX`
-  (commodities) will be added here. Symbols are matched
+  screener. `FXC` (FX) and `GCX` (commodities) will be added here. Symbols are matched
   whole, so `GC` opens the yield curve while `GCB` is still GCB Bank.
   The bar lists matching instruments under the screen codes, so typing
   a screen code never hides a symbol that starts with it.
