@@ -74,11 +74,26 @@ def test_a_partial_screen_code_lists_without_going():
     assert result["kind"] == "screen" and _codes(result) == ["EQS"] and result["url"] is None
 
 
+@pytest.mark.parametrize("text", ["gc", "GC", " Gc "])
+def test_gc_opens_the_yield_curve(text):
+    result = resolve(text, INSTRUMENTS)
+    assert result["kind"] == "screen" and result["url"] == "/yield-curve"
+    assert result["options"][0] == {"code": "GC", "title": "Government yield curve", "url": "/yield-curve"}
+
+
+def test_gc_does_not_take_over_gcb():
+    # Symbols match whole: GC is the yield curve, GCB is still GCB Bank,
+    # with its own codes.
+    result = resolve("GCB", INSTRUMENTS)
+    assert result["kind"] == "instrument" and result["symbol"] == "GCB"
+    assert resolve("GCB GP", INSTRUMENTS)["url"] == "/stock/GCB"
+
+
 def test_a_screen_code_after_a_symbol_is_not_an_instrument_code():
     assert resolve("MTNGH EQS", INSTRUMENTS)["kind"] == "search"
 
 
-@pytest.mark.parametrize("text", ["", "   ", "fan milk", "NOPE", "NOPE DES", "DES", "GP", "EQS SCREEN"])
+@pytest.mark.parametrize("text", ["", "   ", "fan milk", "NOPE", "NOPE DES", "DES", "GP", "EQS SCREEN", "GC CURVE"])
 def test_anything_else_falls_back_to_search(text):
     assert resolve(text, INSTRUMENTS) == {"kind": "search", "q": " ".join(text.split())}
 
@@ -93,6 +108,10 @@ def test_screen_codes_stand_alone():
     }
     partial = resolve("E", INSTRUMENTS, commands)
     assert _codes(partial) == ["EQS", "ECO"] and partial["url"] is None
+    # An exact code is listed first, whatever the table order.
+    longer_first = dict(commands, GCX=Command("GCX", "GCX", "screen", "/commodities"))
+    longer_first = {"GCX": longer_first["GCX"], **{k: v for k, v in longer_first.items() if k != "GCX"}}
+    assert _codes(resolve("GC", INSTRUMENTS, longer_first)) == ["GC", "GCX"]
     # A symbol wins over a screen code of the same spelling.
     assert resolve("GCB", INSTRUMENTS, dict(commands, GCB=Command("GCB", "x", "screen", "/x")))["kind"] == "instrument"
 

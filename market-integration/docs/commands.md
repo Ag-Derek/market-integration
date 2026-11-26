@@ -16,6 +16,7 @@ lists the pages it checks.
 | `MTNGH GP` | Opens MTN Ghana's price chart |
 | `MTNGH` or `MTNGH D` | Lists MTN Ghana's codes that start with what you typed |
 | `EQS` | Opens the stock screener |
+| `GC` | Opens the government yield curve. The instruments that `GC` finds (such as GCB) are listed below it |
 | anything else | Shows the instrument search results, as in the header search |
 
 Case and extra spaces don't matter. Use ↑/↓ to move, Tab to complete
@@ -29,6 +30,7 @@ exactly, Enter follows it. Otherwise Enter opens the highlighted row.
 | `DES` | instrument | equity | Company description and figures | `/stock/{symbol}#description` |
 | `GP` | instrument | equity | Price chart with indicators | `/stock/{symbol}` |
 | `EQS` | screen | | Stock screener | `/screener` |
+| `GC` | screen | | Government yield curve | `/yield-curve` |
 
 There are two kinds of code:
 
@@ -36,8 +38,11 @@ There are two kinds of code:
   only to their asset classes, so `<bond> DES` falls back to search,
   which opens the bond's own page.
 - **screen** codes stand alone (`<CODE>`), like `EQS` for the
-  screener. `GC` (yield curve), `AUC` (auctions), `ECO` (economic
-  calendar), `FXC` (FX) and `GCX` (commodities) will be added here.
+  screener. `AUC` (auctions), `ECO` (economic calendar), `FXC` (FX)
+  and `GCX` (commodities) will be added here. Symbols are matched
+  whole, so `GC` opens the yield curve while `GCB` is still GCB Bank.
+  The bar lists matching instruments under the screen codes, so typing
+  a screen code never hides a symbol that starts with it.
 
 Planned instrument codes include `DCF` (once the DCF panel ships) and
 `NEWS` (once there is a headline feed). A code goes into the table only

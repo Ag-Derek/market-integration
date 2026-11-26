@@ -57,6 +57,7 @@ COMMANDS: dict[str, Command] = {c.code: c for c in (
     Command("GP", "Price chart with indicators", "instrument",
             "/stock/{symbol}", ("equity",)),
     Command("EQS", "Stock screener", "screen", "/screener"),
+    Command("GC", "Government yield curve", "screen", "/yield-curve"),
 )}
 
 
@@ -110,6 +111,8 @@ def resolve(
         screens = [c for c in commands.values() if c.kind == "screen" and c.code.startswith(words[0])]
         if screens:
             exact = commands.get(words[0])
+            # The exact code first, so the bar highlights it (GC before GCX).
+            screens.sort(key=lambda c: c is not exact)
             return {
                 "kind": "screen",
                 "options": [_option(c) for c in screens],
