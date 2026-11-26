@@ -1,13 +1,15 @@
 # Command bar and function codes
 
-Press **Ctrl K** (Cmd K on a Mac) to open the command bar on any page.
+Press **Ctrl K** or **Alt K** (Cmd K or Option K on a Mac) to open the
+command bar on any page. In Firefox, use **Alt K**: Firefox keeps
+Ctrl K for its own search bar.
 Type a short function code, like those on the Bloomberg Terminal, to
 jump straight to a screen (#100).
 
 The bar is installed by `app/static/search.js`, which every page loads.
 A new page must load it too
 (`<script src="/static/search.js"></script>`), or the browser's own
-Ctrl K (the address bar) takes over there. `tests/test_commands.py`
+Ctrl K (its search bar) takes over there, and Alt K does nothing. `tests/test_commands.py`
 lists the pages it checks.
 
 | You type | What happens |

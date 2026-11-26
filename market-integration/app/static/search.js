@@ -1,7 +1,7 @@
 /*
  * Header search bar with autocomplete, over GET /search. Shared by
  * /ticker, /stock/{symbol} and /screener; styles itself with the page's
- * colour variables. Loading the script also installs the Ctrl K command
+ * colour variables. Loading the script also installs the Ctrl K / Alt K command
  * bar (function codes such as "MTNGH DES"; see "command bar" below and
  * docs/commands.md).
  *
@@ -725,7 +725,8 @@
 
   // ------------------------------------------------------------ command bar
 
-  // Ctrl K (Cmd K on a Mac) opens the command bar on any page that loads
+  // Ctrl K (Cmd K on a Mac) or Alt K (Option K; the one to use in
+  // Firefox) opens the command bar on any page that loads
   // this script, which every page does (#100); the header search itself
   // only appears where a page calls mount(). Function codes jump to a screen, like the
   // Bloomberg Terminal's: "MTNGH DES" opens MTN Ghana's description,
@@ -1039,12 +1040,24 @@
     if (commandBar.isOpen()) commandBar.close(); else commandBar.open();
   }
 
+  // Ctrl K (Cmd K) as in Chrome and Edge, and Alt K (Option K) because
+  // Firefox keeps Ctrl K for its own search bar. Alt K is matched by the
+  // physical key: on a Mac, Option K types "˚", not "k".
+  function isCommandBarKey(e) {
+    if (e.shiftKey) return false;
+    const k = e.key === "k" || e.key === "K" || e.code === "KeyK";
+    if ((e.ctrlKey || e.metaKey) && !e.altKey) return k;
+    if (e.altKey && !e.ctrlKey && !e.metaKey) return e.code === "KeyK";
+    return false;
+  }
+
+  // Capture phase, so a page's own key handlers can't swallow it first.
   document.addEventListener("keydown", function (e) {
-    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && (e.key === "k" || e.key === "K")) {
-      e.preventDefault();
-      toggleCommandBar();
-    }
-  });
+    if (!isCommandBarKey(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    toggleCommandBar();
+  }, true);
 
   window.MarketSearch = {
     mount: mount,
